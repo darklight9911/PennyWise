@@ -1,0 +1,16 @@
+# Env and secrets
+.env
+*.env
+!.env.example
+
+# Go
+backend/bin/
+backend/tmp/
+*.test
+coverage.out
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp

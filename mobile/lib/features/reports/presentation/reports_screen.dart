@@ -1,0 +1,19 @@
+import 'package:material_ui/material_ui.dart';
+
+import '../../../core/widgets/empty_state.dart';
+
+class ReportsScreen extends StatelessWidget {
+  const ReportsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Reports')),
+      body: const EmptyState(
+        icon: Icons.pie_chart_outline,
+        title: 'Nothing to show yet',
+        message: 'Charts appear here once you have a few transactions.',
+      ),
+    );
+  }
+}

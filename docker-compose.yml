@@ -1,0 +1,78 @@
+# Local development stack.
+#
+#   docker compose up -d                 -> Postgres + Redis only (run Go on the host)
+#   docker compose --profile app up -d   -> also the API, worker and migrations in containers
+#
+# Ports are bound to 127.0.0.1 only, so nothing is exposed to the network.
+
+name: pennywise
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pennywise}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pennywise_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-pennywise}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/<major>/docker.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    profiles: ["app"]
+    build: ./backend
+    entrypoint: ["/app/migrate", "up"]
+    environment: &app-env
+      APP_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-pennywise}:${POSTGRES_PASSWORD:-pennywise_dev_password}@postgres:5432/${POSTGRES_DB:-pennywise}?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    profiles: ["app"]
+    build: ./backend
+    entrypoint: ["/app/api"]
+    environment:
+      <<: *app-env
+      HTTP_ADDR: ":8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    profiles: ["app"]
+    build: ./backend
+    entrypoint: ["/app/worker"]
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:

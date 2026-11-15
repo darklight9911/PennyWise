@@ -1,0 +1,71 @@
+name: api
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/api.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/api.yml"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: pennywise
+          POSTGRES_PASSWORD: pennywise
+          POSTGRES_DB: pennywise
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pennywise" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://pennywise:pennywise@localhost:5432/pennywise?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
+
+      - name: Migrations apply and roll back cleanly
+        run: |
+          go run ./cmd/migrate up
+          go run ./cmd/migrate down-to 0
+          go run ./cmd/migrate up
+
+      - name: sqlc code is up to date
+        run: make sqlc-check
+
+      - name: Build
+        run: make build
+
+  image:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
