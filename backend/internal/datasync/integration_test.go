@@ -474,3 +474,54 @@ func TestTooManyChanges(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestSeedDefaultCategories(t *testing.T) {
+	s := testService(t)
+	u := newUser(t, s, "USD")
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SeedDefaultCategories(ctx, tx, u); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	p := pull(t, s, u, 0)
+	if len(p.Changes) != len(DefaultCategories) {
+		t.Fatalf("pulled %d categories, want %d", len(p.Changes), len(DefaultCategories))
+	}
+	kinds := map[string]int{}
+	for _, c := range p.Changes {
+		var d CategoryData
+		if err := json.Unmarshal(c.Data, &d); err != nil {
+			t.Fatal(err)
+		}
+		if cerr := validateCategory(&d); cerr != nil {
+			t.Fatalf("default %q is invalid: %v", d.Name, cerr)
+		}
+		kinds[d.Kind]++
+	}
+	if kinds["expense"] == 0 || kinds["income"] == 0 {
+		t.Fatalf("kinds = %v", kinds)
+	}
+	// The phone can now book an expense in a default category.
+	acct := uuid.New()
+	var food uuid.UUID
+	for _, c := range p.Changes {
+		var d CategoryData
+		_ = json.Unmarshal(c.Data, &d)
+		if d.Kind == "expense" {
+			food = c.ID
+			break
+		}
+	}
+	txn := uuid.New()
+	r := push(t, s, u, ch(EntityAccount, acct, t0, account("Cash", "USD")), ch(EntityTransaction, txn, t0, expense(acct, food, 99, "USD")))
+	if statuses(r)[txn] != StatusApplied {
+		t.Fatalf("expense in default category: %v", errCodes(r))
+	}
+}
