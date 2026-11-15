@@ -13,11 +13,13 @@ import (
 	_ "time/tzdata" // IANA time zones, also inside the distroless image
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/config"
+	"pennywise/backend/internal/datasync"
 	"pennywise/backend/internal/httpapi"
 	"pennywise/backend/internal/mail"
 	"pennywise/backend/internal/platform/postgres"
@@ -68,6 +70,8 @@ func run(logger *slog.Logger) error {
 	authSvc := auth.NewService(db, jwtIssuer, google, mail.LogMailer{Logger: logger},
 		auth.Config{RefreshTTL: cfg.RefreshTokenTTL, LinkBase: cfg.LinkBase}, logger)
 	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
+	syncHandler := datasync.NewHandler(datasync.NewService(db, logger), authHandler.RequireAuth,
+		func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }, logger)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -83,7 +87,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
-			V1: []func(chi.Router){authHandler.Routes},
+			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
