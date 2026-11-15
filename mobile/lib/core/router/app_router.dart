@@ -9,6 +9,8 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/ledger/presentation/account_form_screen.dart';
+import '../../features/ledger/presentation/accounts_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
@@ -41,6 +43,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ResetPasswordScreen(
           token: state.uri.queryParameters['token'] ?? '',
         ),
+      ),
+      // Full-screen pages above the bottom navigation.
+      GoRoute(path: Routes.accounts, builder: (_, _) => const AccountsScreen()),
+      GoRoute(
+        path: Routes.newAccount,
+        builder: (_, _) => const AccountFormScreen(),
+      ),
+      GoRoute(
+        path: '${Routes.accounts}/:id',
+        builder: (_, state) =>
+            AccountFormScreen(accountId: state.pathParameters['id']),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(navigationShell: shell),

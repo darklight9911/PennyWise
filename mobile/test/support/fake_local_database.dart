@@ -10,7 +10,16 @@ import 'package:pennywise/core/database/local_database.dart';
 /// wait on real file I/O). Ownership and wipe behave like the real one.
 class FakeLocalDatabase extends LocalDatabase {
   FakeLocalDatabase()
-    : super(file: () async => File('unused'), keys: InMemoryDatabaseKeyStore());
+    : super(
+        file: () async => File('unused'),
+        keys: InMemoryDatabaseKeyStore(),
+      ) {
+    // Every fake has its own in-memory database (its own executor), which is
+    // safe. Widget tests cannot always close them (closing waits on live
+    // queries, and time only moves while a test pumps), so silence drift's
+    // "created multiple times" warning for these test-only databases.
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+  }
 
   AppDatabase? _db;
   int wipeCount = 0;

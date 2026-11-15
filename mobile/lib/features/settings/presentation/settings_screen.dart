@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/router/routes.dart';
 import '../../auth/application/auth_controller.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -55,6 +57,13 @@ class SettingsScreen extends ConsumerWidget {
             leading: const Icon(Icons.schedule_outlined),
             title: const Text('Time zone'),
             subtitle: Text(user?.timezone ?? '—'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('Accounts'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(Routes.accounts),
           ),
           const Divider(),
           ListTile(

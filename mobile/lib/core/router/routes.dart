@@ -13,6 +13,10 @@ abstract final class Routes {
   static const reports = '/reports';
   static const settings = '/settings';
 
+  static const accounts = '/accounts';
+  static const newAccount = '/accounts/new';
+  static String editAccount(String id) => '/accounts/$id';
+
   static String resetPasswordWith(String token) =>
       Uri(path: resetPassword, queryParameters: {'token': token}).toString();
 }

@@ -14,7 +14,6 @@ Future<void> pumpApp(WidgetTester tester, TestHarness h) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 2.75;
   addTearDown(tester.view.reset);
-  addTearDown(h.local.close);
   await tester.pumpWidget(
     ProviderScope(overrides: h.overrides, child: const PennyWiseApp()),
   );
@@ -27,6 +26,15 @@ Future<void> settle(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
   await tester.pumpAndSettle();
+}
+
+/// Ends a test that changed data: removes the app and lets the last
+/// sync it started finish, so no timer is left running.
+Future<void> finish(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 /// Scrolls [finder] into view, taps it and waits.
