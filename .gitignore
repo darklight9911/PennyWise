@@ -3,6 +3,17 @@
 *.env
 !.env.example
 
+# Keys and credentials (never commit these)
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+key.properties
+service-account*.json
+*-credentials.json
+
 # Go
 backend/bin/
 backend/tmp/

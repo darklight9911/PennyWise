@@ -4,16 +4,19 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/hibiken/asynq"
 
 	"pennywise/backend/internal/config"
+	"pennywise/backend/internal/platform/redis"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	redis.UseSlog(logger)
 	if err := run(logger); err != nil {
 		logger.Error("worker stopped", "err", err)
 		os.Exit(1)
@@ -52,8 +55,11 @@ func run(logger *slog.Logger) error {
 // asynqLogger sends asynq's internal logs to slog.
 type asynqLogger struct{ l *slog.Logger }
 
-func (a asynqLogger) Debug(args ...any) { a.l.Debug("asynq", "msg", args) }
-func (a asynqLogger) Info(args ...any)  { a.l.Info("asynq", "msg", args) }
-func (a asynqLogger) Warn(args ...any)  { a.l.Warn("asynq", "msg", args) }
-func (a asynqLogger) Error(args ...any) { a.l.Error("asynq", "msg", args) }
-func (a asynqLogger) Fatal(args ...any) { a.l.Error("asynq fatal", "msg", args); os.Exit(1) }
+func (a asynqLogger) Debug(args ...any) { a.l.Debug("asynq", "detail", fmt.Sprint(args...)) }
+func (a asynqLogger) Info(args ...any)  { a.l.Info("asynq", "detail", fmt.Sprint(args...)) }
+func (a asynqLogger) Warn(args ...any)  { a.l.Warn("asynq", "detail", fmt.Sprint(args...)) }
+func (a asynqLogger) Error(args ...any) { a.l.Error("asynq", "detail", fmt.Sprint(args...)) }
+func (a asynqLogger) Fatal(args ...any) {
+	a.l.Error("asynq fatal", "detail", fmt.Sprint(args...))
+	os.Exit(1)
+}

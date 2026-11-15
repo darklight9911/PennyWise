@@ -4,10 +4,23 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
 )
+
+// UseSlog sends go-redis's internal log lines (used by our client and by
+// asynq) through slog, so every log line stays structured JSON.
+func UseSlog(logger *slog.Logger) {
+	goredis.SetLogger(slogAdapter{logger})
+}
+
+type slogAdapter struct{ l *slog.Logger }
+
+func (a slogAdapter) Printf(ctx context.Context, format string, v ...any) {
+	a.l.WarnContext(ctx, "redis", "detail", fmt.Sprintf(format, v...))
+}
 
 // Open creates a Redis client and checks that the server answers.
 func Open(ctx context.Context, url string) (*goredis.Client, error) {
