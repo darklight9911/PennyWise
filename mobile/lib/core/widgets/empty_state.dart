@@ -1,30 +1,39 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
+import 'panda_mascot.dart';
 
-/// Centered icon + title + message, for screens with no data yet.
+/// Centered icon (or Penny) + title + message, for screens with no data yet.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
     required this.icon,
     required this.title,
     required this.message,
+    this.mascot,
   });
 
   final IconData icon;
   final String title;
   final String message;
 
+  /// Penny in this mood replaces [icon] when animations are on.
+  final PandaMood? mascot;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final iconWidget = Icon(icon, size: 48, color: theme.colorScheme.primary);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(Spacing.xxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: theme.colorScheme.primary),
+            if (mascot case final mood?)
+              PandaMascot(mood: mood, size: 160, fallback: iconWidget)
+            else
+              iconWidget,
             const SizedBox(height: Spacing.lg),
             Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: Spacing.sm),

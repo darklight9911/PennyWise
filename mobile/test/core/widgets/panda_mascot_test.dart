@@ -1,0 +1,62 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:pennywise/core/widgets/empty_state.dart';
+import 'package:pennywise/core/widgets/panda_mascot.dart';
+
+Widget _host(Widget child) => ProviderScope(
+  child: MaterialApp(home: Scaffold(body: child)),
+);
+
+void main() {
+  test('mood order matches the Rive file', () {
+    // rive/tool/gen_penny.py: 0 idle ... 6 sleeping
+    expect(PandaMood.values.map((m) => m.name), [
+      'idle',
+      'wave',
+      'happy',
+      'celebrate',
+      'worried',
+      'thinking',
+      'sleeping',
+    ]);
+  });
+
+  testWidgets('without the Rive runtime Penny keeps her space', (tester) async {
+    await tester.pumpWidget(
+      _host(const PandaMascot(mood: PandaMood.happy, size: 90)),
+    );
+    expect(tester.getSize(find.byType(PandaMascot)), const Size(90, 90));
+  });
+
+  testWidgets('Penny is labelled for screen readers when asked', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _host(
+        const PandaMascot(
+          mood: PandaMood.wave,
+          semanticLabel: 'Penny the panda waving',
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Penny the panda waving'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('empty state falls back to its icon', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        const EmptyState(
+          mascot: PandaMood.sleeping,
+          icon: Icons.receipt_long_outlined,
+          title: 'No transactions yet',
+          message: 'Add one.',
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.receipt_long_outlined), findsOneWidget);
+    expect(find.text('No transactions yet'), findsOneWidget);
+  });
+}
