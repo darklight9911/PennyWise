@@ -1,0 +1,126 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/sqlite3.dart';
+
+import 'app_database.dart';
+import 'database_key.dart';
+import 'encryption.dart';
+
+/// Opens the encrypted local database and wipes it on logout.
+///
+/// Rules:
+/// - One random key per login. Logging out deletes the database AND its key,
+///   so the next person on this phone never sees the old data.
+/// - If the key is gone (app data restored onto a new phone, Keychain reset)
+///   or does not match, the old file cannot be read by anyone. It is deleted
+///   and a fresh, empty database is created; data comes back from the server
+///   with sync (Milestone 3).
+class LocalDatabase {
+  LocalDatabase({
+    required Future<File> Function() file,
+    required DatabaseKeyStore keys,
+    QueryExecutor Function(File file, String hexKey)? openExecutor,
+  }) : _file = file, // ignore: prefer_initializing_formals
+       _keys = keys, // ignore: prefer_initializing_formals
+       _openExecutor = openExecutor ?? _backgroundExecutor;
+
+  final Future<File> Function() _file;
+  final DatabaseKeyStore _keys;
+  final QueryExecutor Function(File, String) _openExecutor;
+
+  Future<AppDatabase>? _opening;
+
+  /// The open database (opened on first use).
+  Future<AppDatabase> get database => _opening ??= _open();
+
+  Future<AppDatabase> _open() async {
+    final file = await _file();
+    var key = await _keys.read();
+    if (key == null) {
+      await _deleteFiles(file); // unreadable without its key
+      key = await _keys.create();
+    }
+    try {
+      _checkKey(file, key);
+    } on WrongDatabaseKeyError {
+      debugPrint(
+        'Local database key mismatch: starting with an empty database.',
+      );
+      await _deleteFiles(file);
+      key = await _keys.create();
+      _checkKey(file, key);
+    }
+    final db = AppDatabase(_openExecutor(file, key));
+    await db.customSelect('SELECT 1').get(); // runs migrations now, not later
+    return db;
+  }
+
+  /// Deletes all local data and its key (on logout).
+  Future<void> wipe() async {
+    final opening = _opening;
+    _opening = null;
+    if (opening != null) {
+      try {
+        await (await opening).close();
+      } on Object {
+        // It never opened; nothing to close.
+      }
+    }
+    await _deleteFiles(await _file());
+    await _keys.delete();
+  }
+
+  Future<void> close() async {
+    final opening = _opening;
+    _opening = null;
+    if (opening != null) await (await opening).close();
+  }
+
+  /// Opens the file once on this isolate to make sure the key works,
+  /// so key problems surface as clear errors (not from a background isolate).
+  static void _checkKey(File file, String key) {
+    file.parent.createSync(recursive: true);
+    final raw = sqlite3.open(file.path);
+    try {
+      unlockDatabase(raw, key);
+    } finally {
+      raw.close();
+    }
+  }
+
+  static QueryExecutor _backgroundExecutor(File file, String key) =>
+      NativeDatabase.createInBackground(
+        file,
+        // Runs on every connection of the background isolate.
+        setup: (db) => unlockDatabase(db, key),
+      );
+
+  static Future<void> _deleteFiles(File file) async {
+    for (final suffix in ['', '-wal', '-shm', '-journal']) {
+      final f = File('${file.path}$suffix');
+      if (await f.exists()) await f.delete();
+    }
+  }
+}
+
+Future<File> _defaultFile() async {
+  // App-private storage, not visible to the user or other apps.
+  final dir = await getApplicationSupportDirectory();
+  return File(p.join(dir.path, 'pennywise.db'));
+}
+
+final localDatabaseProvider = Provider<LocalDatabase>((ref) {
+  final local = LocalDatabase(
+    file: _defaultFile,
+    keys: SecureDatabaseKeyStore(),
+  );
+  ref.onDispose(() => unawaited(local.close()));
+  return local;
+});
