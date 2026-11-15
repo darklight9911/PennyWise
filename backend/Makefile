@@ -38,7 +38,8 @@ sqlc-check: ## Fail if generated query code is out of date
 	$(SQLC) diff
 
 test: ## Run all tests (with the race detector when cgo is available)
-	$(GO) test $(RACE) -count=1 ./...
+	# -p 1: integration tests of several packages share one test database.
+	$(GO) test $(RACE) -p 1 -count=1 ./...
 
 lint: ## Run go vet and check formatting
 	$(GO) vet ./...
