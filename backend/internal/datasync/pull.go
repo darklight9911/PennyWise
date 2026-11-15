@@ -1,0 +1,120 @@
+package datasync
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+// One query over all synced tables, ordered by version, then parents before
+// children. Only rows with version <= the user's COMMITTED sync_version are
+// read: a push still in progress holds a higher version and is not visible
+// yet, so a phone can never skip a row (PLAN.md section 3).
+const pullSQL = `
+SELECT entity, id, version, updated_at, deleted_at, data FROM (
+    SELECT 'account' AS entity, 0 AS ord, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'name', name, 'type', type, 'currency', currency,
+               'opening_balance_minor', opening_balance_minor, 'icon', icon, 'color', color,
+               'archived', archived, 'sort_order', sort_order) AS data
+      FROM accounts WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'category', 1, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'parent_id', parent_id, 'name', name, 'kind', kind, 'icon', icon,
+               'color', color, 'sort_order', sort_order)
+      FROM categories WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'transaction', 2, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'account_id', account_id, 'category_id', category_id, 'kind', kind,
+               'amount_minor', amount_minor, 'currency', currency,
+               'fx_rate_to_base', fx_rate_to_base::text, 'fx_rate_source', fx_rate_source,
+               'amount_base_minor', amount_base_minor,
+               'transfer_account_id', transfer_account_id,
+               'transfer_amount_minor', transfer_amount_minor,
+               'occurred_at', occurred_at, 'local_date', to_char(local_date, 'YYYY-MM-DD'),
+               'note', note)
+      FROM transactions WHERE user_id = $1 AND version > $2 AND version <= $3
+) rows
+ORDER BY version, ord, id
+LIMIT $4`
+
+// Pull returns the user's rows changed after version `since`.
+func (s *Service) Pull(ctx context.Context, userID uuid.UUID, since int64) (PullResponse, error) {
+	if since < 0 {
+		since = 0
+	}
+	var upTo int64
+	err := s.pool.QueryRow(ctx, `SELECT sync_version FROM users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(&upTo)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PullResponse{}, ErrUserNotFound
+	}
+	if err != nil {
+		return PullResponse{}, err
+	}
+
+	changes, err := s.query(ctx, userID, since, upTo, PullLimit+1)
+	if err != nil {
+		return PullResponse{}, err
+	}
+	resp := PullResponse{Changes: changes, Cursor: upTo}
+	if len(changes) <= PullLimit {
+		return resp, nil // everything up to upTo
+	}
+
+	// More than one page. Rows of one push share a version, and a page must
+	// not stop in the middle of one: drop the last (maybe partial) group.
+	resp.HasMore = true
+	last := changes[PullLimit].Version
+	cut := len(changes)
+	for cut > 0 && changes[cut-1].Version == last {
+		cut--
+	}
+	if cut == 0 {
+		// One group bigger than a page (cannot happen while PullLimit >
+		// MaxPushChanges, but never return a broken page): send it whole.
+		group, err := s.query(ctx, userID, last-1, last, 1<<31-1)
+		if err != nil {
+			return PullResponse{}, err
+		}
+		resp.Changes, resp.Cursor = group, last
+		resp.HasMore = last < upTo
+		return resp, nil
+	}
+	resp.Changes = changes[:cut]
+	resp.Cursor = changes[cut-1].Version
+	return resp, nil
+}
+
+func (s *Service) query(ctx context.Context, userID uuid.UUID, since, upTo int64, limit int) ([]PulledChange, error) {
+	rows, err := s.pool.Query(ctx, pullSQL, userID, since, upTo, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	changes := []PulledChange{}
+	for rows.Next() {
+		var (
+			c       PulledChange
+			deleted *time.Time
+			data    []byte
+		)
+		if err := rows.Scan(&c.Entity, &c.ID, &c.Version, &c.UpdatedAt, &deleted, &data); err != nil {
+			return nil, err
+		}
+		c.UpdatedAt = c.UpdatedAt.UTC()
+		if deleted != nil {
+			d := deleted.UTC()
+			c.DeletedAt = &d
+		}
+		c.Data = json.RawMessage(data)
+		changes = append(changes, c)
+	}
+	return changes, rows.Err()
+}
