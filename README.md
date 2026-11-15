@@ -65,7 +65,29 @@ printed to the API log, so you can copy the link from there.
 ```bash
 cd mobile
 flutter pub get
-flutter run
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080   # Android emulator -> your machine
+```
+
+Build-time settings (`--dart-define`):
+
+| Name | Default | Meaning |
+|---|---|---|
+| `API_BASE_URL` | `http://10.0.2.2:8080` | The Go API. On a real phone use your computer's LAN IP. Plain HTTP works only in debug builds. |
+| `GOOGLE_SERVER_CLIENT_ID` | empty | The backend's Google OAuth *web* client ID. Empty hides "Continue with Google". |
+
+Email links open the app through the `pennywise://` scheme, for example
+`pennywise://verify-email?token=...`. To try one on an emulator, copy the link
+from the API log and run:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "pennywise://verify-email?token=PASTE_TOKEN"
+```
+
+Tests: `flutter test` runs everything with a fake backend. The end-to-end test
+talks to a real running API:
+
+```bash
+flutter test test/e2e --dart-define=E2E_API_URL=http://localhost:8080
 ```
 
 ## Health endpoints

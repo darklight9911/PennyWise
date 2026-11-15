@@ -1,0 +1,3 @@
+tags:
+  # Needs a running API: flutter test test/e2e --dart-define=E2E_API_URL=http://localhost:8080
+  e2e:

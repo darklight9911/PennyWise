@@ -70,7 +70,9 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
+          // 48 dp tall (good touch target). Width is natural, so dialog
+          // buttons sit side by side; form buttons stretch via their Column.
+          minimumSize: const Size(64, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.button),
           ),
@@ -84,6 +86,31 @@ abstract final class AppTheme {
         backgroundColor: scheme.surface,
         indicatorColor: AppColors.secondary,
         surfaceTintColor: Colors.transparent,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Radii.button),
+          borderSide: const BorderSide(color: AppColors.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Radii.button),
+          borderSide: const BorderSide(color: AppColors.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Radii.button),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Radii.button),
+          borderSide: const BorderSide(color: AppColors.expense),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Radii.button),
+          borderSide: const BorderSide(color: AppColors.expense, width: 2),
+        ),
+        helperMaxLines: 2,
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.outline,

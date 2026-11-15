@@ -1,24 +1,71 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-class SettingsScreen extends StatelessWidget {
+import '../../auth/application/auth_controller.dart';
+
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You can log back in at any time.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await ref.read(authControllerProvider.notifier).logout();
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+    final user = auth is SignedIn ? auth.user : null;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        children: const [
+        children: [
+          if (user != null)
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text(user.displayName),
+              subtitle: Text(
+                user.emailVerified
+                    ? user.email
+                    : '${user.email} · not confirmed',
+              ),
+            ),
           ListTile(
-            leading: Icon(Icons.payments_outlined),
-            title: Text('Base currency'),
-            subtitle: Text('USD'),
+            leading: const Icon(Icons.payments_outlined),
+            title: const Text('Main currency'),
+            subtitle: Text(user?.baseCurrency ?? '—'),
           ),
-          Divider(),
           ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('About pennyWise'),
-            subtitle: Text('Version 0.1.0'),
+            leading: const Icon(Icons.schedule_outlined),
+            title: const Text('Time zone'),
+            subtitle: Text(user?.timezone ?? '—'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About pennyWise'),
+            subtitle: const Text('Version 0.1.0'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Log out'),
+            onTap: () => _confirmLogout(context, ref),
           ),
         ],
       ),
