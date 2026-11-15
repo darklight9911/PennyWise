@@ -130,13 +130,15 @@ class AuthController extends Notifier<AuthState> {
       // Not signed in with Google, or the plugin is unavailable.
     }
     await _session.clear();
+    // Signed out FIRST: screens and sync drop the local database, so nothing
+    // uses it while it is being deleted.
+    _set(const SignedOut());
     // Logging out removes this user's data from the phone, with its key.
     try {
       await _local.wipe();
     } on Object catch (e, st) {
       userMessage(e, st); // report; the user is logged out regardless
     }
-    _set(const SignedOut());
   }
 
   /// Reloads the profile from the server.
