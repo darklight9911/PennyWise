@@ -44,3 +44,56 @@ String formatSigned(int minor, String currency) {
   if (minor < 0) return '−$plain';
   return plain;
 }
+
+/// Why a typed amount was not accepted.
+enum AmountError { empty, invalid, tooPrecise, negative, tooLarge }
+
+/// Largest amount accepted (same limit as the server: 10^15 minor units).
+const maxAmountMinor = 1000000000000000;
+
+/// Parses what the user typed ("12.5", "12,50", "1500") into minor units.
+/// Either "." or "," may be the decimal separator. Grouping separators are
+/// not allowed, so "1,000" is read as 1.000 and "1,000.50" is invalid.
+/// More decimals than the currency has is an error, never rounded.
+({int? minor, AmountError? error}) parseAmount(
+  String input,
+  String currency, {
+  bool allowNegative = false,
+}) {
+  var s = input.trim().replaceAll(' ', '');
+  if (s.isEmpty) return (minor: null, error: AmountError.empty);
+  var negative = false;
+  if (s.startsWith('-') || s.startsWith('−')) {
+    if (!allowNegative) return (minor: null, error: AmountError.negative);
+    negative = true;
+    s = s.substring(1);
+  }
+  s = s.replaceAll(',', '.');
+  if (!RegExp(r'^\d+(\.\d*)?$|^\.\d+$').hasMatch(s)) {
+    return (minor: null, error: AmountError.invalid);
+  }
+  final exp = currencyExponent(currency);
+  final parts = s.split('.');
+  final intPart = parts[0].isEmpty ? '0' : parts[0];
+  final frac = parts.length > 1 ? parts[1] : '';
+  if (frac.length > exp) return (minor: null, error: AmountError.tooPrecise);
+  final digits = intPart + frac.padRight(exp, '0');
+  if (digits.replaceFirst(RegExp('^0+'), '').length > 16) {
+    return (minor: null, error: AmountError.tooLarge);
+  }
+  final value = int.parse(digits);
+  if (value > maxAmountMinor) return (minor: null, error: AmountError.tooLarge);
+  return (minor: negative ? -value : value, error: null);
+}
+
+/// A short message for [error], for form fields.
+String amountErrorText(AmountError error, String currency) => switch (error) {
+  AmountError.empty => 'Enter an amount',
+  AmountError.invalid => 'Use digits and one decimal point, like 12.50',
+  AmountError.tooPrecise =>
+    currencyExponent(currency) == 0
+        ? '$currency has no decimals'
+        : '$currency has ${currencyExponent(currency)} decimals at most',
+  AmountError.negative => 'Enter a positive amount',
+  AmountError.tooLarge => 'That amount is too large',
+};
