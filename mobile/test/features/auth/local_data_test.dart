@@ -17,6 +17,7 @@ void main() {
     h.backend.seedUser('bo@example.com', 'bo-password-12');
     c = h.container();
     addTearDown(c.dispose);
+    addTearDown(h.local.close);
     c.read(authControllerProvider); // start the controller
     await Future<void>.delayed(Duration.zero);
   });
@@ -74,14 +75,18 @@ void main() {
       final h2 = TestHarness(backend: h.backend, store: h.store);
       final c2 = h2.container();
       addTearDown(c2.dispose);
+      addTearDown(h2.local.close);
       c2.read(authControllerProvider);
+      // Up to 2 s: under a full parallel test run, restoring takes longer.
       for (
         var i = 0;
-        i < 20 && c2.read(authControllerProvider) is AuthLoading;
+        i < 200 && c2.read(authControllerProvider) is AuthLoading;
         i++
       ) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
       }
+      // The owner is written right after SignedIn; let it finish too.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(c2.read(authControllerProvider), isA<SignedIn>());
       expect(await h2.local.owner(), idOf('ann@example.com'));
     },

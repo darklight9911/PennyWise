@@ -36,6 +36,26 @@ class LocalDatabase {
   final QueryExecutor Function(File, String) _openExecutor;
 
   Future<AppDatabase>? _opening;
+  final _closeHooks = <Future<void> Function()>[];
+
+  /// Runs [hook] before the database is closed or wiped, e.g. so a running
+  /// sync can stop first. Returns a function that removes the hook.
+  void Function() addCloseHook(Future<void> Function() hook) {
+    _closeHooks.add(hook);
+    return () => _closeHooks.remove(hook);
+  }
+
+  /// Lets everything that uses the database stop. Subclasses call it too.
+  @protected
+  Future<void> runCloseHooks() async {
+    for (final hook in List.of(_closeHooks)) {
+      try {
+        await hook();
+      } on Object catch (e) {
+        debugPrint('close hook failed: $e');
+      }
+    }
+  }
 
   /// The open database (opened on first use).
   Future<AppDatabase> get database => _opening ??= _open();
@@ -81,6 +101,7 @@ class LocalDatabase {
 
   /// Deletes all local data and its key (on logout).
   Future<void> wipe() async {
+    await runCloseHooks();
     final opening = _opening;
     _opening = null;
     if (opening != null) {
@@ -95,6 +116,7 @@ class LocalDatabase {
   }
 
   Future<void> close() async {
+    await runCloseHooks();
     final opening = _opening;
     _opening = null;
     if (opening != null) await (await opening).close();

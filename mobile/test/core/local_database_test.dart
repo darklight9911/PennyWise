@@ -141,4 +141,23 @@ void main() {
     );
     raw.close();
   });
+
+  test('close hooks run (and finish) before the database is wiped', () async {
+    final a = local();
+    final db = await a.database;
+    final events = <String>[];
+    final remove = a.addCloseHook(() async {
+      // The database is still open here: a running sync can finish its write.
+      await db.writeMeta('last', 'write');
+      events.add('hook');
+    });
+    await a.wipe();
+    events.add('wiped');
+    expect(events, ['hook', 'wiped']);
+
+    remove();
+    await (await a.database).writeMeta('x', 'y');
+    await a.wipe();
+    expect(events, ['hook', 'wiped'], reason: 'removed hooks do not run');
+  });
 }

@@ -21,6 +21,7 @@ class FakeLocalDatabase extends LocalDatabase {
 
   @override
   Future<void> wipe() async {
+    await runCloseHooks();
     wipeCount++;
     await _db?.close();
     _db = null;
@@ -28,6 +29,7 @@ class FakeLocalDatabase extends LocalDatabase {
 
   @override
   Future<void> close() async {
+    await runCloseHooks();
     await _db?.close();
     _db = null;
   }
