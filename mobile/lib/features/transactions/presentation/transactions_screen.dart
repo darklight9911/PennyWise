@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/panda_mascot.dart';
 
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
@@ -10,6 +11,7 @@ class TransactionsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Transactions')),
       body: const EmptyState(
+        mascot: PandaMood.sleeping,
         icon: Icons.receipt_long_outlined,
         title: 'No transactions yet',
         message:

@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../application/auth_controller.dart';
 import '../data/google_auth.dart';
 import '../domain/validators.dart';
+import '../../../core/widgets/panda_mascot.dart';
 import 'auth_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -73,6 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final busy = _loading || _googleLoading;
 
     return AuthScaffold(
+      mascotMood: _error == null ? PandaMood.wave : PandaMood.worried,
       title: 'Welcome back',
       subtitle: 'Log in to see your money at a glance.',
       children: [

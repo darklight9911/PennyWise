@@ -8,6 +8,7 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/auth_controller.dart';
 import '../domain/validators.dart';
+import '../../../core/widgets/panda_mascot.dart';
 import 'auth_widgets.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -76,6 +77,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final currencies = {...supportedCurrencies, _currency}.toList();
     return AuthScaffold(
+      mascotMood: _error == null ? PandaMood.happy : PandaMood.worried,
       title: 'Create your account',
       subtitle: 'Track spending, budgets and goals in one place.',
       children: [

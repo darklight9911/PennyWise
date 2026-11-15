@@ -4,9 +4,11 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
+import '../../../core/widgets/panda_mascot.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/auth_api.dart';
 import '../../auth/domain/app_user.dart';
+import '../domain/penny_greeting.dart';
 
 /// Home screen. Shows placeholder zeros until accounts and transactions
 /// exist (Milestone 2).
@@ -18,6 +20,13 @@ class DashboardScreen extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final user = auth is SignedIn ? auth.user : null;
     final currency = user?.baseCurrency ?? 'USD';
+    // Placeholder totals until transactions are wired in (Milestone 2).
+    const incomeMinor = 0;
+    const spentMinor = 0;
+    final greeting = pennyGreetingForMonth(
+      incomeMinor: incomeMinor,
+      spentMinor: spentMinor,
+    );
 
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodyMedium?.copyWith(
@@ -43,6 +52,8 @@ class DashboardScreen extends ConsumerWidget {
               _VerifyEmailCard(user: user),
               const SizedBox(height: Spacing.md),
             ],
+            _PennyCard(greeting: greeting),
+            const SizedBox(height: Spacing.md),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(Spacing.xl),
@@ -68,7 +79,7 @@ class DashboardScreen extends ConsumerWidget {
                 Expanded(
                   child: _MonthFigure(
                     label: 'Income this month',
-                    minor: 0,
+                    minor: incomeMinor,
                     currency: currency,
                     labelStyle: muted,
                   ),
@@ -77,7 +88,7 @@ class DashboardScreen extends ConsumerWidget {
                 Expanded(
                   child: _MonthFigure(
                     label: 'Spent this month',
-                    minor: 0,
+                    minor: spentMinor,
                     currency: currency,
                     labelStyle: muted,
                   ),
@@ -91,6 +102,37 @@ class DashboardScreen extends ConsumerWidget {
         tooltip: 'Add transaction',
         onPressed: () {}, // Add-transaction flow arrives in Milestone 2.
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// Penny the panda with a short note about the month.
+class _PennyCard extends StatelessWidget {
+  const _PennyCard({required this.greeting});
+
+  final PennyGreeting greeting;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Spacing.sm,
+          Spacing.sm,
+          Spacing.lg,
+          Spacing.sm,
+        ),
+        child: Row(
+          children: [
+            PandaMascot(mood: greeting.mood, size: 88),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Text(greeting.message, style: theme.textTheme.bodyMedium),
+            ),
+          ],
+        ),
       ),
     );
   }

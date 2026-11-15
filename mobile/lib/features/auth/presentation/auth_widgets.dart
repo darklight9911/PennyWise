@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/panda_mascot.dart';
 
 /// Common layout for the logged-out screens: brand header, centred
 /// content with a max width, scrolls when the keyboard is open.
@@ -11,12 +12,16 @@ class AuthScaffold extends StatelessWidget {
     this.subtitle,
     required this.children,
     this.showBack = false,
+    this.mascotMood = PandaMood.wave,
   });
 
   final String title;
   final String? subtitle;
   final List<Widget> children;
   final bool showBack;
+
+  /// Penny greets the user on the first screens (not on back-able ones).
+  final PandaMood mascotMood;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +41,8 @@ class AuthScaffold extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!showBack) ...[
+                    Center(child: PandaMascot(mood: mascotMood, size: 132)),
+                    const SizedBox(height: Spacing.sm),
                     const BrandMark(),
                     const SizedBox(height: Spacing.xl),
                   ],

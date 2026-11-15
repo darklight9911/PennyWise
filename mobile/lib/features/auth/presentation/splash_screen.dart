@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/panda_mascot.dart';
 import 'auth_widgets.dart';
 
 /// Shown for a moment while the saved session is read.
@@ -13,6 +14,8 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            PandaMascot(mood: PandaMood.thinking, size: 160),
+            SizedBox(height: 16),
             BrandMark(),
             SizedBox(height: 24),
             SizedBox.square(
