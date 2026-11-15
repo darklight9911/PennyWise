@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/core/database/local_database.dart';
 import 'package:pennywise/core/device/device_profile.dart';
 import 'package:pennywise/core/network/api_client.dart';
 import 'package:pennywise/core/network/token_store.dart';
@@ -11,6 +12,7 @@ import 'package:pennywise/core/router/deep_links.dart';
 import 'package:pennywise/features/auth/data/google_auth.dart';
 
 import 'fake_backend.dart';
+import 'fake_local_database.dart';
 
 /// Device facts without platform plugins.
 class FakeDeviceProfile extends DeviceProfile {
@@ -55,6 +57,7 @@ class TestHarness {
 
   final FakeBackend backend;
   final InMemoryTokenStore store;
+  final local = FakeLocalDatabase();
   final links = StreamController<Uri>.broadcast();
 
   static const config = AppConfig(apiBaseUrl: 'http://fake.test');
@@ -65,6 +68,7 @@ class TestHarness {
     deviceProfileProvider.overrideWithValue(device),
     googleAuthProvider.overrideWithValue(FakeGoogleAuth()),
     incomingLinksProvider.overrideWithValue(links.stream),
+    localDatabaseProvider.overrideWithValue(local),
     sessionManagerProvider.overrideWith((ref) {
       final s = SessionManager(
         refreshDio: _dio(),

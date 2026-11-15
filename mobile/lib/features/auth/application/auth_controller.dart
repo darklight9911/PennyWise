@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/database/local_database.dart';
 import '../../../core/device/device_profile.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -34,6 +35,7 @@ class AuthController extends Notifier<AuthState> {
   SessionManager get _session => ref.read(sessionManagerProvider);
   TokenStore get _store => ref.read(tokenStoreProvider);
   DeviceProfile get _device => ref.read(deviceProfileProvider);
+  LocalDatabase get _local => ref.read(localDatabaseProvider);
 
   @override
   AuthState build() {
@@ -53,10 +55,16 @@ class AuthController extends Notifier<AuthState> {
     if (tokens == null) return _set(const SignedOut());
 
     final cached = await _store.readUser();
-    if (cached != null) _set(SignedIn(AppUser.fromJson(cached)));
+    if (cached != null) {
+      final user = AppUser.fromJson(cached);
+      await _claimLocalData(user.id);
+      _set(SignedIn(user));
+    }
 
     try {
       await refreshUser();
+      final now = state;
+      if (cached == null && now is SignedIn) await _claimLocalData(now.user.id);
     } on ApiException catch (e) {
       if (e.isNetworkError) {
         if (cached == null) _set(const SignedOut());
@@ -122,6 +130,12 @@ class AuthController extends Notifier<AuthState> {
       // Not signed in with Google, or the plugin is unavailable.
     }
     await _session.clear();
+    // Logging out removes this user's data from the phone, with its key.
+    try {
+      await _local.wipe();
+    } on Object catch (e, st) {
+      userMessage(e, st); // report; the user is logged out regardless
+    }
     _set(const SignedOut());
   }
 
@@ -141,7 +155,19 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _establish(AuthResult result) async {
     await _session.save(result.tokens);
     await _store.writeUser(result.user.toJson());
+    await _claimLocalData(result.user.id);
     _set(SignedIn(result.user));
+  }
+
+  /// Opens the encrypted local database for [userId], wiping another
+  /// user's data first. A failure is reported but does not block login:
+  /// the screens that need local data show their own error.
+  Future<void> _claimLocalData(String userId) async {
+    try {
+      await _local.claimFor(userId);
+    } on Object catch (e, st) {
+      userMessage(e, st);
+    }
   }
 
   Future<SignUpProfile> _profile({
