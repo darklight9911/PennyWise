@@ -41,7 +41,12 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 // over MaxBodyBytes and trailing data, and writes a 400 itself on failure.
 // It returns false when the handler should stop.
 func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+	return DecodeJSONLimit(w, r, dst, MaxBodyBytes)
+}
+
+// DecodeJSONLimit is DecodeJSON with a custom body size limit.
+func DecodeJSONLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 
