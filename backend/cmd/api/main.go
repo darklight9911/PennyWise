@@ -68,7 +68,11 @@ func run(logger *slog.Logger) error {
 		logger.Warn("GOOGLE_CLIENT_IDS not set: Google sign-in is disabled")
 	}
 	authSvc := auth.NewService(db, jwtIssuer, google, mail.LogMailer{Logger: logger},
-		auth.Config{RefreshTTL: cfg.RefreshTokenTTL, LinkBase: cfg.LinkBase}, logger)
+		auth.Config{
+			RefreshTTL:    cfg.RefreshTokenTTL,
+			LinkBase:      cfg.LinkBase,
+			OnUserCreated: datasync.SeedDefaultCategories,
+		}, logger)
 	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
 	syncHandler := datasync.NewHandler(datasync.NewService(db, logger), authHandler.RequireAuth,
 		func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }, logger)
