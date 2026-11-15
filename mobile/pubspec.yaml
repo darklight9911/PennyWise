@@ -47,6 +47,7 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   uuid: ^4.6.0
+  rive: ^0.14.11
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +72,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    # Penny the panda mascot. Built from rive/penny (see rive/README.md).
+    - assets/rive/penny.riv
 
   # To add assets to your application, add an assets section, like this:
   # assets:
