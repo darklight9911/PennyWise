@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -327,4 +329,71 @@ void main() {
   test('localDateOf uses the phone time zone', () {
     expect(localDateOf(DateTime(2026, 3, 31, 23, 30)), '2026-03-31');
   });
+
+  test(
+    'countAccountTransactions counts both directions, not deleted ones',
+    () async {
+      final bank = await store.createAccount(
+        name: 'Bank',
+        type: 'bank',
+        currency: 'USD',
+      );
+      final cash = await store.createAccount(
+        name: 'Cash',
+        type: 'cash',
+        currency: 'USD',
+      );
+      final food = await store.createCategory(name: 'Food', kind: 'expense');
+      final when = DateTime.utc(2026, 11, 10);
+      expect(await store.countAccountTransactions(bank.id), 0);
+      final t = await store.createTransaction(
+        kind: TxKind.expense,
+        accountId: bank.id,
+        amountMinor: 1,
+        currency: 'USD',
+        occurredAt: when,
+        categoryId: food.id,
+      );
+      await store.createTransaction(
+        kind: TxKind.transfer,
+        accountId: cash.id,
+        amountMinor: 5,
+        currency: 'USD',
+        occurredAt: when,
+        transferAccountId: bank.id,
+        transferAmountMinor: 5,
+      );
+      expect(await store.countAccountTransactions(bank.id), 2);
+      await store.deleteTransaction(t.id);
+      expect(await store.countAccountTransactions(bank.id), 1);
+    },
+  );
+
+  test(
+    'work started from onLocalWrite after a delete can use the database',
+    () async {
+      final a = await store.createAccount(
+        name: 'A',
+        type: 'bank',
+        currency: 'USD',
+      );
+      final done = Completer<void>();
+      store.onLocalWrite = () {
+        store.onLocalWrite = null; // the write below notifies again
+        // Like the sync controller: a timer that later reads and writes.
+        Timer(Duration.zero, () async {
+          try {
+            await store.createAccount(name: 'B', type: 'bank', currency: 'USD');
+            done.complete();
+          } on Object catch (e) {
+            done.completeError(e);
+          }
+        });
+      };
+      await store.deleteAccount(a.id);
+      await done
+          .future; // threw "transaction used after being closed" before the fix
+      expect((await store.watchAccounts().first).single.name, 'B');
+    },
+  );
 }

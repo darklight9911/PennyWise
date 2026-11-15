@@ -88,22 +88,44 @@ class LedgerStore {
     });
   }
 
+  Future<Account?> getAccount(String id) =>
+      (db.select(db.accounts)..where((a) => a.id.equals(id))).getSingleOrNull();
+
+  /// Number of (not deleted) transactions in or out of an account.
+  Future<int> countAccountTransactions(String accountId) async {
+    final count = db.transactions.id.count();
+    final row =
+        await (db.selectOnly(db.transactions)
+              ..addColumns([count])
+              ..where(
+                db.transactions.deletedAt.isNull() &
+                    (db.transactions.accountId.equals(accountId) |
+                        db.transactions.transferAccountId.equals(accountId)),
+              ))
+            .getSingle();
+    return row.read(count) ?? 0;
+  }
+
   /// Deletes the account and every transaction in or out of it.
-  Future<void> deleteAccount(String id) => db.transaction(() async {
-    final at = _stamp();
-    await _softDelete(db.accounts, Entity.account, id, at);
-    final linked =
-        await (db.select(db.transactions)..where(
-              (t) =>
-                  t.deletedAt.isNull() &
-                  (t.accountId.equals(id) | t.transferAccountId.equals(id)),
-            ))
-            .get();
-    for (final t in linked) {
-      await _softDelete(db.transactions, Entity.transaction, t.id, at);
-    }
+  Future<void> deleteAccount(String id) async {
+    await db.transaction(() async {
+      final at = _stamp();
+      await _softDelete(db.accounts, Entity.account, id, at);
+      final linked =
+          await (db.select(db.transactions)..where(
+                (t) =>
+                    t.deletedAt.isNull() &
+                    (t.accountId.equals(id) | t.transferAccountId.equals(id)),
+              ))
+              .get();
+      for (final t in linked) {
+        await _softDelete(db.transactions, Entity.transaction, t.id, at);
+      }
+    });
+    // After the transaction: a timer started inside it would run in the
+    // transaction's zone after it closed.
     onLocalWrite?.call();
-  });
+  }
 
   /// Balance of every account: opening balance + income − expenses
   /// − transfers out + transfers in. In each account's own currency.
@@ -186,17 +208,21 @@ class LedgerStore {
 
   /// Deletes a category and its sub-categories. Old transactions keep
   /// pointing at it (they still show its name).
-  Future<void> deleteCategory(String id) => db.transaction(() async {
-    final at = _stamp();
-    final children = await (db.select(
-      db.categories,
-    )..where((c) => c.parentId.equals(id) & c.deletedAt.isNull())).get();
-    for (final c in children) {
-      await _softDelete(db.categories, Entity.category, c.id, at);
-    }
-    await _softDelete(db.categories, Entity.category, id, at);
+  Future<void> deleteCategory(String id) async {
+    await db.transaction(() async {
+      final at = _stamp();
+      final children = await (db.select(
+        db.categories,
+      )..where((c) => c.parentId.equals(id) & c.deletedAt.isNull())).get();
+      for (final c in children) {
+        await _softDelete(db.categories, Entity.category, c.id, at);
+      }
+      await _softDelete(db.categories, Entity.category, id, at);
+    });
+    // After the transaction: a timer started inside it would run in the
+    // transaction's zone after it closed.
     onLocalWrite?.call();
-  });
+  }
 
   // ------------------------------------------------------------ transactions
 
@@ -275,10 +301,14 @@ class LedgerStore {
     });
   }
 
-  Future<void> deleteTransaction(String id) => db.transaction(() async {
-    await _softDelete(db.transactions, Entity.transaction, id, _stamp());
+  Future<void> deleteTransaction(String id) async {
+    await db.transaction(() async {
+      await _softDelete(db.transactions, Entity.transaction, id, _stamp());
+    });
+    // After the transaction: a timer started inside it would run in the
+    // transaction's zone after it closed.
     onLocalWrite?.call();
-  });
+  }
 
   /// Income and expenses of one month (YYYY-MM) in one currency.
   /// Transfers are moves between own accounts, so they are not counted.
