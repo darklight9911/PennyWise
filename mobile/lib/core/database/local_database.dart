@@ -62,6 +62,23 @@ class LocalDatabase {
     return db;
   }
 
+  static const _ownerKey = 'owner_user_id';
+
+  /// Makes sure the local data belongs to [userId]. If another user's data
+  /// is on this phone, it is wiped first, so nobody sees someone else's money.
+  /// (The same user logging back in after a session expiry keeps their data,
+  /// including changes not yet synced.)
+  Future<AppDatabase> claimFor(String userId) async {
+    var db = await database;
+    final owner = await db.readMeta(_ownerKey);
+    if (owner != null && owner != userId) {
+      await wipe();
+      db = await database;
+    }
+    if (owner != userId) await db.writeMeta(_ownerKey, userId);
+    return db;
+  }
+
   /// Deletes all local data and its key (on logout).
   Future<void> wipe() async {
     final opening = _opening;

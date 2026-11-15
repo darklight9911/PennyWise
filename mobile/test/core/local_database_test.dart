@@ -108,6 +108,24 @@ void main() {
     await a.close();
   });
 
+  test(
+    'claimFor keeps data for the same user and wipes it for another',
+    () async {
+      final a = local();
+      await (await a.claimFor('user-1')).writeMeta('note', secret);
+      final firstKey = keys.key;
+
+      expect(await (await a.claimFor('user-1')).readMeta('note'), secret);
+      expect(keys.key, firstKey, reason: 'same user: same key, same data');
+
+      final db = await a.claimFor('user-2');
+      expect(await db.readMeta('note'), isNull);
+      expect(await db.readMeta('owner_user_id'), 'user-2');
+      expect(keys.key, isNot(firstKey), reason: 'new user: new key');
+      await a.close();
+    },
+  );
+
   test('keys are 256-bit random hex', () {
     final k1 = generateHexKey();
     final k2 = generateHexKey();
