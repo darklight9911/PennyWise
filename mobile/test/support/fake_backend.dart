@@ -153,8 +153,125 @@ class FakeBackend implements HttpClientAdapter {
         return path.endsWith('/me')
             ? _json(200, {'user': users[email]})
             : _empty(202);
+
+      case 'POST /v1/sync/push':
+      case 'GET /v1/sync/pull':
+        final auth = options.headers['Authorization'] as String?;
+        final email = auth == null
+            ? null
+            : _access[auth.replaceFirst('Bearer ', '')];
+        if (email == null) {
+          return _error(401, 'invalid_token', 'access token is invalid');
+        }
+        if (options.method == 'GET') {
+          final since = int.parse('${options.queryParameters['since'] ?? 0}');
+          return _json(200, _pull(email, since));
+        }
+        final changes = (body['changes'] as List).cast<Map<String, dynamic>>();
+        final results = _push(email, changes);
+        await onPush?.call();
+        return _json(200, {'results': results, 'version': syncVersion[email]});
     }
     return _error(404, 'not_found', 'route not found');
+  }
+
+  // ------------------------------------------------------------- fake sync
+
+  /// Rows on the "server": (entity, id) -> row.
+  final serverRows = <(String, String), FakeServerRow>{};
+  final syncVersion = <String, int>{};
+
+  /// Page size of pull (small values test paging).
+  int pullPageSize = 1000;
+
+  /// Runs after a push was applied but before its reply arrives, e.g. to
+  /// simulate the user editing the same row meanwhile.
+  Future<void> Function()? onPush;
+
+  /// Puts a row on the server as if another device had pushed it.
+  void serverWrite(
+    String email,
+    String entity,
+    String id,
+    Map<String, dynamic> data, {
+    required DateTime updatedAt,
+    DateTime? deletedAt,
+  }) {
+    final v = syncVersion[email] = (syncVersion[email] ?? 0) + 1;
+    serverRows[(entity, id)] = FakeServerRow(
+      owner: email,
+      entity: entity,
+      id: id,
+      data: data,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+      version: v,
+    );
+  }
+
+  List<Map<String, dynamic>> _push(
+    String email,
+    List<Map<String, dynamic>> changes,
+  ) {
+    final v = syncVersion[email] = (syncVersion[email] ?? 0) + 1;
+    return [
+      for (final c in changes)
+        () {
+          final key = (c['entity'] as String, c['id'] as String);
+          final result = {'entity': key.$1, 'id': key.$2};
+          final data = (c['data'] as Map).cast<String, dynamic>();
+          if (data['name'] == 'REJECT ME' || data['note'] == 'REJECT ME') {
+            return {
+              ...result,
+              'status': 'rejected',
+              'error': {'code': 'invalid', 'message': 'rejected by test'},
+            };
+          }
+          final updatedAt = DateTime.parse(c['updated_at'] as String);
+          final existing = serverRows[key];
+          if (existing != null && !existing.updatedAt.isBefore(updatedAt)) {
+            return {...result, 'status': 'stale'};
+          }
+          serverRows[key] = FakeServerRow(
+            owner: email,
+            entity: key.$1,
+            id: key.$2,
+            data: data,
+            updatedAt: updatedAt,
+            deletedAt: c['deleted_at'] == null
+                ? null
+                : DateTime.parse(c['deleted_at'] as String),
+            version: v,
+          );
+          return {...result, 'status': 'applied'};
+        }(),
+    ];
+  }
+
+  Map<String, dynamic> _pull(String email, int since) {
+    const order = {'account': 0, 'category': 1, 'transaction': 2};
+    final rows =
+        serverRows.values
+            .where((r) => r.owner == email && r.version > since)
+            .toList()
+          ..sort((a, b) {
+            final v = a.version.compareTo(b.version);
+            return v != 0 ? v : order[a.entity]!.compareTo(order[b.entity]!);
+          });
+    var page = rows;
+    var hasMore = false;
+    if (rows.length > pullPageSize) {
+      hasMore = true;
+      page = rows.take(pullPageSize).toList();
+      // Never split one push across pages (like the real server).
+      final last = rows[pullPageSize].version;
+      page = page.where((r) => r.version != last).toList();
+    }
+    return {
+      'changes': [for (final r in page) r.toPullJson()],
+      'cursor': page.isEmpty ? (syncVersion[email] ?? 0) : page.last.version,
+      'has_more': hasMore,
+    };
   }
 
   Map<String, dynamic> _issue(String email) {
@@ -215,4 +332,31 @@ class FakeBackend implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class FakeServerRow {
+  FakeServerRow({
+    required this.owner,
+    required this.entity,
+    required this.id,
+    required this.data,
+    required this.updatedAt,
+    required this.version,
+    this.deletedAt,
+  });
+
+  final String owner, entity, id;
+  final Map<String, dynamic> data;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final int version;
+
+  Map<String, dynamic> toPullJson() => {
+    'entity': entity,
+    'id': id,
+    'version': version,
+    'updated_at': updatedAt.toUtc().toIso8601String(),
+    'deleted_at': deletedAt?.toUtc().toIso8601String(),
+    'data': data,
+  };
 }
