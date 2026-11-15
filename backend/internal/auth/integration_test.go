@@ -13,6 +13,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -26,6 +27,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -100,6 +103,12 @@ type env struct {
 }
 
 func setup(t *testing.T, google auth.GoogleVerifier) *env {
+	return setupWithHook(t, google, nil)
+}
+
+type userHook = func(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error
+
+func setupWithHook(t *testing.T, google auth.GoogleVerifier, hook userHook) *env {
 	t.Helper()
 	dbURL, redisURL := os.Getenv("TEST_DATABASE_URL"), os.Getenv("TEST_REDIS_URL")
 	if dbURL == "" || redisURL == "" {
@@ -146,7 +155,8 @@ func setup(t *testing.T, google auth.GoogleVerifier) *env {
 		t.Fatal(err)
 	}
 	mailer := &captureMailer{}
-	svc := auth.NewService(pool, jwtIssuer, google, mailer, auth.Config{RefreshTTL: time.Hour, LinkBase: "pennywise://"}, logger)
+	svc := auth.NewService(pool, jwtIssuer, google, mailer,
+		auth.Config{RefreshTTL: time.Hour, LinkBase: "pennywise://", OnUserCreated: hook}, logger)
 	h := auth.NewHandler(svc, ratelimit.New(rdb), logger)
 
 	router := httpapi.NewRouter(httpapi.Deps{
@@ -482,4 +492,39 @@ func TestLoginRateLimitedPerEmail(t *testing.T) {
 		last = e.post("/v1/auth/login", map[string]string{"email": "mo@example.com", "password": "wrong-password"})
 	}
 	expectStatus(t, last, http.StatusTooManyRequests)
+}
+
+func TestNewUserHookRunsInTheSignUpTransaction(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		calls []uuid.UUID
+	)
+	hook := func(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
+		mu.Lock()
+		defer mu.Unlock()
+		calls = append(calls, id)
+		return nil
+	}
+	e := setupWithHook(t, fakeGoogle{}, hook)
+
+	r := e.register("hook@example.com")
+	e.post("/v1/auth/google", map[string]any{"id_token": "g-h|ghook@example.com|true"})
+	e.post("/v1/auth/login", map[string]string{"email": "hook@example.com", "password": pw})
+	if len(calls) != 2 {
+		t.Fatalf("hook ran %d times, want 2 (sign-up + new Google user, not login)", len(calls))
+	}
+	if calls[0].String() != user(r)["id"] {
+		t.Fatalf("hook got %s, want %v", calls[0], user(r)["id"])
+	}
+}
+
+func TestFailingNewUserHookCreatesNoUser(t *testing.T) {
+	hook := func(context.Context, pgx.Tx, uuid.UUID) error { return errors.New("seed failed") }
+	e := setupWithHook(t, nil, hook)
+	r := e.post("/v1/auth/register", map[string]any{"email": "half@example.com", "password": pw})
+	expectStatus(t, r, http.StatusInternalServerError)
+
+	// Nothing was left behind: had the user been saved, this login would work.
+	login := e.post("/v1/auth/login", map[string]string{"email": "half@example.com", "password": pw})
+	expectStatus(t, login, http.StatusUnauthorized)
 }

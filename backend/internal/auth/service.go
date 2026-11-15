@@ -56,6 +56,9 @@ type Config struct {
 	RefreshTTL time.Duration
 	// LinkBase builds links in emails, e.g. "pennywise://" or "https://pennywise.app/".
 	LinkBase string
+	// OnUserCreated runs inside the transaction that creates a user, e.g. to
+	// add the default categories. If it fails, the user is not created.
+	OnUserCreated func(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error
 }
 
 // Service implements the account and session logic.
@@ -123,7 +126,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (db.User, Toke
 		tokens      Tokens
 		verifyToken string
 	)
-	err = s.inTx(ctx, func(q *db.Queries) error {
+	err = s.inTxRaw(ctx, func(tx pgx.Tx, q *db.Queries) error {
 		user, err = q.CreateUser(ctx, db.CreateUserParams{
 			Email:        email,
 			PasswordHash: text(hash),
@@ -136,6 +139,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (db.User, Toke
 			return ErrEmailTaken
 		}
 		if err != nil {
+			return err
+		}
+		if err := s.userCreated(ctx, tx, user.ID); err != nil {
 			return err
 		}
 		if verifyToken, err = s.newEmailToken(ctx, q, user.ID, purposeVerifyEmail, verifyEmailTTL); err != nil {
@@ -217,7 +223,7 @@ func (s *Service) LoginWithGoogle(ctx context.Context, in GoogleInput) (db.User,
 		tokens  Tokens
 		created bool
 	)
-	err = s.inTx(ctx, func(q *db.Queries) error {
+	err = s.inTxRaw(ctx, func(tx pgx.Tx, q *db.Queries) error {
 		user, err = q.GetUserByGoogleSub(ctx, text(id.Subject))
 		switch {
 		case err == nil:
@@ -246,6 +252,9 @@ func (s *Service) LoginWithGoogle(ctx context.Context, in GoogleInput) (db.User,
 					return ErrEmailTaken // lost a race with a parallel sign-up; the app retries
 				}
 				if err != nil {
+					return err
+				}
+				if err := s.userCreated(ctx, tx, user.ID); err != nil {
 					return err
 				}
 				created = true
@@ -491,9 +500,21 @@ func (s *Service) link(path, token string) string {
 }
 
 func (s *Service) inTx(ctx context.Context, fn func(q *db.Queries) error) error {
+	return s.inTxRaw(ctx, func(_ pgx.Tx, q *db.Queries) error { return fn(q) })
+}
+
+// inTxRaw is inTx for code that also needs the raw transaction.
+func (s *Service) inTxRaw(ctx context.Context, fn func(tx pgx.Tx, q *db.Queries) error) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		return fn(s.q.WithTx(tx))
+		return fn(tx, s.q.WithTx(tx))
 	})
+}
+
+func (s *Service) userCreated(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error {
+	if s.cfg.OnUserCreated == nil {
+		return nil
+	}
+	return s.cfg.OnUserCreated(ctx, tx, userID)
 }
 
 func normalizeEmail(raw string) (string, error) {
