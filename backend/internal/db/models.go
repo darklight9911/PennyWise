@@ -9,6 +9,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Account struct {
+	ID                  uuid.UUID          `json:"id"`
+	UserID              uuid.UUID          `json:"user_id"`
+	Name                string             `json:"name"`
+	Type                string             `json:"type"`
+	Currency            string             `json:"currency"`
+	OpeningBalanceMinor int64              `json:"opening_balance_minor"`
+	Icon                string             `json:"icon"`
+	Color               string             `json:"color"`
+	Archived            bool               `json:"archived"`
+	SortOrder           int32              `json:"sort_order"`
+	Version             int64              `json:"version"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type Category struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	ParentID  uuid.NullUUID      `json:"parent_id"`
+	Name      string             `json:"name"`
+	Kind      string             `json:"kind"`
+	Icon      string             `json:"icon"`
+	Color     string             `json:"color"`
+	SortOrder int32              `json:"sort_order"`
+	Version   int64              `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type EmailToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -29,6 +61,30 @@ type RefreshToken struct {
 	UsedAt     pgtype.Timestamptz `json:"used_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type Transaction struct {
+	ID                  uuid.UUID          `json:"id"`
+	UserID              uuid.UUID          `json:"user_id"`
+	AccountID           uuid.UUID          `json:"account_id"`
+	CategoryID          uuid.NullUUID      `json:"category_id"`
+	Kind                string             `json:"kind"`
+	AmountMinor         int64              `json:"amount_minor"`
+	Currency            string             `json:"currency"`
+	FxRateToBase        pgtype.Numeric     `json:"fx_rate_to_base"`
+	FxRateSource        pgtype.Text        `json:"fx_rate_source"`
+	AmountBaseMinor     pgtype.Int8        `json:"amount_base_minor"`
+	TransferAccountID   uuid.NullUUID      `json:"transfer_account_id"`
+	TransferAmountMinor pgtype.Int8        `json:"transfer_amount_minor"`
+	OccurredAt          pgtype.Timestamptz `json:"occurred_at"`
+	LocalDate           pgtype.Date        `json:"local_date"`
+	Note                string             `json:"note"`
+	RecurringID         uuid.NullUUID      `json:"recurring_id"`
+	OccurrenceDate      pgtype.Date        `json:"occurrence_date"`
+	Version             int64              `json:"version"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {
