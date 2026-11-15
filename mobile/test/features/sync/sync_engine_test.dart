@@ -323,4 +323,14 @@ void main() {
   });
 
   test('ignores Value import lint', () => expect(const Value(1).value, 1));
+
+  test('a stopped engine never syncs again (logout)', () async {
+    await store.createAccount(name: 'Bank', type: 'bank', currency: 'USD');
+    await engine.stop();
+    final calls = h.backend.calls.length;
+    final report = await engine.sync();
+    expect(report.pushed, 0);
+    expect(h.backend.calls.length, calls);
+    expect(engine.isStopped, isTrue);
+  });
 }

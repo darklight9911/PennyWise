@@ -33,10 +33,28 @@ class SyncEngine {
 
   Future<SyncReport>? _running;
   bool _again = false;
+  bool _stopped = false;
+  CancelToken? _cancel;
+
+  /// True once [stop] was called (logout or user switch).
+  bool get isStopped => _stopped;
+
+  /// Stops for good: cancels a request in flight and waits until the
+  /// running sync has ended, so the database can be closed safely.
+  Future<void> stop() async {
+    _stopped = true;
+    _again = false;
+    _cancel?.cancel('sync stopped');
+    final running = _running;
+    if (running != null) {
+      await running.then<void>((_) {}, onError: (Object _) {});
+    }
+  }
 
   /// Runs a sync. While one runs, further calls wait for it, and exactly
   /// one more run follows (changes made meanwhile are not missed).
   Future<SyncReport> sync() {
+    if (_stopped) return Future.value(const SyncReport());
     if (_running != null) {
       _again = true;
       return _running!;
@@ -46,7 +64,7 @@ class SyncEngine {
 
   Future<SyncReport> _loop() async {
     var report = await _once();
-    while (_again) {
+    while (_again && !_stopped) {
       _again = false;
       final next = await _once();
       report = SyncReport(
@@ -59,7 +77,9 @@ class SyncEngine {
   }
 
   Future<SyncReport> _once() async {
+    _cancel = CancelToken();
     final (pushed, rejected) = await _pushAll();
+    _checkStopped();
     final pulled = await _pullAll();
     return SyncReport(pushed: pushed, rejected: rejected, pulled: pulled);
   }
@@ -96,11 +116,13 @@ class SyncEngine {
         final res = await _dio.post<Map<String, dynamic>>(
           '/v1/sync/push',
           data: {'changes': changes},
+          cancelToken: _cancel,
         );
         body = res.data!;
       } on DioException catch (e) {
         throw ApiException.fromDio(e); // offline etc.: the outbox stays
       }
+      _checkStopped();
 
       await db.transaction(() async {
         for (final r
@@ -222,11 +244,13 @@ class SyncEngine {
         final res = await _dio.get<Map<String, dynamic>>(
           '/v1/sync/pull',
           queryParameters: {'since': since},
+          cancelToken: _cancel,
         );
         body = res.data!;
       } on DioException catch (e) {
         throw ApiException.fromDio(e);
       }
+      _checkStopped();
       final changes = (body['changes'] as List).cast<Map<String, dynamic>>();
 
       await db.transaction(() async {
@@ -327,5 +351,14 @@ class SyncEngine {
     return true;
   }
 
+  void _checkStopped() {
+    if (_stopped) throw const SyncStoppedException();
+  }
+
   static String _iso(DateTime t) => t.toUtc().toIso8601String();
+}
+
+/// The sync was stopped (logout or user switch) while it ran.
+class SyncStoppedException implements Exception {
+  const SyncStoppedException();
 }
