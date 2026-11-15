@@ -36,7 +36,7 @@ Target: publish on the Google Play Store (App Store later).
 | Language | Dart 3, Flutter stable | One codebase for Android and iOS |
 | State management | **Riverpod** | Testable, no BuildContext tricks |
 | Navigation | **go_router** | Deep links, auth redirects |
-| Local database | **Drift** (SQLite) + **SQLCipher** (`sqlcipher_flutter_libs`) | Offline-first: the UI reads local data. SQLCipher encrypts the whole database file, so finance data is unreadable if the phone is rooted or a backup leaks |
+| Local database | **Drift** (SQLite) + **SQLite3MultipleCiphers** (`package:sqlite3` with `source: sqlite3mc`) | Offline-first: the UI reads local data. The whole database file is encrypted with a random 256-bit key kept in the Keystore/Keychain, so finance data is unreadable if the phone is rooted or a copy leaks. Chosen over the SQLCipher build because it tracks current SQLite and needs no OpenSSL (it can still read SQLCipher-format files). One owner per phone: logout, or a different user logging in, wipes the data and its key |
 | Networking | **Dio** + interceptors | Token refresh, retries |
 | Models | **freezed** + json_serializable | Immutable models, less boilerplate |
 | Charts | **fl_chart** | Pie, bar and line charts |
@@ -304,8 +304,8 @@ Rules:
 
 | # | Milestone | Main output | Est. |
 |---|---|---|---|
-| 0 | Setup | Repo, Docker Compose, CI skeleton, Flutter project, design tokens | 3 days |
-| 1 | Auth | Register/login/Google, JWT + refresh, email verification, encrypted local DB, app shell | 1 week |
+| 0 ✅ | Setup | Repo, Docker Compose, CI skeleton, Flutter project, design tokens | 3 days |
+| 1 ✅ | Auth | Register/login/Google, JWT + refresh, email verification, encrypted local DB, app shell | 1 week |
 | 2 | Core data | Accounts, categories, transactions (API + local DB + UI) | 2 weeks |
 | 2b | Receipts | R2 bucket, presigned upload/view, HEAD check on confirm, nightly clean-up job, photo attach UI | 4 days |
 | 3 | Sync | Outbox, push/pull with per-user versions, conflict handling, idempotent push, offline and race-condition tests | 1.5 weeks |
