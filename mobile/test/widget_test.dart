@@ -14,6 +14,7 @@ Future<void> pumpApp(WidgetTester tester, TestHarness h) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 2.75;
   addTearDown(tester.view.reset);
+  addTearDown(h.local.close);
   await tester.pumpWidget(
     ProviderScope(overrides: h.overrides, child: const PennyWiseApp()),
   );

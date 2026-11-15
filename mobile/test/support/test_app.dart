@@ -10,6 +10,7 @@ import 'package:pennywise/core/network/api_client.dart';
 import 'package:pennywise/core/network/token_store.dart';
 import 'package:pennywise/core/router/deep_links.dart';
 import 'package:pennywise/features/auth/data/google_auth.dart';
+import 'package:pennywise/features/sync/sync_controller.dart';
 
 import 'fake_backend.dart';
 import 'fake_local_database.dart';
@@ -69,6 +70,7 @@ class TestHarness {
     googleAuthProvider.overrideWithValue(FakeGoogleAuth()),
     incomingLinksProvider.overrideWithValue(links.stream),
     localDatabaseProvider.overrideWithValue(local),
+    syncDebounceProvider.overrideWithValue(Duration.zero),
     sessionManagerProvider.overrideWith((ref) {
       final s = SessionManager(
         refreshDio: _dio(),
