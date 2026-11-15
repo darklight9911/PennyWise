@@ -1,9 +1,13 @@
 import 'package:drift/drift.dart';
 
+import 'tables.dart';
+
+export 'tables.dart';
+
 part 'app_database.g.dart';
 
 /// Small key/value facts about the local data, e.g. the sync cursor
-/// (the last server version this phone has downloaded, Milestone 3).
+/// (the last server version this phone has downloaded).
 class LocalMeta extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -13,22 +17,44 @@ class LocalMeta extends Table {
 }
 
 /// The phone's local database. The UI reads from here (offline-first).
-///
-/// Tables for accounts, categories and transactions arrive in Milestone 2.
-@DriftDatabase(tables: [LocalMeta])
+@DriftDatabase(tables: [LocalMeta, Accounts, Categories, Transactions, Outbox])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
+  /// v1: local_meta. v2: accounts, categories, transactions, outbox.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+      await _createIndexes();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(accounts);
+        await m.createTable(categories);
+        await m.createTable(transactions);
+        await m.createTable(outbox);
+        await _createIndexes();
+      }
+    },
     beforeOpen: (details) async {
-      // Enforce foreign keys (off by default in SQLite).
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  Future<void> _createIndexes() async {
+    for (final sql in [
+      'CREATE INDEX IF NOT EXISTS transactions_date_idx ON transactions (local_date DESC, occurred_at DESC)',
+      'CREATE INDEX IF NOT EXISTS transactions_account_idx ON transactions (account_id)',
+      'CREATE INDEX IF NOT EXISTS transactions_transfer_idx ON transactions (transfer_account_id)',
+      'CREATE INDEX IF NOT EXISTS transactions_category_idx ON transactions (category_id, local_date)',
+    ]) {
+      await customStatement(sql);
+    }
+  }
 
   Future<String?> readMeta(String key) async {
     final row = await (select(

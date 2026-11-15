@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # ISO-8601 text keeps full precision (microseconds) and the time
+          # zone, so edit times compare exactly with the server's.
+          store_date_time_values_as_text: true
