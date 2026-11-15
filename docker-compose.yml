@@ -48,6 +48,11 @@ services:
       APP_ENV: development
       DATABASE_URL: postgres://${POSTGRES_USER:-pennywise}:${POSTGRES_PASSWORD:-pennywise_dev_password}@postgres:5432/${POSTGRES_DB:-pennywise}?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      # Must be set in .env (openssl rand -base64 48). Compose refuses to start without it.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      LINK_BASE: ${LINK_BASE:-pennywise://}
+      MAILER: log
     depends_on:
       postgres: { condition: service_healthy }
 

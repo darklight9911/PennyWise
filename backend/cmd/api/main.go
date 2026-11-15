@@ -10,14 +10,19 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // IANA time zones, also inside the distroless image
 
+	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
+	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/config"
 	"pennywise/backend/internal/httpapi"
+	"pennywise/backend/internal/mail"
 	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
+	"pennywise/backend/internal/ratelimit"
 )
 
 func main() {
@@ -50,6 +55,20 @@ func run(logger *slog.Logger) error {
 	}
 	defer rdb.Close()
 
+	jwtIssuer, err := auth.NewJWTIssuer(cfg.JWTSecret, cfg.AccessTokenTTL)
+	if err != nil {
+		return err
+	}
+	var google auth.GoogleVerifier
+	if len(cfg.GoogleClientIDs) > 0 {
+		google = auth.NewGoogleVerifier(cfg.GoogleClientIDs)
+	} else {
+		logger.Warn("GOOGLE_CLIENT_IDS not set: Google sign-in is disabled")
+	}
+	authSvc := auth.NewService(db, jwtIssuer, google, mail.LogMailer{Logger: logger},
+		auth.Config{RefreshTTL: cfg.RefreshTokenTTL, LinkBase: cfg.LinkBase}, logger)
+	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
+
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
@@ -64,6 +83,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
+			V1: []func(chi.Router){authHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

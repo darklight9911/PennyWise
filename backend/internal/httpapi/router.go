@@ -3,7 +3,6 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -12,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"pennywise/backend/internal/httpx"
 )
 
 // Pinger is anything that can tell whether a dependency is reachable.
@@ -31,6 +32,8 @@ type Deps struct {
 	Registry *prometheus.Registry
 	// Checks are run by /readyz. The key is the dependency name.
 	Checks map[string]Pinger
+	// V1 mounts the feature routes (auth, sync, ...) under /v1.
+	V1 []func(r chi.Router)
 }
 
 // NewRouter builds the HTTP handler for the API.
@@ -51,18 +54,20 @@ func NewRouter(d Deps) http.Handler {
 	r.Handle("/metrics", promhttp.HandlerFor(d.Registry, promhttp.HandlerOpts{}))
 
 	r.Route("/v1", func(r chi.Router) {
-		// Feature routes (auth, sync, reports, ...) are mounted here in later milestones.
+		for _, mount := range d.V1 {
+			mount(r)
+		}
 	})
 
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
-		writeError(w, http.StatusNotFound, "not_found", "route not found")
+		httpx.WriteError(w, http.StatusNotFound, "not_found", "route not found")
 	})
 	return r
 }
 
 // healthz says the process is alive. It does not check dependencies.
 func healthz(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // readyz says whether the API can serve traffic (database and Redis reachable).
@@ -85,19 +90,6 @@ func readyz(checks map[string]Pinger) http.HandlerFunc {
 		if status != http.StatusOK {
 			overall = "unavailable"
 		}
-		writeJSON(w, status, map[string]any{"status": overall, "checks": results})
+		httpx.WriteJSON(w, status, map[string]any{"status": overall, "checks": results})
 	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-// writeError writes the standard error shape used by every endpoint.
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]any{
-		"error": map[string]string{"code": code, "message": message},
-	})
 }

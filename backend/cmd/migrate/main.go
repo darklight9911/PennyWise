@@ -1,6 +1,6 @@
 // Command migrate applies database migrations.
 //
-// Usage: migrate [up|down|status|redo|version]   (default: up)
+// Usage: migrate [up|down|down-to N|status|redo|version]   (default: up)
 package main
 
 import (
@@ -28,9 +28,9 @@ func run() error {
 	if url == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
-	cmd := "up"
+	cmd, args := "up", []string(nil)
 	if len(os.Args) > 1 {
-		cmd = os.Args[1]
+		cmd, args = os.Args[1], os.Args[2:] // e.g. "down-to 0"
 	}
 
 	db, err := sql.Open("pgx", url)
@@ -43,5 +43,5 @@ func run() error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return err
 	}
-	return goose.RunContext(context.Background(), cmd, db, ".")
+	return goose.RunContext(context.Background(), cmd, db, ".", args...)
 }
