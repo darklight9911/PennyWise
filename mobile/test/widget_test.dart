@@ -88,7 +88,11 @@ void main() {
 
       await logIn(tester, 'ann@example.com', pw);
       expect(find.text('Hi, ann'), findsOneWidget);
-      expect(find.text('Confirm your email'), findsOneWidget);
+      expect(
+        find.text('Confirm your email'),
+        findsNothing,
+        reason: 'the reminder lives in Settings, not on the dashboard',
+      );
       expect(
         h.store.tokens,
         isNotNull,
@@ -196,12 +200,22 @@ void main() {
   testWidgets('verify-email link confirms the address', (tester) async {
     await pumpApp(tester, h);
     await logIn(tester, 'ann@example.com', pw);
+    await tapOn(tester, find.text('Settings'));
     expect(find.text('Confirm your email'), findsOneWidget);
 
     h.links.add(Uri.parse('pennywise://verify-email?token=good-token'));
     await settle(tester);
     expect(find.text('Email confirmed. Thank you!'), findsOneWidget);
     expect(find.text('Confirm your email'), findsNothing);
+  });
+
+  testWidgets('Settings can send the confirm-email link again', (tester) async {
+    await pumpApp(tester, h);
+    await logIn(tester, 'ann@example.com', pw);
+    await tapOn(tester, find.text('Settings'));
+    await tapOn(tester, find.text('Send the link again'));
+    expect(find.text('We sent a new link to ann@example.com.'), findsOneWidget);
+    expect(h.backend.callCount('/resend-verification'), 1);
   });
 
   testWidgets('an expired verify link explains what happened', (tester) async {

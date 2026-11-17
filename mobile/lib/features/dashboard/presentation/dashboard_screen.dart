@@ -7,8 +7,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/panda_mascot.dart';
 import '../../auth/application/auth_controller.dart';
-import '../../auth/data/auth_api.dart';
-import '../../auth/domain/app_user.dart';
 import '../domain/penny_greeting.dart';
 
 /// Home screen. Shows placeholder zeros until accounts and transactions
@@ -49,10 +47,6 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(Spacing.lg),
           children: [
-            if (user != null && !user.emailVerified) ...[
-              _VerifyEmailCard(user: user),
-              const SizedBox(height: Spacing.md),
-            ],
             _PennyCard(greeting: greeting),
             const SizedBox(height: Spacing.md),
             Card(
@@ -133,92 +127,6 @@ class _PennyCard extends StatelessWidget {
             const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(greeting.message, style: theme.textTheme.bodyMedium),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VerifyEmailCard extends ConsumerStatefulWidget {
-  const _VerifyEmailCard({required this.user});
-
-  final AppUser user;
-
-  @override
-  ConsumerState<_VerifyEmailCard> createState() => _VerifyEmailCardState();
-}
-
-class _VerifyEmailCardState extends ConsumerState<_VerifyEmailCard> {
-  bool _sending = false;
-
-  Future<void> _resend() async {
-    setState(() => _sending = true);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(authApiProvider).resendVerification();
-      messenger.showSnackBar(
-        SnackBar(content: Text('We sent a new link to ${widget.user.email}.')),
-      );
-    } on ApiException catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            e.code == 'rate_limited'
-                ? 'Please wait a while before asking for another link.'
-                : e.message,
-          ),
-        ),
-      );
-    } on Object catch (e, st) {
-      messenger.showSnackBar(SnackBar(content: Text(userMessage(e, st))));
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppIcon(
-              HugeIcons.strokeRoundedMailOpen01,
-              color: theme.colorScheme.onSecondaryContainer,
-            ),
-            const SizedBox(width: Spacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Confirm your email', style: theme.textTheme.titleSmall),
-                  const SizedBox(height: Spacing.xs),
-                  Text(
-                    'Open the link we sent to ${widget.user.email}. '
-                    'It helps you get back in if you forget your password.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.onSecondaryContainer,
-                        padding: EdgeInsets.zero,
-                      ),
-                      onPressed: _sending ? null : _resend,
-                      child: Text(
-                        _sending ? 'Sending…' : 'Send the link again',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

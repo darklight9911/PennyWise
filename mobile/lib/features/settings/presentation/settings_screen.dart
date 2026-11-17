@@ -4,7 +4,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_controller.dart';
+import 'verify_email_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -39,6 +41,16 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          if (user != null && !user.emailVerified)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.lg,
+                Spacing.sm,
+                Spacing.lg,
+                Spacing.sm,
+              ),
+              child: VerifyEmailCard(user: user),
+            ),
           if (user != null)
             ListTile(
               leading: const AppIcon(HugeIcons.strokeRoundedUserCircle),
