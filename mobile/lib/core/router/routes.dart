@@ -13,6 +13,7 @@ abstract final class Routes {
   static const reports = '/reports';
   static const settings = '/settings';
 
+  static const categories = '/categories';
   static const accounts = '/accounts';
   static const newAccount = '/accounts/new';
   static String editAccount(String id) => '/accounts/$id';

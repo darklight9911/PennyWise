@@ -11,6 +11,7 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/ledger/presentation/account_form_screen.dart';
 import '../../features/ledger/presentation/accounts_screen.dart';
+import '../../features/ledger/presentation/categories_screen.dart';
 import '../../features/ledger/presentation/transaction_form_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -47,6 +48,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // Full-screen pages above the bottom navigation.
       GoRoute(path: Routes.accounts, builder: (_, _) => const AccountsScreen()),
+      GoRoute(
+        path: Routes.categories,
+        builder: (_, _) => const CategoriesScreen(),
+      ),
       GoRoute(
         path: Routes.newAccount,
         builder: (_, _) => const AccountFormScreen(),

@@ -65,6 +65,12 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push(Routes.accounts),
           ),
+          ListTile(
+            leading: const Icon(Icons.category_outlined),
+            title: const Text('Categories'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(Routes.categories),
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.info_outline),
