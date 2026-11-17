@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/panda_mascot.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../budgets/presentation/budget_tile.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
 import '../../ledger/presentation/ledger_style.dart';
@@ -38,6 +39,8 @@ class DashboardScreen extends ConsumerWidget {
         .toList();
     final balances = ref.watch(balancesProvider).value ?? const <String, int>{};
     final recent = ref.watch(transactionsProvider(5)).value ?? const [];
+    final budgets =
+        ref.watch(budgetProgressProvider(currency)).value ?? const [];
 
     // Accounts in other currencies need exchange rates (Milestone 6), so the
     // total covers the main currency only and says so.
@@ -137,6 +140,22 @@ class DashboardScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: Spacing.xl),
+            if (budgets.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Budgets',
+                action: 'Manage',
+                onAction: () => context.push(Routes.budgets),
+              ),
+              Card(
+                child: Column(
+                  children: [
+                    for (final b in budgets.take(3))
+                      BudgetTile(progress: b, currency: currency),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Spacing.xl),
+            ],
             _SectionHeader(
               title: 'Accounts',
               action: 'Manage',

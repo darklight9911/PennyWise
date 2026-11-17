@@ -119,6 +119,18 @@ void main() {
       reason: 'recent transactions',
     );
 
+    // Budgets appear on the dashboard once there is one.
+    expect(find.text('Budgets'), findsNothing);
+    await untilDone(tester, () async {
+      await store.createBudget(amountMinor: 10000, period: 'monthly');
+    });
+    await tester.scrollUntilVisible(
+      find.text('54.50 left of 100.00 this month'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('All spending'), findsOneWidget);
+
     await tapOn(tester, find.text('See all'));
     expect(
       find.text('Today'),
