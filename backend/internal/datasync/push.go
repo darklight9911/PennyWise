@@ -25,6 +25,11 @@ type Service struct {
 	pool   *pgxpool.Pool
 	logger *slog.Logger
 	now    func() time.Time
+
+	// OnApplied runs after a push that saved at least one change (e.g. to
+	// queue a budget check). Its error is logged, never returned: the
+	// push itself succeeded.
+	OnApplied func(ctx context.Context, userID uuid.UUID) error
 }
 
 // NewService creates the sync service.
@@ -83,6 +88,11 @@ func (s *Service) Push(ctx context.Context, userID uuid.UUID, req PushRequest) (
 	})
 	if err != nil {
 		return PushResponse{}, err
+	}
+	if resp.Version != 0 && s.OnApplied != nil {
+		if err := s.OnApplied(ctx, userID); err != nil {
+			s.logger.WarnContext(ctx, "after-push hook failed", "err", err)
+		}
 	}
 	return resp, nil
 }
