@@ -3,6 +3,7 @@ package datasync
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -127,4 +128,35 @@ func isHexColor(s string) bool {
 		}
 	}
 	return true
+}
+
+var budgetPeriods = map[string]bool{"weekly": true, "monthly": true}
+
+func validateBudget(d *BudgetData) *ChangeError {
+	if d.AmountMinor <= 0 || d.AmountMinor > maxAmountMinor {
+		return reject("invalid", "amount_minor", "budget amount must be positive")
+	}
+	if !budgetPeriods[d.Period] {
+		return reject("invalid", "period", "period must be weekly or monthly")
+	}
+	if d.AlertThresholds == nil {
+		d.AlertThresholds = []int32{80, 100}
+	}
+	if len(d.AlertThresholds) > 5 {
+		return reject("invalid", "alert_thresholds", "at most 5 alert levels")
+	}
+	seen := map[int32]bool{}
+	clean := make([]int32, 0, len(d.AlertThresholds))
+	for _, t := range d.AlertThresholds {
+		if t < 1 || t > 200 {
+			return reject("invalid", "alert_thresholds", "alert levels must be 1 to 200 percent")
+		}
+		if !seen[t] {
+			seen[t] = true
+			clean = append(clean, t)
+		}
+	}
+	slices.Sort(clean)
+	d.AlertThresholds = clean
+	return nil
 }

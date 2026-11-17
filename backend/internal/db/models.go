@@ -26,6 +26,27 @@ type Account struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
+type Budget struct {
+	ID              uuid.UUID          `json:"id"`
+	UserID          uuid.UUID          `json:"user_id"`
+	CategoryID      uuid.NullUUID      `json:"category_id"`
+	AmountMinor     int64              `json:"amount_minor"`
+	Period          string             `json:"period"`
+	AlertThresholds []int32            `json:"alert_thresholds"`
+	Version         int64              `json:"version"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type BudgetAlert struct {
+	BudgetID    uuid.UUID          `json:"budget_id"`
+	PeriodStart pgtype.Date        `json:"period_start"`
+	Threshold   int32              `json:"threshold"`
+	SpentMinor  int64              `json:"spent_minor"`
+	SentAt      pgtype.Timestamptz `json:"sent_at"`
+}
+
 type Category struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -39,6 +60,15 @@ type Category struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Device struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	PushToken  string             `json:"push_token"`
+	Platform   string             `json:"platform"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
 }
 
 type EmailToken struct {

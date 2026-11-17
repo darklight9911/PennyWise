@@ -23,9 +23,10 @@ const (
 	EntityAccount     = "account"
 	EntityCategory    = "category"
 	EntityTransaction = "transaction"
+	EntityBudget      = "budget"
 )
 
-var entityOrder = map[string]int{EntityAccount: 0, EntityCategory: 1, EntityTransaction: 2}
+var entityOrder = map[string]int{EntityAccount: 0, EntityCategory: 1, EntityTransaction: 2, EntityBudget: 3}
 
 // Limits. PullLimit must be larger than MaxPushChanges so a page always
 // holds at least one complete version group.
@@ -139,4 +140,13 @@ type TransactionData struct {
 	OccurredAt          time.Time  `json:"occurred_at"`
 	LocalDate           string     `json:"local_date"` // YYYY-MM-DD in the user's time zone
 	Note                string     `json:"note"`
+}
+
+// BudgetData is the editable part of a budget. The amount is in the user's
+// base currency; no category means an overall budget for all spending.
+type BudgetData struct {
+	CategoryID      *uuid.UUID `json:"category_id"`
+	AmountMinor     int64      `json:"amount_minor"`
+	Period          string     `json:"period"` // weekly or monthly
+	AlertThresholds []int32    `json:"alert_thresholds"`
 }

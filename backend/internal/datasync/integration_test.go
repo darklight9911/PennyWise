@@ -525,3 +525,60 @@ func TestSeedDefaultCategories(t *testing.T) {
 		t.Fatalf("expense in default category: %v", errCodes(r))
 	}
 }
+
+func TestBudgetsSync(t *testing.T) {
+	s := testService(t)
+	u := newUser(t, s, "USD")
+	food, salary := uuid.New(), uuid.New()
+	push(t, s, u, ch(EntityCategory, food, t0, category("Food", "expense")), ch(EntityCategory, salary, t0, category("Salary", "income")))
+
+	overall, foodBudget, bad1, bad2, bad3 := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	r := push(t, s, u,
+		// Budgets first in the list: the server still saves categories first.
+		ch(EntityBudget, overall, t0, map[string]any{"amount_minor": 200000, "period": "monthly"}),
+		ch(EntityBudget, foodBudget, t0, map[string]any{
+			"category_id": food, "amount_minor": 30000, "period": "weekly", "alert_thresholds": []int{100, 50, 100},
+		}),
+		ch(EntityBudget, bad1, t0, map[string]any{"category_id": salary, "amount_minor": 1, "period": "monthly"}),
+		ch(EntityBudget, bad2, t0, map[string]any{"amount_minor": 1, "period": "daily"}),
+		ch(EntityBudget, bad3, t0, map[string]any{"amount_minor": 1, "period": "monthly", "alert_thresholds": []int{0}}),
+	)
+	st, codes := statuses(r), errCodes(r)
+	if st[overall] != StatusApplied || st[foodBudget] != StatusApplied {
+		t.Fatalf("valid budgets: %v %v", st, codes)
+	}
+	for _, id := range []uuid.UUID{bad1, bad2, bad3} {
+		if codes[id] != "invalid" {
+			t.Errorf("budget %s: code %q, want invalid", id, codes[id])
+		}
+	}
+
+	p := pull(t, s, u, 0)
+	var budgets []map[string]any
+	for _, c := range p.Changes {
+		if c.Entity == EntityBudget {
+			var d map[string]any
+			_ = json.Unmarshal(c.Data, &d)
+			d["id"] = c.ID.String()
+			budgets = append(budgets, d)
+		}
+	}
+	if len(budgets) != 2 {
+		t.Fatalf("pulled %d budgets", len(budgets))
+	}
+	for _, b := range budgets {
+		switch b["id"] {
+		case overall.String():
+			if b["category_id"] != nil || fmt.Sprint(b["alert_thresholds"]) != "[80 100]" {
+				t.Errorf("overall budget = %v (want no category, default levels)", b)
+			}
+		case foodBudget.String():
+			if fmt.Sprint(b["alert_thresholds"]) != "[50 100]" {
+				t.Errorf("levels = %v, want sorted and unique [50 100]", b["alert_thresholds"])
+			}
+		}
+	}
+	if p.Changes[len(p.Changes)-1].Entity != EntityBudget {
+		t.Error("budgets must come after categories in a pull")
+	}
+}

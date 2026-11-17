@@ -40,6 +40,12 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'occurred_at', occurred_at, 'local_date', to_char(local_date, 'YYYY-MM-DD'),
                'note', note)
       FROM transactions WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'budget', 3, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'category_id', category_id, 'amount_minor', amount_minor,
+               'period', period, 'alert_thresholds', alert_thresholds)
+      FROM budgets WHERE user_id = $1 AND version > $2 AND version <= $3
 ) rows
 ORDER BY version, ord, id
 LIMIT $4`

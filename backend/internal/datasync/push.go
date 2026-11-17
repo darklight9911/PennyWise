@@ -129,8 +129,10 @@ func (s *Service) applyOne(ctx context.Context, tx pgx.Tx, userID uuid.UUID, ver
 		ok, cerr, err = upsertCategory(ctx, sp, row, ch.Data)
 	case EntityTransaction:
 		ok, cerr, err = upsertTransaction(ctx, sp, row, base, ch.Data)
+	case EntityBudget:
+		ok, cerr, err = upsertBudget(ctx, sp, row, ch.Data)
 	default:
-		cerr = reject("invalid", "entity", "entity must be account, category or transaction")
+		cerr = reject("invalid", "entity", "entity must be account, category, transaction or budget")
 	}
 
 	if err != nil {
@@ -362,6 +364,44 @@ func accountCurrency(ctx context.Context, tx pgx.Tx, id, userID uuid.UUID) (stri
 	return c, err == nil, err
 }
 
+// --- budgets ---
+
+const upsertBudgetSQL = `
+INSERT INTO budgets (id, user_id, category_id, amount_minor, period, alert_thresholds,
+                     version, updated_at, deleted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (id) DO UPDATE SET
+    category_id = EXCLUDED.category_id, amount_minor = EXCLUDED.amount_minor,
+    period = EXCLUDED.period, alert_thresholds = EXCLUDED.alert_thresholds,
+    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at
+WHERE budgets.user_id = EXCLUDED.user_id AND budgets.updated_at < EXCLUDED.updated_at
+RETURNING id`
+
+func upsertBudget(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) (bool, *ChangeError, error) {
+	var d BudgetData
+	if cerr := decodeStrict(data, &d); cerr != nil {
+		return false, cerr, nil
+	}
+	if cerr := validateBudget(&d); cerr != nil {
+		return false, cerr, nil
+	}
+	if d.CategoryID != nil {
+		var kind string
+		err := tx.QueryRow(ctx, `SELECT kind FROM categories WHERE id = $1 AND user_id = $2`, *d.CategoryID, r.userID).Scan(&kind)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, reject("reference_not_found", "category_id", "category not found"), nil
+		}
+		if err != nil {
+			return false, nil, err
+		}
+		if kind != "expense" {
+			return false, reject("invalid", "category_id", "budgets are for expense categories"), nil
+		}
+	}
+	return execUpsert(ctx, tx, upsertBudgetSQL, r.id, r.userID, d.CategoryID, d.AmountMinor,
+		d.Period, d.AlertThresholds, r.version, r.updatedAt, r.deletedAt)
+}
+
 // --- helpers ---
 
 // execUpsert runs an INSERT ... ON CONFLICT ... RETURNING id. It reports
@@ -380,6 +420,7 @@ func execUpsert(ctx context.Context, tx pgx.Tx, sql string, args ...any) (bool, 
 
 var tables = map[string]string{
 	EntityAccount: "accounts", EntityCategory: "categories", EntityTransaction: "transactions",
+	EntityBudget: "budgets",
 }
 
 func ownedByUser(ctx context.Context, tx pgx.Tx, entity string, id, userID uuid.UUID) (bool, error) {
