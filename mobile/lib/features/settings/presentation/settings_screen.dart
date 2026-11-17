@@ -84,6 +84,12 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
             onTap: () => context.push(Routes.categories),
           ),
+          ListTile(
+            leading: const AppIcon(HugeIcons.strokeRoundedTarget02),
+            title: const Text('Budgets'),
+            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+            onTap: () => context.push(Routes.budgets),
+          ),
           const Divider(),
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedInformationCircle),

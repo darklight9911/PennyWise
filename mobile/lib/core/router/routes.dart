@@ -14,6 +14,9 @@ abstract final class Routes {
   static const settings = '/settings';
 
   static const categories = '/categories';
+  static const budgets = '/budgets';
+  static const newBudget = '/budgets/new';
+  static String editBudget(String id) => '/budgets/$id';
   static const accounts = '/accounts';
   static const newAccount = '/accounts/new';
   static String editAccount(String id) => '/accounts/$id';

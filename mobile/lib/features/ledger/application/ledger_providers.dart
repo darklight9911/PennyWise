@@ -70,3 +70,11 @@ final pendingChangesProvider = StreamProvider<int>((ref) async* {
   final store = await ref.watch(ledgerStoreProvider.future);
   yield* store.watchPendingCount();
 });
+
+/// Every budget with its spending in the current week or month, in the
+/// given main currency.
+final budgetProgressProvider =
+    StreamProvider.family<List<BudgetProgress>, String>((ref, currency) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchBudgetProgress(currency, DateTime.now());
+    });

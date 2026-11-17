@@ -8,6 +8,8 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/budgets/presentation/budget_form_screen.dart';
+import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/ledger/presentation/account_form_screen.dart';
 import '../../features/ledger/presentation/accounts_screen.dart';
@@ -48,6 +50,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // Full-screen pages above the bottom navigation.
       GoRoute(path: Routes.accounts, builder: (_, _) => const AccountsScreen()),
+      GoRoute(path: Routes.budgets, builder: (_, _) => const BudgetsScreen()),
+      GoRoute(
+        path: Routes.newBudget,
+        builder: (_, _) => const BudgetFormScreen(),
+      ),
+      GoRoute(
+        path: '${Routes.budgets}/:id',
+        builder: (_, state) =>
+            BudgetFormScreen(budgetId: state.pathParameters['id']),
+      ),
       GoRoute(
         path: Routes.categories,
         builder: (_, _) => const CategoriesScreen(),
