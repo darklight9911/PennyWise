@@ -192,6 +192,12 @@ void main() {
 
     await tapOn(tester, find.text('Settings'));
     expect(find.text('ann@example.com · not confirmed'), findsOneWidget);
+    // Settings is a lazy list: build the bottom entry first.
+    await tester.scrollUntilVisible(
+      find.text('Log out'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tapOn(tester, find.text('Log out').first);
     await tapOn(tester, find.widgetWithText(FilledButton, 'Log out'));
 

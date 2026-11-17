@@ -90,6 +90,12 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
             onTap: () => context.push(Routes.budgets),
           ),
+          ListTile(
+            leading: const AppIcon(HugeIcons.strokeRoundedPiggyBank),
+            title: const Text('Goals'),
+            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+            onTap: () => context.push(Routes.goals),
+          ),
           const Divider(),
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedInformationCircle),

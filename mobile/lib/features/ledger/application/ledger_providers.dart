@@ -78,3 +78,21 @@ final budgetProgressProvider =
       final store = await ref.watch(ledgerStoreProvider.future);
       yield* store.watchBudgetProgress(currency, DateTime.now());
     });
+
+final goalProgressProvider = StreamProvider<List<GoalProgress>>((ref) async* {
+  final store = await ref.watch(ledgerStoreProvider.future);
+  yield* store.watchGoalProgress();
+});
+
+final contributionsProvider =
+    StreamProvider.family<List<GoalContribution>, String>((ref, goalId) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchContributions(goalId);
+    });
+
+final recurringRulesProvider = StreamProvider<List<RecurringRule>>((
+  ref,
+) async* {
+  final store = await ref.watch(ledgerStoreProvider.future);
+  yield* store.watchRecurringRules();
+});

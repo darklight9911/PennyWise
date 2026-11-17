@@ -11,6 +11,9 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/budgets/presentation/budget_form_screen.dart';
 import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/goals/presentation/goal_detail_screen.dart';
+import '../../features/goals/presentation/goal_form_screen.dart';
+import '../../features/goals/presentation/goals_screen.dart';
 import '../../features/ledger/presentation/account_form_screen.dart';
 import '../../features/ledger/presentation/accounts_screen.dart';
 import '../../features/ledger/presentation/categories_screen.dart';
@@ -59,6 +62,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '${Routes.budgets}/:id',
         builder: (_, state) =>
             BudgetFormScreen(budgetId: state.pathParameters['id']),
+      ),
+      GoRoute(path: Routes.goals, builder: (_, _) => const GoalsScreen()),
+      GoRoute(path: Routes.newGoal, builder: (_, _) => const GoalFormScreen()),
+      GoRoute(
+        path: '${Routes.goals}/:id',
+        builder: (_, state) =>
+            GoalDetailScreen(goalId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '${Routes.goals}/:id/edit',
+        builder: (_, state) =>
+            GoalFormScreen(goalId: state.pathParameters['id']),
       ),
       GoRoute(
         path: Routes.categories,

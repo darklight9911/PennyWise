@@ -15,6 +15,13 @@ abstract final class Routes {
 
   static const categories = '/categories';
   static const budgets = '/budgets';
+  static const goals = '/goals';
+  static const newGoal = '/goals/new';
+  static String goal(String id) => '/goals/$id';
+  static String editGoal(String id) => '/goals/$id/edit';
+  static const recurring = '/recurring';
+  static const newRecurring = '/recurring/new';
+  static String editRecurring(String id) => '/recurring/$id';
   static const newBudget = '/budgets/new';
   static String editBudget(String id) => '/budgets/$id';
   static const accounts = '/accounts';
