@@ -17,6 +17,13 @@ abstract final class Routes {
   static const newAccount = '/accounts/new';
   static String editAccount(String id) => '/accounts/$id';
 
+  static const _transactionPrefix = '/transaction';
+  static String newTransaction([String kind = 'expense']) =>
+      '$_transactionPrefix/new?kind=$kind';
+  static String editTransaction(String id) => '$_transactionPrefix/$id';
+  static const transactionNewPath = '$_transactionPrefix/new';
+  static const transactionEditPath = '$_transactionPrefix/:id';
+
   static String resetPasswordWith(String token) =>
       Uri(path: resetPassword, queryParameters: {'token': token}).toString();
 }

@@ -11,6 +11,7 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/ledger/presentation/account_form_screen.dart';
 import '../../features/ledger/presentation/accounts_screen.dart';
+import '../../features/ledger/presentation/transaction_form_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
@@ -54,6 +55,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '${Routes.accounts}/:id',
         builder: (_, state) =>
             AccountFormScreen(accountId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.transactionNewPath,
+        builder: (_, state) => TransactionFormScreen(
+          initialKind: state.uri.queryParameters['kind'] ?? 'expense',
+        ),
+      ),
+      GoRoute(
+        path: Routes.transactionEditPath,
+        builder: (_, state) =>
+            TransactionFormScreen(transactionId: state.pathParameters['id']),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(navigationShell: shell),

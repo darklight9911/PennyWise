@@ -261,5 +261,6 @@ void main() {
 
     await tapOn(tester, find.text('Home'));
     expect(find.text('Total balance'), findsOneWidget);
+    await finish(tester);
   });
 }

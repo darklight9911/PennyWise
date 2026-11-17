@@ -99,6 +99,8 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        // Tabs stay alive side by side: no shared hero animation tag.
+        heroTag: null,
         tooltip: 'Add transaction',
         onPressed: () {}, // Add-transaction flow arrives in Milestone 2.
         child: const Icon(Icons.add),
