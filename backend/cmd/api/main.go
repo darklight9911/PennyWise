@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
@@ -22,6 +23,7 @@ import (
 	"pennywise/backend/internal/datasync"
 	"pennywise/backend/internal/httpapi"
 	"pennywise/backend/internal/mail"
+	"pennywise/backend/internal/notify"
 	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
 	"pennywise/backend/internal/ratelimit"
@@ -74,8 +76,21 @@ func run(logger *slog.Logger) error {
 			OnUserCreated: datasync.SeedDefaultCategories,
 		}, logger)
 	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
-	syncHandler := datasync.NewHandler(datasync.NewService(db, logger), authHandler.RequireAuth,
-		func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }, logger)
+	userIDOf := func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }
+
+	redisOpt, err := asynq.ParseRedisURI(cfg.RedisURL)
+	if err != nil {
+		return err
+	}
+	queue := asynq.NewClient(redisOpt)
+	defer queue.Close()
+	enqueuer := notify.NewEnqueuer(queue)
+
+	syncSvc := datasync.NewService(db, logger)
+	// New spending may cross a budget level: let the worker check.
+	syncSvc.OnApplied = enqueuer.EnqueueBudgetCheck
+	syncHandler := datasync.NewHandler(syncSvc, authHandler.RequireAuth, userIDOf, logger)
+	devicesHandler := notify.NewDevicesHandler(db, authHandler.RequireAuth, userIDOf, logger)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -91,7 +106,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
-			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes},
+			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

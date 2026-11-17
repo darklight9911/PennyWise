@@ -11,6 +11,8 @@ import (
 	"github.com/hibiken/asynq"
 
 	"pennywise/backend/internal/config"
+	"pennywise/backend/internal/notify"
+	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
 )
 
@@ -32,6 +34,14 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	db, err := postgres.Open(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	// Real push (Firebase) needs a Firebase project; until then messages
+	// are written to the log.
+	budgets := notify.NewBudgetChecker(db, notify.LogSender{Logger: logger}, logger)
 
 	srv := asynq.NewServer(redisOpt, asynq.Config{
 		Concurrency: 5,
@@ -40,8 +50,7 @@ func run(logger *slog.Logger) error {
 	})
 
 	mux := asynq.NewServeMux()
-	// Job handlers are registered here in later milestones, e.g.:
-	//   mux.HandleFunc(recurring.TaskRun, recurringHandler.Run)
+	mux.HandleFunc(notify.TaskCheckBudgets, budgets.HandleCheckBudgets)
 	mux.HandleFunc("system:ping", func(ctx context.Context, t *asynq.Task) error {
 		logger.InfoContext(ctx, "ping job received")
 		return nil
