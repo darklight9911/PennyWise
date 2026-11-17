@@ -81,6 +81,61 @@ type EmailToken struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Goal struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Name        string             `json:"name"`
+	TargetMinor int64              `json:"target_minor"`
+	Deadline    pgtype.Date        `json:"deadline"`
+	Icon        string             `json:"icon"`
+	Color       string             `json:"color"`
+	Archived    bool               `json:"archived"`
+	Version     int64              `json:"version"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type GoalContribution struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	GoalID      uuid.UUID          `json:"goal_id"`
+	AmountMinor int64              `json:"amount_minor"`
+	LocalDate   pgtype.Date        `json:"local_date"`
+	Note        string             `json:"note"`
+	Version     int64              `json:"version"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type RecurringReminder struct {
+	RuleID         uuid.UUID          `json:"rule_id"`
+	OccurrenceDate pgtype.Date        `json:"occurrence_date"`
+	SentAt         pgtype.Timestamptz `json:"sent_at"`
+}
+
+type RecurringRule struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	Kind             string             `json:"kind"`
+	AccountID        uuid.UUID          `json:"account_id"`
+	CategoryID       uuid.UUID          `json:"category_id"`
+	AmountMinor      int64              `json:"amount_minor"`
+	Currency         string             `json:"currency"`
+	Note             string             `json:"note"`
+	Frequency        string             `json:"frequency"`
+	Every            int32              `json:"every"`
+	StartDate        pgtype.Date        `json:"start_date"`
+	EndDate          pgtype.Date        `json:"end_date"`
+	RemindDaysBefore int32              `json:"remind_days_before"`
+	Active           bool               `json:"active"`
+	Version          int64              `json:"version"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type RefreshToken struct {
 	ID         uuid.UUID          `json:"id"`
 	UserID     uuid.UUID          `json:"user_id"`
