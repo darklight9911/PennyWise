@@ -249,14 +249,16 @@ class FakeBackend implements HttpClientAdapter {
   }
 
   Map<String, dynamic> _pull(String email, int since) {
-    const order = {'account': 0, 'category': 1, 'transaction': 2};
+    const order = {'account': 0, 'category': 1, 'transaction': 2, 'budget': 3};
     final rows =
         serverRows.values
             .where((r) => r.owner == email && r.version > since)
             .toList()
           ..sort((a, b) {
             final v = a.version.compareTo(b.version);
-            return v != 0 ? v : order[a.entity]!.compareTo(order[b.entity]!);
+            return v != 0
+                ? v
+                : (order[a.entity] ?? 9).compareTo(order[b.entity] ?? 9);
           });
     var page = rows;
     var hasMore = false;

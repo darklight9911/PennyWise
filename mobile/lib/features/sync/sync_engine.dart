@@ -229,6 +229,20 @@ class SyncEngine {
             'note': t.note,
           }),
         );
+      case Entity.budget:
+        final b = await (db.select(
+          db.budgets,
+        )..where((x) => x.id.equals(id))).getSingleOrNull();
+        if (b == null) return null;
+        return (
+          updatedAt: b.updatedAt,
+          json: wrap(b.updatedAt, b.deletedAt, {
+            'category_id': b.categoryId,
+            'amount_minor': b.amountMinor,
+            'period': b.period,
+            'alert_thresholds': parseLevels(b.alertThresholds),
+          }),
+        );
     }
     return null;
   }
@@ -340,6 +354,25 @@ class SyncEngine {
                 occurredAt: DateTime.parse(d['occurred_at'] as String),
                 localDate: d['local_date'] as String,
                 note: Value(d['note'] as String? ?? ''),
+                updatedAt: updatedAt,
+                deletedAt: Value(deletedAt),
+                serverVersion: Value(version),
+              ),
+            );
+      case Entity.budget:
+        await db
+            .into(db.budgets)
+            .insertOnConflictUpdate(
+              BudgetsCompanion.insert(
+                id: id,
+                categoryId: Value(d['category_id'] as String?),
+                amountMinor: d['amount_minor'] as int,
+                period: d['period'] as String,
+                alertThresholds: Value(
+                  ((d['alert_thresholds'] as List?) ?? const [80, 100]).join(
+                    ',',
+                  ),
+                ),
                 updatedAt: updatedAt,
                 deletedAt: Value(deletedAt),
                 serverVersion: Value(version),

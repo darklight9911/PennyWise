@@ -315,7 +315,7 @@ void main() {
   });
 
   test('unknown entity types from a newer server are skipped safely', () async {
-    h.backend.serverWrite(email, 'budget', 'b1', {
+    h.backend.serverWrite(email, 'goal', 'g1', {
       'x': 1,
     }, updatedAt: DateTime.utc(2026));
     final report = await engine.sync();
@@ -332,5 +332,34 @@ void main() {
     expect(report.pushed, 0);
     expect(h.backend.calls.length, calls);
     expect(engine.isStopped, isTrue);
+  });
+
+  test('budgets sync both ways', () async {
+    final food = await store.createCategory(name: 'Food', kind: 'expense');
+    final b = await store.createBudget(
+      categoryId: food.id,
+      amountMinor: 30000,
+      period: 'weekly',
+      alertThresholds: [50, 100],
+    );
+    await engine.sync();
+    final row = onServer(Entity.budget, b.id)!;
+    expect(row.data, {
+      'category_id': food.id,
+      'amount_minor': 30000,
+      'period': 'weekly',
+      'alert_thresholds': [50, 100],
+    });
+
+    h.backend.serverWrite(email, Entity.budget, 'b-2', {
+      'category_id': null,
+      'amount_minor': 200000,
+      'period': 'monthly',
+      'alert_thresholds': [80, 100],
+    }, updatedAt: DateTime.now().toUtc());
+    await engine.sync();
+    final budgets = {for (final x in await store.watchBudgets().first) x.id: x};
+    expect(budgets['b-2']!.alertThresholds, '80,100');
+    expect(budgets['b-2']!.categoryId, isNull);
   });
 }
