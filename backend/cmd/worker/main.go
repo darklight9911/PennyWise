@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
 	"pennywise/backend/internal/config"
 	"pennywise/backend/internal/notify"
 	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
+	"pennywise/backend/internal/recurring"
 )
 
 func main() {
@@ -41,7 +44,27 @@ func run(logger *slog.Logger) error {
 	defer db.Close()
 	// Real push (Firebase) needs a Firebase project; until then messages
 	// are written to the log.
-	budgets := notify.NewBudgetChecker(db, notify.LogSender{Logger: logger}, logger)
+	sender := notify.LogSender{Logger: logger}
+	budgets := notify.NewBudgetChecker(db, sender, logger)
+
+	queue := asynq.NewClient(redisOpt)
+	defer queue.Close()
+	gen := recurring.NewGenerator(db, func(ctx context.Context, userID uuid.UUID, m recurring.Message) {
+		notify.SendToUser(ctx, db, sender, logger, userID, notify.Message{Title: m.Title, Body: m.Body, Data: m.Data})
+	}, logger)
+	// New bills may cross a budget level.
+	gen.OnCreated = notify.NewEnqueuer(queue).EnqueueBudgetCheck
+
+	// Every 15 minutes: create due recurring transactions, send reminders.
+	scheduler := asynq.NewScheduler(redisOpt, &asynq.SchedulerOpts{Logger: asynqLogger{logger}})
+	if _, err := scheduler.Register("*/15 * * * *", asynq.NewTask(recurring.TaskRunAll, nil),
+		asynq.Unique(14*time.Minute), asynq.Timeout(10*time.Minute)); err != nil {
+		return err
+	}
+	if err := scheduler.Start(); err != nil {
+		return err
+	}
+	defer scheduler.Shutdown()
 
 	srv := asynq.NewServer(redisOpt, asynq.Config{
 		Concurrency: 5,
@@ -51,6 +74,7 @@ func run(logger *slog.Logger) error {
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(notify.TaskCheckBudgets, budgets.HandleCheckBudgets)
+	mux.HandleFunc(recurring.TaskRunAll, gen.HandleRunAll)
 	mux.HandleFunc("system:ping", func(ctx context.Context, t *asynq.Task) error {
 		logger.InfoContext(ctx, "ping job received")
 		return nil
