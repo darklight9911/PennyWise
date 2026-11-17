@@ -8,6 +8,7 @@ abstract final class Entity {
   static const account = 'account';
   static const category = 'category';
   static const transaction = 'transaction';
+  static const budget = 'budget';
 }
 
 abstract final class TxKind {
@@ -15,6 +16,44 @@ abstract final class TxKind {
   static const expense = 'expense';
   static const transfer = 'transfer';
 }
+
+/// A budget with what was spent in its current period.
+class BudgetProgress {
+  const BudgetProgress({
+    required this.budget,
+    required this.spentMinor,
+    required this.periodStart,
+    required this.periodEnd,
+  });
+
+  final Budget budget;
+  final int spentMinor;
+
+  /// YYYY-MM-DD, inclusive / exclusive.
+  final String periodStart;
+  final String periodEnd;
+
+  /// Share of the budget used: 0.5 = half, 1.2 = 20 % over.
+  double get fraction => spentMinor / budget.amountMinor;
+  int get leftMinor => budget.amountMinor - spentMinor;
+  bool get over => spentMinor > budget.amountMinor;
+}
+
+/// First day of the budget period that contains [today] (a local date):
+/// Monday for weekly budgets, the 1st for monthly ones. Same rule as the
+/// server, so the phone and the alerts agree.
+DateTime budgetPeriodStart(String period, DateTime today) {
+  final d = DateTime.utc(today.year, today.month, today.day);
+  if (period == 'weekly') return d.subtract(Duration(days: d.weekday - 1));
+  return DateTime.utc(d.year, d.month);
+}
+
+DateTime budgetPeriodEnd(String period, DateTime start) => period == 'weekly'
+    ? start.add(const Duration(days: 7))
+    : DateTime.utc(start.year, start.month + 1);
+
+String _ymd(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// Income and expense totals of one month, in one currency.
 class MonthTotals {
@@ -341,6 +380,115 @@ class LedgerStore {
         });
   }
 
+  // ----------------------------------------------------------------- budgets
+
+  Stream<List<Budget>> watchBudgets() =>
+      (db.select(db.budgets)..where((b) => b.deletedAt.isNull())).watch();
+
+  Future<Budget?> getBudget(String id) =>
+      (db.select(db.budgets)..where((b) => b.id.equals(id))).getSingleOrNull();
+
+  Future<Budget> createBudget({
+    String? categoryId,
+    required int amountMinor,
+    required String period,
+    List<int> alertThresholds = const [80, 100],
+  }) {
+    final row = BudgetsCompanion.insert(
+      id: _newId(),
+      categoryId: Value(categoryId),
+      amountMinor: amountMinor,
+      period: period,
+      alertThresholds: Value(_levels(alertThresholds)),
+      updatedAt: _stamp(),
+    );
+    return _write(
+      Entity.budget,
+      row.id.value,
+      row.updatedAt.value,
+      () => db.into(db.budgets).insertReturning(row),
+    );
+  }
+
+  Future<Budget> updateBudget(Budget b) {
+    final changed = b.copyWith(
+      alertThresholds: _levels(parseLevels(b.alertThresholds)),
+      updatedAt: _stamp(),
+    );
+    return _write(Entity.budget, b.id, changed.updatedAt, () async {
+      await db.update(db.budgets).replace(changed);
+      return changed;
+    });
+  }
+
+  Future<void> deleteBudget(String id) async {
+    await db.transaction(
+      () => _softDelete(db.budgets, Entity.budget, id, _stamp()),
+    );
+    onLocalWrite?.call();
+  }
+
+  /// Every live budget with its spending in the current period. Amounts in
+  /// [baseCurrency]: the server's base amount when known, otherwise the
+  /// amount itself if the transaction is already in the base currency.
+  Stream<List<BudgetProgress>> watchBudgetProgress(
+    String baseCurrency,
+    DateTime today,
+  ) {
+    final ws = budgetPeriodStart('weekly', today),
+        ms = budgetPeriodStart('monthly', today);
+    final weekStart = _ymd(ws), weekEnd = _ymd(budgetPeriodEnd('weekly', ws));
+    final monthStart = _ymd(ms),
+        monthEnd = _ymd(budgetPeriodEnd('monthly', ms));
+    return db
+        .customSelect(
+          '''
+          SELECT b.*, (
+            SELECT COALESCE(SUM(COALESCE(t.amount_base_minor,
+                     CASE WHEN t.currency = ?1 THEN t.amount_minor END)), 0)
+              FROM transactions t
+              LEFT JOIN categories c ON c.id = t.category_id
+             WHERE t.deleted_at IS NULL AND t.kind = 'expense'
+               AND t.local_date >= CASE b.period WHEN 'weekly' THEN ?2 ELSE ?4 END
+               AND t.local_date <  CASE b.period WHEN 'weekly' THEN ?3 ELSE ?5 END
+               AND (b.category_id IS NULL OR t.category_id = b.category_id
+                    OR c.parent_id = b.category_id)
+          ) AS spent
+          FROM budgets b WHERE b.deleted_at IS NULL
+          ORDER BY b.category_id IS NOT NULL, b.period, b.amount_minor DESC
+          ''',
+          variables: [
+            Variable.withString(baseCurrency),
+            Variable.withString(weekStart),
+            Variable.withString(weekEnd),
+            Variable.withString(monthStart),
+            Variable.withString(monthEnd),
+          ],
+          readsFrom: {db.budgets, db.transactions, db.categories},
+        )
+        .watch()
+        .asyncMap(
+          (rows) async => [
+            for (final r in rows)
+              () {
+                final b = db.budgets.map(r.data);
+                final weekly = b.period == 'weekly';
+                return BudgetProgress(
+                  budget: b,
+                  spentMinor: r.read<int>('spent'),
+                  periodStart: weekly ? weekStart : monthStart,
+                  periodEnd: weekly ? weekEnd : monthEnd,
+                );
+              }(),
+          ],
+        );
+  }
+
+  static String _levels(List<int> levels) {
+    final clean = {...levels.where((l) => l >= 1 && l <= 200)}.toList()..sort();
+    return clean.join(',');
+  }
+
   // ------------------------------------------------------------------ outbox
 
   /// How many local changes are waiting to sync (rejected ones excluded).
@@ -417,3 +565,8 @@ String localDateOf(DateTime t) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${l.year.toString().padLeft(4, '0')}-${two(l.month)}-${two(l.day)}';
 }
+
+/// "80,100" -> [80, 100]; bad parts are ignored.
+List<int> parseLevels(String s) => [
+  for (final p in s.split(',')) ?int.tryParse(p.trim()),
+];

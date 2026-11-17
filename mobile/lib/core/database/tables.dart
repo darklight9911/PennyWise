@@ -90,3 +90,17 @@ class Outbox extends Table {
   @override
   Set<Column<Object>> get primaryKey => {entity, rowId};
 }
+
+/// A spending limit per week or month, in the user's main currency.
+/// No category = all spending.
+class Budgets extends Table with SyncedColumns {
+  TextColumn get categoryId => text().nullable()();
+  IntColumn get amountMinor => integer()();
+
+  /// weekly or monthly
+  TextColumn get period => text()();
+
+  /// Alert levels in percent, comma separated, e.g. "80,100".
+  TextColumn get alertThresholds =>
+      text().withDefault(const Constant('80,100'))();
+}

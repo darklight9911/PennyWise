@@ -17,13 +17,16 @@ class LocalMeta extends Table {
 }
 
 /// The phone's local database. The UI reads from here (offline-first).
-@DriftDatabase(tables: [LocalMeta, Accounts, Categories, Transactions, Outbox])
+@DriftDatabase(
+  tables: [LocalMeta, Accounts, Categories, Transactions, Outbox, Budgets],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   /// v1: local_meta. v2: accounts, categories, transactions, outbox.
+  /// v3: budgets.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -38,6 +41,9 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(transactions);
         await m.createTable(outbox);
         await _createIndexes();
+      }
+      if (from < 3) {
+        await m.createTable(budgets);
       }
     },
     beforeOpen: (details) async {
