@@ -18,6 +18,8 @@ import '../../features/ledger/presentation/account_form_screen.dart';
 import '../../features/ledger/presentation/accounts_screen.dart';
 import '../../features/ledger/presentation/categories_screen.dart';
 import '../../features/ledger/presentation/transaction_form_screen.dart';
+import '../../features/recurring/presentation/recurring_form_screen.dart';
+import '../../features/recurring/presentation/recurring_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
@@ -74,6 +76,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '${Routes.goals}/:id/edit',
         builder: (_, state) =>
             GoalFormScreen(goalId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.recurring,
+        builder: (_, _) => const RecurringScreen(),
+      ),
+      GoRoute(
+        path: Routes.newRecurring,
+        builder: (_, _) => const RecurringFormScreen(),
+      ),
+      GoRoute(
+        path: '${Routes.recurring}/:id',
+        builder: (_, state) =>
+            RecurringFormScreen(ruleId: state.pathParameters['id']),
       ),
       GoRoute(
         path: Routes.categories,
