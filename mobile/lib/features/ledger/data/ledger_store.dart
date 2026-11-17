@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../recurring/domain/recurrence.dart';
 
 /// Entity names, as the sync API uses them.
 abstract final class Entity {
@@ -9,6 +10,9 @@ abstract final class Entity {
   static const category = 'category';
   static const transaction = 'transaction';
   static const budget = 'budget';
+  static const recurringRule = 'recurring_rule';
+  static const goal = 'goal';
+  static const goalContribution = 'goal_contribution';
 }
 
 abstract final class TxKind {
@@ -54,6 +58,17 @@ DateTime budgetPeriodEnd(String period, DateTime start) => period == 'weekly'
 
 String _ymd(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// A goal with the money saved towards it.
+class GoalProgress {
+  const GoalProgress({required this.goal, required this.savedMinor});
+  final Goal goal;
+  final int savedMinor;
+
+  double get fraction => savedMinor / goal.targetMinor;
+  int get leftMinor => goal.targetMinor - savedMinor;
+  bool get reached => savedMinor >= goal.targetMinor;
+}
 
 /// Income and expense totals of one month, in one currency.
 class MonthTotals {
@@ -487,6 +502,263 @@ class LedgerStore {
   static String _levels(List<int> levels) {
     final clean = {...levels.where((l) => l >= 1 && l <= 200)}.toList()..sort();
     return clean.join(',');
+  }
+
+  // ------------------------------------------------------------------- goals
+
+  Future<Goal?> getGoal(String id) =>
+      (db.select(db.goals)..where((g) => g.id.equals(id))).getSingleOrNull();
+
+  Future<Goal> createGoal({
+    required String name,
+    required int targetMinor,
+    String? deadline,
+    String icon = '',
+    String color = '',
+  }) {
+    final row = GoalsCompanion.insert(
+      id: _newId(),
+      name: name.trim(),
+      targetMinor: targetMinor,
+      deadline: Value(deadline),
+      icon: Value(icon),
+      color: Value(color),
+      updatedAt: _stamp(),
+    );
+    return _write(
+      Entity.goal,
+      row.id.value,
+      row.updatedAt.value,
+      () => db.into(db.goals).insertReturning(row),
+    );
+  }
+
+  Future<Goal> updateGoal(Goal g) {
+    final changed = g.copyWith(name: g.name.trim(), updatedAt: _stamp());
+    return _write(Entity.goal, g.id, changed.updatedAt, () async {
+      await db.update(db.goals).replace(changed);
+      return changed;
+    });
+  }
+
+  /// Deletes the goal and its contributions.
+  Future<void> deleteGoal(String id) async {
+    await db.transaction(() async {
+      final at = _stamp();
+      final contributions = await (db.select(
+        db.goalContributions,
+      )..where((c) => c.goalId.equals(id) & c.deletedAt.isNull())).get();
+      for (final c in contributions) {
+        await _softDelete(
+          db.goalContributions,
+          Entity.goalContribution,
+          c.id,
+          at,
+        );
+      }
+      await _softDelete(db.goals, Entity.goal, id, at);
+    });
+    onLocalWrite?.call();
+  }
+
+  Future<GoalContribution> addContribution({
+    required String goalId,
+    required int amountMinor,
+    required DateTime date,
+    String note = '',
+  }) {
+    final row = GoalContributionsCompanion.insert(
+      id: _newId(),
+      goalId: goalId,
+      amountMinor: amountMinor,
+      localDate: localDateOf(date),
+      note: Value(note.trim()),
+      updatedAt: _stamp(),
+    );
+    return _write(
+      Entity.goalContribution,
+      row.id.value,
+      row.updatedAt.value,
+      () => db.into(db.goalContributions).insertReturning(row),
+    );
+  }
+
+  Future<void> deleteContribution(String id) async {
+    await db.transaction(
+      () => _softDelete(
+        db.goalContributions,
+        Entity.goalContribution,
+        id,
+        _stamp(),
+      ),
+    );
+    onLocalWrite?.call();
+  }
+
+  Stream<List<GoalContribution>> watchContributions(String goalId) =>
+      (db.select(db.goalContributions)
+            ..where((c) => c.goalId.equals(goalId) & c.deletedAt.isNull())
+            ..orderBy([
+              (c) => OrderingTerm.desc(c.localDate),
+              (c) => OrderingTerm.desc(c.updatedAt),
+            ]))
+          .watch();
+
+  /// Every live goal with the money saved towards it.
+  Stream<List<GoalProgress>> watchGoalProgress() => db
+      .customSelect(
+        '''
+        SELECT g.*, COALESCE((SELECT SUM(c.amount_minor) FROM goal_contributions c
+                               WHERE c.goal_id = g.id AND c.deleted_at IS NULL), 0) AS saved
+          FROM goals g WHERE g.deleted_at IS NULL
+         ORDER BY g.archived, g.deadline IS NULL, g.deadline, g.name
+        ''',
+        readsFrom: {db.goals, db.goalContributions},
+      )
+      .watch()
+      .map(
+        (rows) => [
+          for (final r in rows)
+            GoalProgress(
+              goal: db.goals.map(r.data),
+              savedMinor: r.read<int>('saved'),
+            ),
+        ],
+      );
+
+  // --------------------------------------------------------------- recurring
+
+  Stream<List<RecurringRule>> watchRecurringRules() =>
+      (db.select(db.recurringRules)
+            ..where((r) => r.deletedAt.isNull())
+            ..orderBy([
+              (r) => OrderingTerm.desc(r.active),
+              (r) => OrderingTerm(expression: r.startDate),
+            ]))
+          .watch();
+
+  Future<RecurringRule?> getRecurringRule(String id) => (db.select(
+    db.recurringRules,
+  )..where((r) => r.id.equals(id))).getSingleOrNull();
+
+  Future<RecurringRule> createRecurringRule({
+    required String kind,
+    required String accountId,
+    required String categoryId,
+    required int amountMinor,
+    required String currency,
+    required String frequency,
+    int every = 1,
+    required String startDate,
+    String? endDate,
+    int remindDaysBefore = 0,
+    String note = '',
+  }) {
+    final row = RecurringRulesCompanion.insert(
+      id: _newId(),
+      kind: kind,
+      accountId: accountId,
+      categoryId: categoryId,
+      amountMinor: amountMinor,
+      currency: currency,
+      note: Value(note.trim()),
+      frequency: frequency,
+      every: Value(every),
+      startDate: startDate,
+      endDate: Value(endDate),
+      remindDaysBefore: Value(remindDaysBefore),
+      updatedAt: _stamp(),
+    );
+    return _write(
+      Entity.recurringRule,
+      row.id.value,
+      row.updatedAt.value,
+      () => db.into(db.recurringRules).insertReturning(row),
+    );
+  }
+
+  Future<RecurringRule> updateRecurringRule(RecurringRule r) {
+    final changed = r.copyWith(note: r.note.trim(), updatedAt: _stamp());
+    return _write(Entity.recurringRule, r.id, changed.updatedAt, () async {
+      await db.update(db.recurringRules).replace(changed);
+      return changed;
+    });
+  }
+
+  /// Deletes the rule. Bills already created stay (they happened).
+  Future<void> deleteRecurringRule(String id) async {
+    await db.transaction(
+      () => _softDelete(db.recurringRules, Entity.recurringRule, id, _stamp()),
+    );
+    onLocalWrite?.call();
+  }
+
+  /// Creates the bills that are due up to [today] (a local date) and do not
+  /// exist yet, with the same fixed ids the server uses, so the two copies
+  /// merge. A bill the user deleted is never created again. Rules whose
+  /// account was deleted are skipped. Returns how many were created.
+  Future<int> generateDueBills(DateTime today) async {
+    final rules = await (db.select(
+      db.recurringRules,
+    )..where((r) => r.active.equals(true) & r.deletedAt.isNull())).get();
+    final liveAccounts = {
+      for (final a in await (db.select(
+        db.accounts,
+      )..where((a) => a.deletedAt.isNull())).get())
+        a.id,
+    };
+    var created = 0;
+    await db.transaction(() async {
+      for (final r in rules) {
+        if (!liveAccounts.contains(r.accountId)) continue;
+        final existing = {
+          for (final t in await (db.select(
+            db.transactions,
+          )..where((t) => t.recurringId.equals(r.id))).get())
+            t.occurrenceDate,
+        };
+        final schedule = Recurrence(
+          frequency: r.frequency,
+          every: r.every,
+          start: DateTime.parse(r.startDate),
+          end: r.endDate == null ? null : DateTime.parse(r.endDate!),
+        );
+        for (final day in schedule.dates(schedule.start, today)) {
+          final date = ymd(day);
+          if (existing.contains(date)) continue;
+          final at = _stamp();
+          final id = occurrenceId(r.id, day);
+          await db
+              .into(db.transactions)
+              .insert(
+                TransactionsCompanion.insert(
+                  id: id,
+                  kind: r.kind,
+                  accountId: r.accountId,
+                  categoryId: Value(r.categoryId),
+                  amountMinor: r.amountMinor,
+                  currency: r.currency,
+                  occurredAt: DateTime(
+                    day.year,
+                    day.month,
+                    day.day,
+                    12,
+                  ).toUtc(),
+                  localDate: date,
+                  note: Value(r.note),
+                  recurringId: Value(r.id),
+                  occurrenceDate: Value(date),
+                  updatedAt: at,
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+          await _queue(Entity.transaction, id, at);
+          created++;
+        }
+      }
+    });
+    if (created > 0) onLocalWrite?.call();
+    return created;
   }
 
   // ------------------------------------------------------------------ outbox

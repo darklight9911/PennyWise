@@ -69,6 +69,11 @@ class Transactions extends Table with SyncedColumns {
   /// YYYY-MM-DD where the user was. Months and budgets use this.
   TextColumn get localDate => text().withLength(min: 10, max: 10)();
   TextColumn get note => text().withDefault(const Constant(''))();
+
+  /// Set on occurrences of a recurring rule (schema v4). The id is then
+  /// UUIDv5(rule:date), the same on the phone and the server.
+  TextColumn get recurringId => text().nullable()();
+  TextColumn get occurrenceDate => text().nullable()();
 }
 
 /// Rows changed on this phone that the server has not confirmed yet.
@@ -103,4 +108,45 @@ class Budgets extends Table with SyncedColumns {
   /// Alert levels in percent, comma separated, e.g. "80,100".
   TextColumn get alertThresholds =>
       text().withDefault(const Constant('80,100'))();
+}
+
+/// A savings goal; the target is in the main currency.
+class Goals extends Table with SyncedColumns {
+  TextColumn get name => text().withLength(min: 1, max: 60)();
+  IntColumn get targetMinor => integer()();
+
+  /// YYYY-MM-DD or null.
+  TextColumn get deadline => text().nullable()();
+  TextColumn get icon => text().withDefault(const Constant(''))();
+  TextColumn get color => text().withDefault(const Constant(''))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+}
+
+/// Money put into (positive) or taken out of (negative) a goal.
+class GoalContributions extends Table with SyncedColumns {
+  TextColumn get goalId => text()();
+  IntColumn get amountMinor => integer()();
+  TextColumn get localDate => text().withLength(min: 10, max: 10)();
+  TextColumn get note => text().withDefault(const Constant(''))();
+}
+
+/// A repeating income or expense.
+class RecurringRules extends Table with SyncedColumns {
+  /// income or expense
+  TextColumn get kind => text()();
+  TextColumn get accountId => text()();
+  TextColumn get categoryId => text()();
+  IntColumn get amountMinor => integer()();
+  TextColumn get currency => text().withLength(min: 3, max: 3)();
+  TextColumn get note => text().withDefault(const Constant(''))();
+
+  /// daily, weekly, monthly or yearly
+  TextColumn get frequency => text()();
+  IntColumn get every => integer().withDefault(const Constant(1))();
+
+  /// YYYY-MM-DD
+  TextColumn get startDate => text()();
+  TextColumn get endDate => text().nullable()();
+  IntColumn get remindDaysBefore => integer().withDefault(const Constant(0))();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
 }

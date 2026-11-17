@@ -61,6 +61,13 @@ void main() {
         currency: 'USD',
       );
       raw.execute('DROP TABLE budgets');
+      // ...and without the v4 additions, so it really is a v2 database.
+      raw.execute('DROP TABLE goals');
+      raw.execute('DROP TABLE goal_contributions');
+      raw.execute('DROP TABLE recurring_rules');
+      raw.execute('DROP INDEX transactions_occurrence_key');
+      raw.execute('ALTER TABLE transactions DROP COLUMN recurring_id');
+      raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
       raw.execute('PRAGMA user_version = 2');
       await v2.close();
 
@@ -70,7 +77,50 @@ void main() {
       expect((await store3.watchAccounts().first).single.id, a.id);
       final b = await store3.createBudget(amountMinor: 100, period: 'weekly');
       expect((await store3.watchBudgets().first).single.id, b.id);
-      expect(raw.select('PRAGMA user_version').single.values.single, 3);
+      expect(
+        raw.select('PRAGMA user_version').single.values.single,
+        v3.schemaVersion,
+      );
     },
   );
+
+  test('a version-3 database upgrades to version 4 (goals, recurring) and keeps its data', () async {
+    final raw = sqlite3.openInMemory();
+    final v3 = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    final store = LedgerStore(v3);
+    final a = await store.createAccount(
+      name: 'Bank',
+      type: 'bank',
+      currency: 'USD',
+    );
+    final food = await store.createCategory(name: 'Food', kind: 'expense');
+    final t = await store.createTransaction(
+      kind: 'expense',
+      accountId: a.id,
+      amountMinor: 1,
+      currency: 'USD',
+      occurredAt: DateTime(2026, 11, 1),
+      categoryId: food.id,
+    );
+    // Make it look exactly like a v3 database.
+    raw.execute('DROP TABLE goals');
+    raw.execute('DROP TABLE goal_contributions');
+    raw.execute('DROP TABLE recurring_rules');
+    raw.execute('DROP INDEX transactions_occurrence_key');
+    raw.execute('ALTER TABLE transactions DROP COLUMN recurring_id');
+    raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
+    raw.execute('PRAGMA user_version = 3');
+    await v3.close();
+
+    final v4 = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(v4.close);
+    final store4 = LedgerStore(v4);
+    final old = await store4.getTransaction(t.id);
+    expect(old!.recurringId, isNull, reason: 'old rows keep working');
+    final g = await store4.createGoal(name: 'Trip', targetMinor: 100);
+    expect((await store4.watchGoalProgress().first).single.goal.id, g.id);
+    expect(raw.select('PRAGMA user_version').single.values.single, 4);
+  });
 }
