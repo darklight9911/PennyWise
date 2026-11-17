@@ -98,6 +98,7 @@ void main() {
         isNotNull,
         reason: 'session saved to secure storage',
       );
+      await finish(tester);
     },
   );
 
@@ -117,6 +118,7 @@ void main() {
     await tester.enterText(field('Password'), pw);
     await tapOn(tester, find.widgetWithText(FilledButton, 'Create account'));
     expect(find.text('Hi, Bo'), findsOneWidget);
+    await finish(tester);
   });
 
   testWidgets('an unexpected error still shows a message (no silent failure)', (
@@ -181,6 +183,7 @@ void main() {
       isNotNull,
       reason: 'offline must not log the user out',
     );
+    await finish(tester);
   });
 
   testWidgets('log out from settings returns to log in', (tester) async {
@@ -207,6 +210,7 @@ void main() {
     await settle(tester);
     expect(find.text('Email confirmed. Thank you!'), findsOneWidget);
     expect(find.text('Confirm your email'), findsNothing);
+    await finish(tester);
   });
 
   testWidgets('Settings can send the confirm-email link again', (tester) async {
@@ -216,6 +220,7 @@ void main() {
     await tapOn(tester, find.text('Send the link again'));
     expect(find.text('We sent a new link to ann@example.com.'), findsOneWidget);
     expect(h.backend.callCount('/resend-verification'), 1);
+    await finish(tester);
   });
 
   testWidgets('an expired verify link explains what happened', (tester) async {
