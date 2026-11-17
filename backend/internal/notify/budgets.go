@@ -170,21 +170,5 @@ func (b *BudgetChecker) send(ctx context.Context, userID uuid.UUID, bu budgetRow
 		m.Title = fmt.Sprintf("%s: budget reached", name)
 	}
 
-	rows, err := b.pool.Query(ctx, `SELECT push_token FROM devices WHERE user_id = $1`, userID)
-	if err != nil {
-		b.logger.ErrorContext(ctx, "listing devices failed", "err", err)
-		return
-	}
-	tokens, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		b.logger.ErrorContext(ctx, "listing devices failed", "err", err)
-		return
-	}
-	for _, t := range tokens {
-		if err := b.sender.Send(ctx, t, m); err != nil {
-			// The alert stays recorded: one failed phone must not cause
-			// repeats on the others. Logged for follow-up.
-			b.logger.WarnContext(ctx, "push failed", "err", err)
-		}
-	}
+	SendToUser(ctx, b.pool, b.sender, b.logger, userID, m)
 }
