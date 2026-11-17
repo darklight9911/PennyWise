@@ -310,7 +310,7 @@ Rules:
 | 2b | Receipts | R2 bucket, presigned upload/view, HEAD check on confirm, nightly clean-up job, photo attach UI | 4 days |
 | 3 ✅ | Sync | Outbox, push/pull with per-user versions, conflict handling, idempotent push, offline and race-condition tests (built together with Milestone 2) | 1.5 weeks |
 | 4 🟡 | Budgets + alerts | Budgets (sync, screens, dashboard), worker job with once-per-period alerts, device registration. **Open:** real FCM delivery and the phone's push registration need a Firebase project (alerts are logged until then) | 1 week |
-| 5 | Goals + recurring | Goals, recurring engine with deterministic IDs, reminders | 1 week |
+| 5 🟡 | Goals + recurring | Goals with contributions, recurring rules with deterministic occurrence IDs generated on the phone and the server (15-minute worker job), reminders, screens for both. **Open:** reminders are logged until Firebase push is set up | 1 week |
 | 6 | Multi-currency | FX job, conversion in totals and reports, base-currency change job | 1 week |
 | 7 | Reports + export | Charts, CSV/PDF export jobs | 1 week |
 | 8 | Polish + security | App lock, dark mode, empty states, a11y, rate limits, audit | 1 week |
