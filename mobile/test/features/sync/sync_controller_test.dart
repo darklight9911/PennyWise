@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pennywise/features/auth/application/auth_controller.dart';
 import 'package:pennywise/features/ledger/application/ledger_providers.dart';
 import 'package:pennywise/features/ledger/data/ledger_store.dart';
+import 'package:pennywise/features/recurring/domain/recurrence.dart';
 import 'package:pennywise/features/sync/sync_controller.dart';
 
 import '../../support/test_app.dart';
@@ -149,4 +150,39 @@ void main() {
       expect(c.read(syncControllerProvider).error, isNull);
     },
   );
+
+  test('bills that came due are created and uploaded when syncing', () async {
+    await c.read(authControllerProvider.notifier).login(email, password);
+    await settle();
+    final store = await c.read(ledgerStoreProvider.future);
+    final bank = await store.createAccount(
+      name: 'Bank',
+      type: 'bank',
+      currency: 'USD',
+    );
+    final rent = await store.createCategory(name: 'Rent', kind: 'expense');
+    final today = DateTime.now();
+    final start = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(const Duration(days: 2));
+    final rule = await store.createRecurringRule(
+      kind: 'expense',
+      accountId: bank.id,
+      categoryId: rent.id,
+      amountMinor: 999,
+      currency: 'USD',
+      frequency: 'daily',
+      startDate: ymd(start),
+    );
+    await settle();
+    await c.read(syncControllerProvider.notifier).syncNow();
+    await settle();
+
+    final bills = h.backend.serverRows.values
+        .where((r) => r.data['recurring_id'] == rule.id)
+        .toList();
+    expect(bills, hasLength(3), reason: 'two days ago, yesterday, today');
+  });
 }

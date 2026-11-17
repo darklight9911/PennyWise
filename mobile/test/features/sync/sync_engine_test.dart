@@ -6,6 +6,7 @@ import 'package:pennywise/core/network/api_client.dart';
 import 'package:pennywise/core/network/api_exception.dart';
 import 'package:pennywise/features/auth/data/auth_api.dart';
 import 'package:pennywise/features/ledger/data/ledger_store.dart';
+import 'package:pennywise/features/recurring/domain/recurrence.dart';
 import 'package:pennywise/features/sync/sync_engine.dart';
 
 import '../../support/fake_backend.dart';
@@ -315,7 +316,7 @@ void main() {
   });
 
   test('unknown entity types from a newer server are skipped safely', () async {
-    h.backend.serverWrite(email, 'goal', 'g1', {
+    h.backend.serverWrite(email, 'future_thing', 'f1', {
       'x': 1,
     }, updatedAt: DateTime.utc(2026));
     final report = await engine.sync();
@@ -362,4 +363,66 @@ void main() {
     expect(budgets['b-2']!.alertThresholds, '80,100');
     expect(budgets['b-2']!.categoryId, isNull);
   });
+
+  test(
+    'goals, contributions, recurring rules and bills sync both ways',
+    () async {
+      final bank = await store.createAccount(
+        name: 'Bank',
+        type: 'bank',
+        currency: 'USD',
+      );
+      final rent = await store.createCategory(name: 'Rent', kind: 'expense');
+      final goal = await store.createGoal(
+        name: 'Trip',
+        targetMinor: 90000,
+        deadline: '2027-03-01',
+      );
+      final c = await store.addContribution(
+        goalId: goal.id,
+        amountMinor: 1500,
+        date: DateTime(2026, 11, 3),
+      );
+      final rule = await store.createRecurringRule(
+        kind: 'expense',
+        accountId: bank.id,
+        categoryId: rent.id,
+        amountMinor: 120000,
+        currency: 'USD',
+        frequency: 'monthly',
+        startDate: '2026-10-30',
+        remindDaysBefore: 2,
+      );
+      await store.generateDueBills(DateTime(2026, 11, 18));
+      await engine.sync();
+
+      expect(onServer(Entity.goal, goal.id)!.data['deadline'], '2027-03-01');
+      expect(
+        onServer(Entity.goalContribution, c.id)!.data['amount_minor'],
+        1500,
+      );
+      expect(
+        onServer(Entity.recurringRule, rule.id)!.data['remind_days_before'],
+        2,
+      );
+      final bill = onServer(
+        Entity.transaction,
+        occurrenceId(rule.id, DateTime(2026, 10, 30)),
+      )!;
+      expect(bill.data['recurring_id'], rule.id);
+      expect(bill.data['occurrence_date'], '2026-10-30');
+
+      // A bill the server's worker made comes down with its fields.
+      final novId = occurrenceId(rule.id, DateTime(2026, 11, 30));
+      h.backend.serverWrite(email, Entity.transaction, novId, {
+        ...bill.data,
+        'local_date': '2026-11-30',
+        'occurrence_date': '2026-11-30',
+      }, updatedAt: DateTime.now().toUtc());
+      await engine.sync();
+      final pulled = await store.getTransaction(novId);
+      expect(pulled!.recurringId, rule.id);
+      expect(pulled.occurrenceDate, '2026-11-30');
+    },
+  );
 }

@@ -249,7 +249,15 @@ class FakeBackend implements HttpClientAdapter {
   }
 
   Map<String, dynamic> _pull(String email, int since) {
-    const order = {'account': 0, 'category': 1, 'transaction': 2, 'budget': 3};
+    const order = {
+      'account': 0,
+      'category': 1,
+      'recurring_rule': 2,
+      'transaction': 3,
+      'budget': 4,
+      'goal': 5,
+      'goal_contribution': 6,
+    };
     final rows =
         serverRows.values
             .where((r) => r.owner == email && r.version > since)

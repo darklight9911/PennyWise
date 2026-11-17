@@ -227,6 +227,8 @@ class SyncEngine {
             'occurred_at': _iso(t.occurredAt),
             'local_date': t.localDate,
             'note': t.note,
+            'recurring_id': t.recurringId,
+            'occurrence_date': t.occurrenceDate,
           }),
         );
       case Entity.budget:
@@ -241,6 +243,58 @@ class SyncEngine {
             'amount_minor': b.amountMinor,
             'period': b.period,
             'alert_thresholds': parseLevels(b.alertThresholds),
+          }),
+        );
+      case Entity.recurringRule:
+        final r = await (db.select(
+          db.recurringRules,
+        )..where((x) => x.id.equals(id))).getSingleOrNull();
+        if (r == null) return null;
+        return (
+          updatedAt: r.updatedAt,
+          json: wrap(r.updatedAt, r.deletedAt, {
+            'kind': r.kind,
+            'account_id': r.accountId,
+            'category_id': r.categoryId,
+            'amount_minor': r.amountMinor,
+            'currency': r.currency,
+            'note': r.note,
+            'frequency': r.frequency,
+            'every': r.every,
+            'start_date': r.startDate,
+            'end_date': r.endDate,
+            'remind_days_before': r.remindDaysBefore,
+            'active': r.active,
+          }),
+        );
+      case Entity.goal:
+        final g = await (db.select(
+          db.goals,
+        )..where((x) => x.id.equals(id))).getSingleOrNull();
+        if (g == null) return null;
+        return (
+          updatedAt: g.updatedAt,
+          json: wrap(g.updatedAt, g.deletedAt, {
+            'name': g.name,
+            'target_minor': g.targetMinor,
+            'deadline': g.deadline,
+            'icon': g.icon,
+            'color': g.color,
+            'archived': g.archived,
+          }),
+        );
+      case Entity.goalContribution:
+        final c = await (db.select(
+          db.goalContributions,
+        )..where((x) => x.id.equals(id))).getSingleOrNull();
+        if (c == null) return null;
+        return (
+          updatedAt: c.updatedAt,
+          json: wrap(c.updatedAt, c.deletedAt, {
+            'goal_id': c.goalId,
+            'amount_minor': c.amountMinor,
+            'local_date': c.localDate,
+            'note': c.note,
           }),
         );
     }
@@ -354,6 +408,8 @@ class SyncEngine {
                 occurredAt: DateTime.parse(d['occurred_at'] as String),
                 localDate: d['local_date'] as String,
                 note: Value(d['note'] as String? ?? ''),
+                recurringId: Value(d['recurring_id'] as String?),
+                occurrenceDate: Value(d['occurrence_date'] as String?),
                 updatedAt: updatedAt,
                 deletedAt: Value(deletedAt),
                 serverVersion: Value(version),
@@ -373,6 +429,61 @@ class SyncEngine {
                     ',',
                   ),
                 ),
+                updatedAt: updatedAt,
+                deletedAt: Value(deletedAt),
+                serverVersion: Value(version),
+              ),
+            );
+      case Entity.recurringRule:
+        await db
+            .into(db.recurringRules)
+            .insertOnConflictUpdate(
+              RecurringRulesCompanion.insert(
+                id: id,
+                kind: d['kind'] as String,
+                accountId: d['account_id'] as String,
+                categoryId: d['category_id'] as String,
+                amountMinor: d['amount_minor'] as int,
+                currency: d['currency'] as String,
+                note: Value(d['note'] as String? ?? ''),
+                frequency: d['frequency'] as String,
+                every: Value(d['every'] as int? ?? 1),
+                startDate: d['start_date'] as String,
+                endDate: Value(d['end_date'] as String?),
+                remindDaysBefore: Value(d['remind_days_before'] as int? ?? 0),
+                active: Value(d['active'] as bool? ?? true),
+                updatedAt: updatedAt,
+                deletedAt: Value(deletedAt),
+                serverVersion: Value(version),
+              ),
+            );
+      case Entity.goal:
+        await db
+            .into(db.goals)
+            .insertOnConflictUpdate(
+              GoalsCompanion.insert(
+                id: id,
+                name: d['name'] as String,
+                targetMinor: d['target_minor'] as int,
+                deadline: Value(d['deadline'] as String?),
+                icon: Value(d['icon'] as String? ?? ''),
+                color: Value(d['color'] as String? ?? ''),
+                archived: Value(d['archived'] as bool? ?? false),
+                updatedAt: updatedAt,
+                deletedAt: Value(deletedAt),
+                serverVersion: Value(version),
+              ),
+            );
+      case Entity.goalContribution:
+        await db
+            .into(db.goalContributions)
+            .insertOnConflictUpdate(
+              GoalContributionsCompanion.insert(
+                id: id,
+                goalId: d['goal_id'] as String,
+                amountMinor: d['amount_minor'] as int,
+                localDate: d['local_date'] as String,
+                note: Value(d['note'] as String? ?? ''),
                 updatedAt: updatedAt,
                 deletedAt: Value(deletedAt),
                 serverVersion: Value(version),

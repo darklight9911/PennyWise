@@ -7,6 +7,7 @@ import '../../core/database/local_database.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../ledger/application/ledger_providers.dart';
+import '../ledger/data/ledger_store.dart';
 import 'sync_engine.dart';
 
 /// What the UI shows about syncing.
@@ -50,6 +51,7 @@ final syncDebounceProvider = Provider<Duration>(
 /// when the app comes back to the foreground.
 class SyncController extends Notifier<SyncStatus> {
   SyncEngine? _engine;
+  LedgerStore? _store;
   Timer? _debounce;
   AppLifecycleListener? _lifecycle;
   void Function()? _removeCloseHook;
@@ -73,6 +75,7 @@ class SyncController extends Notifier<SyncStatus> {
       _detach();
       if (store == null) return;
 
+      _store = store;
       final engine = _engine = SyncEngine(
         db: store.db,
         dio: ref.read(dioProvider),
@@ -98,6 +101,7 @@ class SyncController extends Notifier<SyncStatus> {
     _removeCloseHook = null;
     final old = _engine;
     _engine = null;
+    _store = null;
     if (old != null) unawaited(old.stop());
   }
 
@@ -115,6 +119,9 @@ class SyncController extends Notifier<SyncStatus> {
     if (engine == null) return;
     _set(state.copyWith(syncing: true, error: state.error));
     try {
+      // Bills that came due (e.g. while the phone was off) are created
+      // first, with the server's fixed ids, so this sync uploads them.
+      await _store?.generateDueBills(DateTime.now());
       await engine.sync();
       if (engine.isStopped || !identical(engine, _engine)) return;
       _set(SyncStatus(lastSyncedAt: DateTime.now()));
