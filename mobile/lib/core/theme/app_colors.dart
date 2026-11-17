@@ -12,7 +12,7 @@ abstract final class AppColors {
 
   // Derived
   static const surface = Color(0xFFFBF9F5);
-  static const onSurface = Color(0xFF1F2A29);
+  static const onSurface = Color(0xDE000000); // black at 87%, main text
   static const muted = Color(0xFF5C6B69);
   static const outline = Color(0xFFD9D2C5);
 

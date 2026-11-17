@@ -77,6 +77,20 @@ flutter:
     # Penny the panda mascot. Built from rive/penny (see rive/README.md).
     - assets/rive/penny.riv
 
+  # Onest (SIL Open Font License, see assets/fonts/onest/OFL.txt).
+  # Bundled, not downloaded at runtime, so text looks right offline.
+  fonts:
+    - family: Onest
+      fonts:
+        - asset: assets/fonts/onest/Onest-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/onest/Onest-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/onest/Onest-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/onest/Onest-Bold.ttf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
