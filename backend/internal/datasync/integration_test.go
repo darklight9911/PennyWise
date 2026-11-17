@@ -20,6 +20,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"pennywise/backend/internal/recurring"
 	"pennywise/backend/migrations"
 )
 
@@ -580,5 +581,141 @@ func TestBudgetsSync(t *testing.T) {
 	}
 	if p.Changes[len(p.Changes)-1].Entity != EntityBudget {
 		t.Error("budgets must come after categories in a pull")
+	}
+}
+
+func TestGoalsAndContributions(t *testing.T) {
+	s := testService(t)
+	ann, bo := newUser(t, s, "USD"), newUser(t, s, "USD")
+	goal, c1, c2 := uuid.New(), uuid.New(), uuid.New()
+	r := push(t, s, ann,
+		ch(EntityGoalContrib, c1, t0, map[string]any{"goal_id": goal, "amount_minor": 5000, "local_date": "2026-11-01"}),
+		ch(EntityGoal, goal, t0, map[string]any{"name": " Laptop ", "target_minor": 150000, "deadline": "2027-06-30", "color": "#2c706e"}),
+		ch(EntityGoalContrib, c2, t0, map[string]any{"goal_id": goal, "amount_minor": -1000, "local_date": "2026-11-05", "note": "oops"}),
+	)
+	for id, st := range statuses(r) {
+		if st != StatusApplied {
+			t.Fatalf("%s: %s %v", id, st, errCodes(r))
+		}
+	}
+	var name, color string
+	_ = s.pool.QueryRow(context.Background(), `SELECT name, color FROM goals WHERE id = $1`, goal).Scan(&name, &color)
+	if name != "Laptop" || color != "#2C706E" {
+		t.Fatalf("goal stored as %q %q (want trimmed name, upper-case colour)", name, color)
+	}
+
+	// Bo cannot add money to Ann's goal.
+	steal := uuid.New()
+	r = push(t, s, bo, ch(EntityGoalContrib, steal, t0, map[string]any{"goal_id": goal, "amount_minor": 1, "local_date": "2026-11-01"}))
+	if errCodes(r)[steal] != "reference_not_found" {
+		t.Fatalf("contribution to another user's goal: %v", errCodes(r))
+	}
+	zero := uuid.New()
+	r = push(t, s, ann, ch(EntityGoalContrib, zero, t0, map[string]any{"goal_id": goal, "amount_minor": 0, "local_date": "2026-11-01"}))
+	if errCodes(r)[zero] != "invalid" {
+		t.Fatalf("zero contribution: %v", errCodes(r))
+	}
+
+	p := pull(t, s, ann, 0)
+	order := []string{}
+	for _, c := range p.Changes {
+		order = append(order, c.Entity)
+	}
+	if fmt.Sprint(order) != "[goal goal_contribution goal_contribution]" {
+		t.Fatalf("pull order = %v (goal before its contributions)", order)
+	}
+}
+
+func TestRecurringRulesAndOccurrences(t *testing.T) {
+	s := testService(t)
+	u := newUser(t, s, "USD")
+	bank, eur, rent, salary := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	push(t, s, u,
+		ch(EntityAccount, bank, t0, account("Bank", "USD")),
+		ch(EntityAccount, eur, t0, account("Euro", "EUR")),
+		ch(EntityCategory, rent, t0, category("Rent", "expense")),
+		ch(EntityCategory, salary, t0, category("Salary", "income")),
+	)
+	rule := func(mod func(map[string]any)) map[string]any {
+		d := map[string]any{
+			"kind": "expense", "account_id": bank, "category_id": rent, "amount_minor": 120000,
+			"currency": "USD", "frequency": "monthly", "every": 1, "start_date": "2026-01-31",
+			"remind_days_before": 2, "active": true,
+		}
+		if mod != nil {
+			mod(d)
+		}
+		return d
+	}
+	ok := uuid.New()
+	bad := map[string]map[string]any{
+		"currency":     rule(func(d map[string]any) { d["account_id"] = eur }),
+		"category":     rule(func(d map[string]any) { d["category_id"] = salary }),
+		"end":          rule(func(d map[string]any) { d["end_date"] = "2025-12-31" }),
+		"frequency":    rule(func(d map[string]any) { d["frequency"] = "hourly" }),
+		"remind":       rule(func(d map[string]any) { d["remind_days_before"] = 31 }),
+		"transferKind": rule(func(d map[string]any) { d["kind"] = "transfer" }),
+	}
+	changes := []Change{ch(EntityRecurring, ok, t0, rule(nil))}
+	ids := map[string]uuid.UUID{}
+	for name, d := range bad {
+		ids[name] = uuid.New()
+		changes = append(changes, ch(EntityRecurring, ids[name], t0, d))
+	}
+	r := push(t, s, u, changes...)
+	if statuses(r)[ok] != StatusApplied {
+		t.Fatalf("valid rule: %v", errCodes(r))
+	}
+	for name, id := range ids {
+		if statuses(r)[id] != StatusRejected {
+			t.Errorf("rule %s accepted", name)
+		}
+	}
+
+	occ := func(id uuid.UUID, date string, rule uuid.UUID) Change {
+		return ch(EntityTransaction, id, t0, map[string]any{
+			"account_id": bank, "category_id": rent, "kind": "expense", "amount_minor": 120000,
+			"currency": "USD", "occurred_at": t0, "local_date": date,
+			"recurring_id": rule, "occurrence_date": date,
+		})
+	}
+	feb := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+	good := recurring.OccurrenceID(ok, feb)
+	wrong, unknownRule := uuid.New(), uuid.New()
+	r = push(t, s, u,
+		occ(good, "2026-02-28", ok),
+		occ(wrong, "2026-03-31", ok),
+		occ(recurring.OccurrenceID(unknownRule, feb), "2026-02-28", unknownRule),
+	)
+	if statuses(r)[good] != StatusApplied {
+		t.Fatalf("occurrence with the right id: %v", errCodes(r))
+	}
+	if errCodes(r)[wrong] != "invalid" {
+		t.Fatalf("occurrence with a random id: %v", errCodes(r))
+	}
+	if errCodes(r)[recurring.OccurrenceID(unknownRule, feb)] != "reference_not_found" {
+		t.Fatalf("occurrence of an unknown rule: %v", errCodes(r))
+	}
+
+	// The server's worker and the phone create the same occurrence: one row.
+	again := push(t, s, u, occ(good, "2026-02-28", ok))
+	if statuses(again)[good] != StatusStale {
+		t.Fatalf("second copy of the occurrence: %v", statuses(again))
+	}
+	var n int
+	_ = s.pool.QueryRow(context.Background(), `SELECT count(*) FROM transactions WHERE recurring_id = $1`, ok).Scan(&n)
+	if n != 1 {
+		t.Fatalf("%d occurrence rows, want 1", n)
+	}
+
+	p := pull(t, s, u, 0)
+	for _, c := range p.Changes {
+		if c.ID == good {
+			var d map[string]any
+			_ = json.Unmarshal(c.Data, &d)
+			if d["recurring_id"] != ok.String() || d["occurrence_date"] != "2026-02-28" {
+				t.Fatalf("pulled occurrence = %v", d)
+			}
+		}
 	}
 }

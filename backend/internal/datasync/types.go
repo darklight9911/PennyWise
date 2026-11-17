@@ -24,9 +24,15 @@ const (
 	EntityCategory    = "category"
 	EntityTransaction = "transaction"
 	EntityBudget      = "budget"
+	EntityRecurring   = "recurring_rule"
+	EntityGoal        = "goal"
+	EntityGoalContrib = "goal_contribution"
 )
 
-var entityOrder = map[string]int{EntityAccount: 0, EntityCategory: 1, EntityTransaction: 2, EntityBudget: 3}
+var entityOrder = map[string]int{
+	EntityAccount: 0, EntityCategory: 1, EntityRecurring: 2, EntityTransaction: 3,
+	EntityBudget: 4, EntityGoal: 5, EntityGoalContrib: 6,
+}
 
 // Limits. PullLimit must be larger than MaxPushChanges so a page always
 // holds at least one complete version group.
@@ -140,6 +146,10 @@ type TransactionData struct {
 	OccurredAt          time.Time  `json:"occurred_at"`
 	LocalDate           string     `json:"local_date"` // YYYY-MM-DD in the user's time zone
 	Note                string     `json:"note"`
+	// Set on occurrences of a recurring rule; the ID must then be
+	// recurring.OccurrenceID(rule, occurrence_date).
+	RecurringID    *uuid.UUID `json:"recurring_id"`
+	OccurrenceDate *string    `json:"occurrence_date"`
 }
 
 // BudgetData is the editable part of a budget. The amount is in the user's
@@ -149,4 +159,39 @@ type BudgetData struct {
 	AmountMinor     int64      `json:"amount_minor"`
 	Period          string     `json:"period"` // weekly or monthly
 	AlertThresholds []int32    `json:"alert_thresholds"`
+}
+
+// RecurringRuleData is a repeating income or expense.
+type RecurringRuleData struct {
+	Kind             string    `json:"kind"`
+	AccountID        uuid.UUID `json:"account_id"`
+	CategoryID       uuid.UUID `json:"category_id"`
+	AmountMinor      int64     `json:"amount_minor"`
+	Currency         string    `json:"currency"`
+	Note             string    `json:"note"`
+	Frequency        string    `json:"frequency"` // daily, weekly, monthly, yearly
+	Every            int32     `json:"every"`
+	StartDate        string    `json:"start_date"`
+	EndDate          *string   `json:"end_date"`
+	RemindDaysBefore int32     `json:"remind_days_before"`
+	Active           bool      `json:"active"`
+}
+
+// GoalData is a savings goal; the target is in the base currency.
+type GoalData struct {
+	Name        string  `json:"name"`
+	TargetMinor int64   `json:"target_minor"`
+	Deadline    *string `json:"deadline"`
+	Icon        string  `json:"icon"`
+	Color       string  `json:"color"`
+	Archived    bool    `json:"archived"`
+}
+
+// GoalContributionData is money put into (positive) or taken out of
+// (negative) a goal.
+type GoalContributionData struct {
+	GoalID      uuid.UUID `json:"goal_id"`
+	AmountMinor int64     `json:"amount_minor"`
+	LocalDate   string    `json:"local_date"`
+	Note        string    `json:"note"`
 }

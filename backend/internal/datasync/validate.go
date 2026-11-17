@@ -83,6 +83,12 @@ func validateTransaction(d *TransactionData) *ChangeError {
 	if utf8.RuneCountInString(d.Note) > 500 {
 		return reject("invalid", "note", "note must be at most 500 characters")
 	}
+	if (d.RecurringID == nil) != (d.OccurrenceDate == nil) {
+		return reject("invalid", "recurring_id", "recurring_id and occurrence_date go together")
+	}
+	if d.OccurrenceDate != nil && !validDate(*d.OccurrenceDate) {
+		return reject("invalid", "occurrence_date", "occurrence_date must be YYYY-MM-DD")
+	}
 	if d.Kind == transferKind {
 		if d.TransferAccountID == nil || d.TransferAmountMinor == nil {
 			return reject("invalid", "transfer_account_id", "a transfer needs a target account and amount")
@@ -158,5 +164,73 @@ func validateBudget(d *BudgetData) *ChangeError {
 	}
 	slices.Sort(clean)
 	d.AlertThresholds = clean
+	return nil
+}
+
+var frequencies = map[string]bool{"daily": true, "weekly": true, "monthly": true, "yearly": true}
+
+func validDate(s string) bool {
+	_, err := time.Parse(time.DateOnly, s)
+	return err == nil
+}
+
+func validateRecurring(d *RecurringRuleData) *ChangeError {
+	if d.Kind != "income" && d.Kind != "expense" {
+		return reject("invalid", "kind", "kind must be income or expense")
+	}
+	if d.AmountMinor <= 0 || d.AmountMinor > maxAmountMinor {
+		return reject("invalid", "amount_minor", "amount must be positive")
+	}
+	if _, err := money.Exponent(d.Currency); err != nil {
+		return reject("invalid", "currency", "currency must be a 3-letter ISO 4217 code")
+	}
+	if utf8.RuneCountInString(d.Note) > 500 {
+		return reject("invalid", "note", "note must be at most 500 characters")
+	}
+	if !frequencies[d.Frequency] {
+		return reject("invalid", "frequency", "frequency must be daily, weekly, monthly or yearly")
+	}
+	if d.Every == 0 {
+		d.Every = 1
+	}
+	if d.Every < 1 || d.Every > 365 {
+		return reject("invalid", "every", "every must be 1 to 365")
+	}
+	if !validDate(d.StartDate) {
+		return reject("invalid", "start_date", "start_date must be YYYY-MM-DD")
+	}
+	if d.EndDate != nil && (!validDate(*d.EndDate) || *d.EndDate < d.StartDate) {
+		return reject("invalid", "end_date", "end_date must be a date on or after start_date")
+	}
+	if d.RemindDaysBefore < 0 || d.RemindDaysBefore > 30 {
+		return reject("invalid", "remind_days_before", "reminders can be 0 to 30 days before")
+	}
+	return nil
+}
+
+func validateGoal(d *GoalData) *ChangeError {
+	d.Name = strings.TrimSpace(d.Name)
+	if n := utf8.RuneCountInString(d.Name); n < 1 || n > 60 {
+		return reject("invalid", "name", "name must be 1 to 60 characters")
+	}
+	if d.TargetMinor <= 0 || d.TargetMinor > maxAmountMinor {
+		return reject("invalid", "target_minor", "target must be positive")
+	}
+	if d.Deadline != nil && !validDate(*d.Deadline) {
+		return reject("invalid", "deadline", "deadline must be YYYY-MM-DD")
+	}
+	return validateLook(&d.Icon, &d.Color)
+}
+
+func validateContribution(d *GoalContributionData) *ChangeError {
+	if d.AmountMinor == 0 || d.AmountMinor > maxAmountMinor || d.AmountMinor < -maxAmountMinor {
+		return reject("invalid", "amount_minor", "amount must not be zero")
+	}
+	if !validDate(d.LocalDate) {
+		return reject("invalid", "local_date", "local_date must be YYYY-MM-DD")
+	}
+	if utf8.RuneCountInString(d.Note) > 500 {
+		return reject("invalid", "note", "note must be at most 500 characters")
+	}
 	return nil
 }

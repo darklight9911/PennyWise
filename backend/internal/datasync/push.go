@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"pennywise/backend/internal/recurring"
 )
 
 // Errors for the whole request (single changes fail with a Result instead).
@@ -141,8 +143,14 @@ func (s *Service) applyOne(ctx context.Context, tx pgx.Tx, userID uuid.UUID, ver
 		ok, cerr, err = upsertTransaction(ctx, sp, row, base, ch.Data)
 	case EntityBudget:
 		ok, cerr, err = upsertBudget(ctx, sp, row, ch.Data)
+	case EntityRecurring:
+		ok, cerr, err = upsertRecurring(ctx, sp, row, ch.Data)
+	case EntityGoal:
+		ok, cerr, err = upsertGoal(ctx, sp, row, ch.Data)
+	case EntityGoalContrib:
+		ok, cerr, err = upsertContribution(ctx, sp, row, ch.Data)
 	default:
-		cerr = reject("invalid", "entity", "entity must be account, category, transaction or budget")
+		cerr = reject("invalid", "entity", "unknown entity "+ch.Entity)
 	}
 
 	if err != nil {
@@ -290,8 +298,8 @@ const upsertTransactionSQL = `
 INSERT INTO transactions (id, user_id, account_id, category_id, kind, amount_minor, currency,
                           fx_rate_to_base, fx_rate_source, amount_base_minor,
                           transfer_account_id, transfer_amount_minor, occurred_at, local_date,
-                          note, version, updated_at, deleted_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                          note, version, updated_at, deleted_at, recurring_id, occurrence_date)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 ON CONFLICT (id) DO UPDATE SET
     account_id = EXCLUDED.account_id, category_id = EXCLUDED.category_id, kind = EXCLUDED.kind,
     amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
@@ -300,7 +308,8 @@ ON CONFLICT (id) DO UPDATE SET
     transfer_account_id = EXCLUDED.transfer_account_id,
     transfer_amount_minor = EXCLUDED.transfer_amount_minor,
     occurred_at = EXCLUDED.occurred_at, local_date = EXCLUDED.local_date, note = EXCLUDED.note,
-    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at
+    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at,
+    recurring_id = EXCLUDED.recurring_id, occurrence_date = EXCLUDED.occurrence_date
 WHERE transactions.user_id = EXCLUDED.user_id AND transactions.updated_at < EXCLUDED.updated_at
 RETURNING id`
 
@@ -349,6 +358,22 @@ func upsertTransaction(ctx context.Context, tx pgx.Tx, r rowMeta, base string, d
 		}
 	}
 
+	if d.RecurringID != nil {
+		var owned bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM recurring_rules WHERE id = $1 AND user_id = $2)`,
+			*d.RecurringID, r.userID).Scan(&owned); err != nil {
+			return false, nil, err
+		}
+		if !owned {
+			return false, reject("reference_not_found", "recurring_id", "recurring rule not found"), nil
+		}
+		day, _ := time.Parse(time.DateOnly, *d.OccurrenceDate)
+		if recurring.OccurrenceID(*d.RecurringID, day) != r.id {
+			return false, reject("invalid", "id", "an occurrence's id must be UUIDv5(rule:date)"), nil
+		}
+	}
+
 	// Amount in the user's base currency. Same currency: rate 1.
 	// Other currencies get rates in Milestone 6 (left empty until then).
 	var (
@@ -362,7 +387,8 @@ func upsertTransaction(ctx context.Context, tx pgx.Tx, r rowMeta, base string, d
 
 	return execUpsert(ctx, tx, upsertTransactionSQL, r.id, r.userID, d.AccountID, d.CategoryID, d.Kind,
 		d.AmountMinor, d.Currency, rate, source, baseAmount, d.TransferAccountID, d.TransferAmountMinor,
-		d.OccurredAt, d.LocalDate, d.Note, r.version, r.updatedAt, r.deletedAt)
+		d.OccurredAt, d.LocalDate, d.Note, r.version, r.updatedAt, r.deletedAt,
+		d.RecurringID, d.OccurrenceDate)
 }
 
 func accountCurrency(ctx context.Context, tx pgx.Tx, id, userID uuid.UUID) (string, bool, error) {
@@ -412,6 +438,106 @@ func upsertBudget(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) (bool,
 		d.Period, d.AlertThresholds, r.version, r.updatedAt, r.deletedAt)
 }
 
+// --- recurring rules ---
+
+const upsertRecurringSQL = `
+INSERT INTO recurring_rules (id, user_id, kind, account_id, category_id, amount_minor, currency,
+    note, frequency, every, start_date, end_date, remind_days_before, active,
+    version, updated_at, deleted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+ON CONFLICT (id) DO UPDATE SET
+    kind = EXCLUDED.kind, account_id = EXCLUDED.account_id, category_id = EXCLUDED.category_id,
+    amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency, note = EXCLUDED.note,
+    frequency = EXCLUDED.frequency, every = EXCLUDED.every, start_date = EXCLUDED.start_date,
+    end_date = EXCLUDED.end_date, remind_days_before = EXCLUDED.remind_days_before,
+    active = EXCLUDED.active, version = EXCLUDED.version, updated_at = EXCLUDED.updated_at,
+    deleted_at = EXCLUDED.deleted_at
+WHERE recurring_rules.user_id = EXCLUDED.user_id AND recurring_rules.updated_at < EXCLUDED.updated_at
+RETURNING id`
+
+func upsertRecurring(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) (bool, *ChangeError, error) {
+	var d RecurringRuleData
+	if cerr := decodeStrict(data, &d); cerr != nil {
+		return false, cerr, nil
+	}
+	if cerr := validateRecurring(&d); cerr != nil {
+		return false, cerr, nil
+	}
+	cur, found, err := accountCurrency(ctx, tx, d.AccountID, r.userID)
+	if err != nil {
+		return false, nil, err
+	}
+	if !found {
+		return false, reject("reference_not_found", "account_id", "account not found"), nil
+	}
+	if cur != d.Currency {
+		return false, reject("invalid", "currency", "currency must match the account's currency ("+cur+")"), nil
+	}
+	var kind string
+	err = tx.QueryRow(ctx, `SELECT kind FROM categories WHERE id = $1 AND user_id = $2`, d.CategoryID, r.userID).Scan(&kind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, reject("reference_not_found", "category_id", "category not found"), nil
+	}
+	if err != nil {
+		return false, nil, err
+	}
+	if kind != d.Kind {
+		return false, reject("invalid", "category_id", "category kind must match ("+d.Kind+")"), nil
+	}
+	return execUpsert(ctx, tx, upsertRecurringSQL, r.id, r.userID, d.Kind, d.AccountID, d.CategoryID,
+		d.AmountMinor, d.Currency, d.Note, d.Frequency, d.Every, d.StartDate, d.EndDate,
+		d.RemindDaysBefore, d.Active, r.version, r.updatedAt, r.deletedAt)
+}
+
+// --- goals ---
+
+const upsertGoalSQL = `
+INSERT INTO goals (id, user_id, name, target_minor, deadline, icon, color, archived,
+                   version, updated_at, deleted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name, target_minor = EXCLUDED.target_minor, deadline = EXCLUDED.deadline,
+    icon = EXCLUDED.icon, color = EXCLUDED.color, archived = EXCLUDED.archived,
+    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at
+WHERE goals.user_id = EXCLUDED.user_id AND goals.updated_at < EXCLUDED.updated_at
+RETURNING id`
+
+func upsertGoal(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) (bool, *ChangeError, error) {
+	var d GoalData
+	if cerr := decodeStrict(data, &d); cerr != nil {
+		return false, cerr, nil
+	}
+	if cerr := validateGoal(&d); cerr != nil {
+		return false, cerr, nil
+	}
+	return execUpsert(ctx, tx, upsertGoalSQL, r.id, r.userID, d.Name, d.TargetMinor, d.Deadline,
+		d.Icon, d.Color, d.Archived, r.version, r.updatedAt, r.deletedAt)
+}
+
+const upsertContributionSQL = `
+INSERT INTO goal_contributions (id, user_id, goal_id, amount_minor, local_date, note,
+                                version, updated_at, deleted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (id) DO UPDATE SET
+    goal_id = EXCLUDED.goal_id, amount_minor = EXCLUDED.amount_minor,
+    local_date = EXCLUDED.local_date, note = EXCLUDED.note,
+    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at
+WHERE goal_contributions.user_id = EXCLUDED.user_id AND goal_contributions.updated_at < EXCLUDED.updated_at
+RETURNING id`
+
+func upsertContribution(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) (bool, *ChangeError, error) {
+	var d GoalContributionData
+	if cerr := decodeStrict(data, &d); cerr != nil {
+		return false, cerr, nil
+	}
+	if cerr := validateContribution(&d); cerr != nil {
+		return false, cerr, nil
+	}
+	// The composite foreign key also refuses another user's goal.
+	return execUpsert(ctx, tx, upsertContributionSQL, r.id, r.userID, d.GoalID, d.AmountMinor,
+		d.LocalDate, d.Note, r.version, r.updatedAt, r.deletedAt)
+}
+
 // --- helpers ---
 
 // execUpsert runs an INSERT ... ON CONFLICT ... RETURNING id. It reports
@@ -430,7 +556,8 @@ func execUpsert(ctx context.Context, tx pgx.Tx, sql string, args ...any) (bool, 
 
 var tables = map[string]string{
 	EntityAccount: "accounts", EntityCategory: "categories", EntityTransaction: "transactions",
-	EntityBudget: "budgets",
+	EntityBudget: "budgets", EntityRecurring: "recurring_rules", EntityGoal: "goals",
+	EntityGoalContrib: "goal_contributions",
 }
 
 func ownedByUser(ctx context.Context, tx pgx.Tx, entity string, id, userID uuid.UUID) (bool, error) {

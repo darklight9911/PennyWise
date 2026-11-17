@@ -29,7 +29,7 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'color', color, 'sort_order', sort_order)
       FROM categories WHERE user_id = $1 AND version > $2 AND version <= $3
     UNION ALL
-    SELECT 'transaction', 2, id, version, updated_at, deleted_at,
+    SELECT 'transaction', 3, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'account_id', account_id, 'category_id', category_id, 'kind', kind,
                'amount_minor', amount_minor, 'currency', currency,
@@ -38,14 +38,38 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'transfer_account_id', transfer_account_id,
                'transfer_amount_minor', transfer_amount_minor,
                'occurred_at', occurred_at, 'local_date', to_char(local_date, 'YYYY-MM-DD'),
-               'note', note)
+               'note', note, 'recurring_id', recurring_id,
+               'occurrence_date', to_char(occurrence_date, 'YYYY-MM-DD'))
       FROM transactions WHERE user_id = $1 AND version > $2 AND version <= $3
     UNION ALL
-    SELECT 'budget', 3, id, version, updated_at, deleted_at,
+    SELECT 'budget', 4, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'category_id', category_id, 'amount_minor', amount_minor,
                'period', period, 'alert_thresholds', alert_thresholds)
       FROM budgets WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'recurring_rule', 2, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'kind', kind, 'account_id', account_id, 'category_id', category_id,
+               'amount_minor', amount_minor, 'currency', currency, 'note', note,
+               'frequency', frequency, 'every', every,
+               'start_date', to_char(start_date, 'YYYY-MM-DD'),
+               'end_date', to_char(end_date, 'YYYY-MM-DD'),
+               'remind_days_before', remind_days_before, 'active', active)
+      FROM recurring_rules WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'goal', 5, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'name', name, 'target_minor', target_minor,
+               'deadline', to_char(deadline, 'YYYY-MM-DD'),
+               'icon', icon, 'color', color, 'archived', archived)
+      FROM goals WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'goal_contribution', 6, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'goal_id', goal_id, 'amount_minor', amount_minor,
+               'local_date', to_char(local_date, 'YYYY-MM-DD'), 'note', note)
+      FROM goal_contributions WHERE user_id = $1 AND version > $2 AND version <= $3
 ) rows
 ORDER BY version, ord, id
 LIMIT $4`
