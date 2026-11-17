@@ -48,6 +48,7 @@ dependencies:
   path: ^1.9.1
   uuid: ^4.6.0
   rive: ^0.14.11
+  hugeicons: ^4.4.0
 
 dev_dependencies:
   flutter_test:

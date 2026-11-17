@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pennywise/core/widgets/app_icon.dart';
 import 'package:pennywise/core/widgets/empty_state.dart';
 import 'package:pennywise/core/widgets/panda_mascot.dart';
 
@@ -50,13 +51,18 @@ void main() {
       _host(
         const EmptyState(
           mascot: PandaMood.sleeping,
-          icon: Icons.receipt_long_outlined,
+          icon: HugeIcons.strokeRoundedInvoice01,
           title: 'No transactions yet',
           message: 'Add one.',
         ),
       ),
     );
-    expect(find.byIcon(Icons.receipt_long_outlined), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is AppIcon && w.icon == HugeIcons.strokeRoundedInvoice01,
+      ),
+      findsOneWidget,
+    );
     expect(find.text('No transactions yet'), findsOneWidget);
   });
 }

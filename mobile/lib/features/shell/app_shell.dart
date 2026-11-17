@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/widgets/app_icon.dart';
+
 /// Bottom navigation that keeps each tab's state while switching.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -9,23 +11,35 @@ class AppShell extends StatelessWidget {
 
   static const _destinations = [
     NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home),
+      icon: AppIcon(HugeIcons.strokeRoundedHome01),
+      selectedIcon: AppIcon(
+        HugeIcons.strokeRoundedHome01,
+        strokeWidth: AppIcon.selectedStroke,
+      ),
       label: 'Home',
     ),
     NavigationDestination(
-      icon: Icon(Icons.receipt_long_outlined),
-      selectedIcon: Icon(Icons.receipt_long),
+      icon: AppIcon(HugeIcons.strokeRoundedInvoice01),
+      selectedIcon: AppIcon(
+        HugeIcons.strokeRoundedInvoice01,
+        strokeWidth: AppIcon.selectedStroke,
+      ),
       label: 'Transactions',
     ),
     NavigationDestination(
-      icon: Icon(Icons.pie_chart_outline),
-      selectedIcon: Icon(Icons.pie_chart),
+      icon: AppIcon(HugeIcons.strokeRoundedPieChart),
+      selectedIcon: AppIcon(
+        HugeIcons.strokeRoundedPieChart,
+        strokeWidth: AppIcon.selectedStroke,
+      ),
       label: 'Reports',
     ),
     NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
+      icon: AppIcon(HugeIcons.strokeRoundedSettings01),
+      selectedIcon: AppIcon(
+        HugeIcons.strokeRoundedSettings01,
+        strokeWidth: AppIcon.selectedStroke,
+      ),
       label: 'Settings',
     ),
   ];

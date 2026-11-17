@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
@@ -63,7 +64,7 @@ class _CategoryList extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => showCategoryEditor(context, kind: kind),
-        icon: const Icon(Icons.add),
+        icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: Text(
           kind == TxKind.expense
               ? 'Add expense category'
@@ -86,7 +87,9 @@ class _CategoryList extends ConsumerWidget {
                       color: colorFromHex(c.color, scheme.primary),
                     ),
                     title: Text(c.name),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const AppIcon(
+                      HugeIcons.strokeRoundedArrowRight01,
+                    ),
                     onTap: () =>
                         showCategoryEditor(context, kind: kind, existing: c),
                   );
@@ -295,7 +298,7 @@ class _CategoryEditorState extends ConsumerState<_CategoryEditor> {
                   if (widget.existing != null)
                     TextButton.icon(
                       onPressed: _delete,
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const AppIcon(HugeIcons.strokeRoundedDelete02),
                       label: const Text('Delete'),
                     ),
                   const Spacer(),

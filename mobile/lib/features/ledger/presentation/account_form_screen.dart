@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/device/device_profile.dart';
 import '../../../core/network/api_exception.dart';
@@ -154,7 +155,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           if (!_isNew && _existing != null)
             IconButton(
               tooltip: 'Delete account',
-              icon: const Icon(Icons.delete_outline),
+              icon: const AppIcon(HugeIcons.strokeRoundedDelete02),
               onPressed: _delete,
             ),
         ],
@@ -190,7 +191,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                           value: e.key,
                           child: Row(
                             children: [
-                              Icon(e.value.$2, size: 20),
+                              AppIcon(e.value.$2, size: 20),
                               const SizedBox(width: Spacing.md),
                               Text(e.value.$1),
                             ],

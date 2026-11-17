@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
@@ -103,7 +104,7 @@ class DashboardScreen extends ConsumerWidget {
         heroTag: null,
         tooltip: 'Add transaction',
         onPressed: () {}, // Add-transaction flow arrives in Milestone 2.
-        child: const Icon(Icons.add),
+        child: const AppIcon(HugeIcons.strokeRoundedPlusSign),
       ),
     );
   }
@@ -187,8 +188,8 @@ class _VerifyEmailCardState extends ConsumerState<_VerifyEmailCard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.mark_email_unread_outlined,
+            AppIcon(
+              HugeIcons.strokeRoundedMailOpen01,
               color: theme.colorScheme.onSecondaryContainer,
             ),
             const SizedBox(width: Spacing.md),

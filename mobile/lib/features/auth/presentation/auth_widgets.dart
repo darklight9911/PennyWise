@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/panda_mascot.dart';
 
@@ -84,7 +85,10 @@ class BrandMark extends StatelessWidget {
             color: scheme.primary,
             borderRadius: BorderRadius.circular(Radii.button),
           ),
-          child: Icon(Icons.savings_outlined, color: scheme.onPrimary),
+          child: AppIcon(
+            HugeIcons.strokeRoundedPiggyBank,
+            color: scheme.onPrimary,
+          ),
         ),
         const SizedBox(width: Spacing.md),
         Text(
@@ -148,10 +152,10 @@ class _PasswordFieldState extends State<PasswordField> {
         errorText: widget.errorText,
         suffixIcon: IconButton(
           tooltip: _obscure ? 'Show password' : 'Hide password',
-          icon: Icon(
+          icon: AppIcon(
             _obscure
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
+                ? HugeIcons.strokeRoundedView
+                : HugeIcons.strokeRoundedViewOff,
           ),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
@@ -204,7 +208,11 @@ class FormErrorText extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.error_outline, size: 20, color: scheme.error),
+            AppIcon(
+              HugeIcons.strokeRoundedAlertCircle,
+              size: 20,
+              color: scheme.error,
+            ),
             const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(message!, style: TextStyle(color: scheme.error)),

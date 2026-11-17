@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'app_icon.dart';
 import '../theme/app_theme.dart';
 import 'panda_mascot.dart';
 
@@ -13,7 +14,7 @@ class EmptyState extends StatelessWidget {
     this.mascot,
   });
 
-  final IconData icon;
+  final AppIconData icon;
   final String title;
   final String message;
 
@@ -23,7 +24,11 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final iconWidget = Icon(icon, size: 48, color: theme.colorScheme.primary);
+    final iconWidget = AppIcon(
+      icon,
+      size: 48,
+      color: theme.colorScheme.primary,
+    );
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(Spacing.xxl),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/widgets/amount_text.dart';
@@ -35,7 +36,10 @@ class TransactionTile extends ConsumerWidget {
     if (t.kind == TxKind.transfer) {
       title = 'Transfer';
       where = '$from → ${accounts[t.transferAccountId]?.name ?? 'Account'}';
-      badge = IconBadge(icon: Icons.swap_horiz, color: scheme.secondary);
+      badge = IconBadge(
+        icon: HugeIcons.strokeRoundedArrowDataTransferHorizontal,
+        color: scheme.secondary,
+      );
     } else {
       title = category?.name ?? 'Uncategorised';
       where = from;

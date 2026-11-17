@@ -1,49 +1,51 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
+
 /// Icons the server's default categories use, plus a few extra choices.
 /// Stored by name so the server and every phone agree.
-const categoryIcons = <String, IconData>{
-  'restaurant': Icons.restaurant,
-  'local_grocery_store': Icons.local_grocery_store,
-  'directions_bus': Icons.directions_bus,
-  'home': Icons.home_outlined,
-  'receipt_long': Icons.receipt_long,
-  'shopping_bag': Icons.shopping_bag_outlined,
-  'medical_services': Icons.medical_services_outlined,
-  'movie': Icons.movie_outlined,
-  'school': Icons.school_outlined,
-  'flight': Icons.flight,
-  'spa': Icons.spa_outlined,
-  'card_giftcard': Icons.card_giftcard,
-  'more_horiz': Icons.more_horiz,
-  'payments': Icons.payments_outlined,
-  'storefront': Icons.storefront_outlined,
-  'work': Icons.work_outline,
-  'redeem': Icons.redeem,
-  'savings': Icons.savings_outlined,
-  'attach_money': Icons.attach_money,
-  'local_cafe': Icons.local_cafe_outlined,
-  'pets': Icons.pets,
-  'fitness_center': Icons.fitness_center,
-  'phone_iphone': Icons.phone_iphone,
-  'child_care': Icons.child_care,
+const categoryIcons = <String, AppIconData>{
+  'restaurant': HugeIcons.strokeRoundedRestaurant01,
+  'local_grocery_store': HugeIcons.strokeRoundedShoppingCart01,
+  'directions_bus': HugeIcons.strokeRoundedBus01,
+  'home': HugeIcons.strokeRoundedHome01,
+  'receipt_long': HugeIcons.strokeRoundedInvoice01,
+  'shopping_bag': HugeIcons.strokeRoundedShoppingBag01,
+  'medical_services': HugeIcons.strokeRoundedMedicine01,
+  'movie': HugeIcons.strokeRoundedFilm01,
+  'school': HugeIcons.strokeRoundedSchool01,
+  'flight': HugeIcons.strokeRoundedAirplane01,
+  'spa': HugeIcons.strokeRoundedLeaf01,
+  'card_giftcard': HugeIcons.strokeRoundedGiftCard,
+  'more_horiz': HugeIcons.strokeRoundedMoreHorizontal,
+  'payments': HugeIcons.strokeRoundedMoney03,
+  'storefront': HugeIcons.strokeRoundedStore01,
+  'work': HugeIcons.strokeRoundedBriefcase01,
+  'redeem': HugeIcons.strokeRoundedGift,
+  'savings': HugeIcons.strokeRoundedPiggyBank,
+  'attach_money': HugeIcons.strokeRoundedDollarCircle,
+  'local_cafe': HugeIcons.strokeRoundedCoffee01,
+  'pets': HugeIcons.strokeRoundedCat,
+  'fitness_center': HugeIcons.strokeRoundedDumbbell01,
+  'phone_iphone': HugeIcons.strokeRoundedSmartPhone01,
+  'child_care': HugeIcons.strokeRoundedBabyBottle,
 };
 
-IconData categoryIcon(String name) =>
-    categoryIcons[name] ?? Icons.label_outline;
+AppIconData categoryIcon(String name) =>
+    categoryIcons[name] ?? HugeIcons.strokeRoundedTag01;
 
 /// Account types the server accepts, with a label and icon each.
-const accountTypes = <String, (String, IconData)>{
-  'cash': ('Cash', Icons.payments_outlined),
-  'bank': ('Bank account', Icons.account_balance_outlined),
-  'card': ('Card', Icons.credit_card),
-  'ewallet': ('E-wallet', Icons.phone_iphone),
-  'savings': ('Savings', Icons.savings_outlined),
-  'other': ('Other', Icons.account_balance_wallet_outlined),
+const accountTypes = <String, (String, AppIconData)>{
+  'cash': ('Cash', HugeIcons.strokeRoundedMoney03),
+  'bank': ('Bank account', HugeIcons.strokeRoundedBank),
+  'card': ('Card', HugeIcons.strokeRoundedCreditCard),
+  'ewallet': ('E-wallet', HugeIcons.strokeRoundedSmartPhone01),
+  'savings': ('Savings', HugeIcons.strokeRoundedPiggyBank),
+  'other': ('Other', HugeIcons.strokeRoundedWallet01),
 };
 
-IconData accountIcon(String type) =>
-    accountTypes[type]?.$2 ?? Icons.account_balance_wallet_outlined;
+AppIconData accountIcon(String type) =>
+    accountTypes[type]?.$2 ?? HugeIcons.strokeRoundedWallet01;
 
 /// Colour choices for categories (muted, readable with white icons).
 const swatches = [
@@ -69,7 +71,7 @@ class IconBadge extends StatelessWidget {
     this.size = 40,
   });
 
-  final IconData icon;
+  final AppIconData icon;
   final Color color;
   final double size;
 
@@ -79,7 +81,7 @@ class IconBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: Icon(icon, color: Colors.white, size: size * 0.55),
+      child: AppIcon(icon, color: Colors.white, size: size * 0.55),
     );
   }
 }

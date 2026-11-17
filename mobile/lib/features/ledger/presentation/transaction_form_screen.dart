@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/routes.dart';
@@ -215,7 +216,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           if (!_isNew && _existing != null)
             IconButton(
               tooltip: 'Delete transaction',
-              icon: const Icon(Icons.delete_outline),
+              icon: const AppIcon(HugeIcons.strokeRoundedDelete02),
               onPressed: _delete,
             ),
         ],
@@ -247,17 +248,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ButtonSegment(
                 value: TxKind.expense,
                 label: Text('Expense'),
-                icon: Icon(Icons.remove),
+                icon: AppIcon(HugeIcons.strokeRoundedMinusSign),
               ),
               ButtonSegment(
                 value: TxKind.income,
                 label: Text('Income'),
-                icon: Icon(Icons.add),
+                icon: AppIcon(HugeIcons.strokeRoundedPlusSign),
               ),
               ButtonSegment(
                 value: TxKind.transfer,
                 label: Text('Transfer'),
-                icon: Icon(Icons.swap_horiz),
+                icon: AppIcon(
+                  HugeIcons.strokeRoundedArrowDataTransferHorizontal,
+                ),
               ),
             ],
             selected: {_kind},
@@ -338,10 +341,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           const SizedBox(height: Spacing.lg),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.event_outlined),
+            leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
             title: Text(dayLabel(localDateOf(_when), DateTime.now())),
             subtitle: const Text('Date'),
-            trailing: const Icon(Icons.edit_calendar_outlined),
+            trailing: const AppIcon(HugeIcons.strokeRoundedCalendar01),
             onTap: _pickDate,
           ),
           TextFormField(
@@ -402,7 +405,7 @@ class _CategoryPicker extends ConsumerWidget {
           children: [
             for (final c in categories)
               ChoiceChip(
-                avatar: Icon(
+                avatar: AppIcon(
                   categoryIcon(c.icon),
                   size: 18,
                   color: colorFromHex(c.color, scheme.primary),
@@ -427,7 +430,7 @@ class _NoAccounts extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.account_balance_wallet_outlined, size: 48),
+            const AppIcon(HugeIcons.strokeRoundedWallet01, size: 48),
             const SizedBox(height: Spacing.lg),
             const Text('First, add an account', textAlign: TextAlign.center),
             const SizedBox(height: Spacing.sm),

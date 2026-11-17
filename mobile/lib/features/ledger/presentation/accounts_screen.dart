@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
@@ -25,7 +26,7 @@ class AccountsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => context.push(Routes.newAccount),
-        icon: const Icon(Icons.add),
+        icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: const Text('Add account'),
       ),
       body: accounts.when(
@@ -34,7 +35,7 @@ class AccountsScreen extends ConsumerWidget {
         data: (list) => list.isEmpty
             ? const EmptyState(
                 mascot: PandaMood.wave,
-                icon: Icons.account_balance_wallet_outlined,
+                icon: HugeIcons.strokeRoundedWallet01,
                 title: 'No accounts yet',
                 message: 'Add where your money lives: cash, a bank account, a card or a mobile wallet.',
               )

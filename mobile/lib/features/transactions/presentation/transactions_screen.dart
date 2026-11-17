@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
@@ -26,7 +27,7 @@ class TransactionsScreen extends ConsumerWidget {
         heroTag: null,
         tooltip: 'Add transaction',
         onPressed: () => context.push(Routes.newTransaction()),
-        child: const Icon(Icons.add),
+        child: const AppIcon(HugeIcons.strokeRoundedPlusSign),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(syncControllerProvider.notifier).syncNow(),
@@ -40,7 +41,7 @@ class TransactionsScreen extends ConsumerWidget {
                     SizedBox(height: 80),
                     EmptyState(
                       mascot: PandaMood.sleeping,
-                      icon: Icons.receipt_long_outlined,
+                      icon: HugeIcons.strokeRoundedInvoice01,
                       title: 'No transactions yet',
                       message: 'Tap + to add your first income or expense.',
                     ),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
 import '../../auth/application/auth_controller.dart';
 
@@ -40,7 +41,7 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           if (user != null)
             ListTile(
-              leading: const Icon(Icons.person_outline),
+              leading: const AppIcon(HugeIcons.strokeRoundedUserCircle),
               title: Text(user.displayName),
               subtitle: Text(
                 user.emailVerified
@@ -49,36 +50,36 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ListTile(
-            leading: const Icon(Icons.payments_outlined),
+            leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
             title: const Text('Main currency'),
             subtitle: Text(user?.baseCurrency ?? '—'),
           ),
           ListTile(
-            leading: const Icon(Icons.schedule_outlined),
+            leading: const AppIcon(HugeIcons.strokeRoundedClock01),
             title: const Text('Time zone'),
             subtitle: Text(user?.timezone ?? '—'),
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.account_balance_wallet_outlined),
+            leading: const AppIcon(HugeIcons.strokeRoundedWallet01),
             title: const Text('Accounts'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
             onTap: () => context.push(Routes.accounts),
           ),
           ListTile(
-            leading: const Icon(Icons.category_outlined),
+            leading: const AppIcon(HugeIcons.strokeRoundedGrid),
             title: const Text('Categories'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
             onTap: () => context.push(Routes.categories),
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.info_outline),
+            leading: const AppIcon(HugeIcons.strokeRoundedInformationCircle),
             title: const Text('About pennyWise'),
             subtitle: const Text('Version 0.1.0'),
           ),
           ListTile(
-            leading: const Icon(Icons.logout),
+            leading: const AppIcon(HugeIcons.strokeRoundedLogout03),
             title: const Text('Log out'),
             onTap: () => _confirmLogout(context, ref),
           ),

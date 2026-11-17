@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
 
@@ -12,7 +13,7 @@ class ReportsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Reports')),
       body: const EmptyState(
         mascot: PandaMood.thinking,
-        icon: Icons.pie_chart_outline,
+        icon: HugeIcons.strokeRoundedPieChart,
         title: 'Nothing to show yet',
         message: 'Charts appear here once you have a few transactions.',
       ),
