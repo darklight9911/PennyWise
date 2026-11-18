@@ -215,11 +215,13 @@ class DashboardScreen extends ConsumerWidget {
                       ListTile(
                         leading: AppIcon(accountIcon(a.type)),
                         title: Text(a.name),
-                        trailing: AmountText(
-                          minor: balances[a.id] ?? a.openingBalanceMinor,
-                          currency: a.currency,
-                          signed: false,
-                          style: theme.textTheme.titleMedium,
+                        trailing: TrailingAmount(
+                          child: AmountText(
+                            minor: balances[a.id] ?? a.openingBalanceMinor,
+                            currency: a.currency,
+                            signed: false,
+                            style: theme.textTheme.titleMedium,
+                          ),
                         ),
                         onTap: () => context.push(Routes.editAccount(a.id)),
                       ),

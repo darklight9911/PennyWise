@@ -125,6 +125,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: Spacing.lg),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _currency,
                   decoration: InputDecoration(
                     labelText: 'Main currency',

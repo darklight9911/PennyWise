@@ -117,13 +117,20 @@ class ReceiptsSection extends ConsumerWidget {
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
                   onPressed: () => _add(context, ref, count),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppIcon(HugeIcons.strokeRoundedCamera01),
-                      SizedBox(height: 4),
-                      Text('Add photo'),
-                    ],
+                  // Shrinks with very large text instead of overflowing.
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppIcon(HugeIcons.strokeRoundedCamera01),
+                          SizedBox(height: 4),
+                          Text('Add photo'),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

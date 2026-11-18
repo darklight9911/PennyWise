@@ -257,17 +257,22 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
                   ),
                   const SizedBox(height: Spacing.lg),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _accountId,
                     decoration: const InputDecoration(labelText: 'Account'),
                     items: [
                       for (final a in accounts)
-                        DropdownMenuItem(value: a.id, child: Text(a.name)),
+                        DropdownMenuItem(
+                          value: a.id,
+                          child: Text(a.name, overflow: TextOverflow.ellipsis),
+                        ),
                     ],
                     validator: (v) => v == null ? 'Choose an account' : null,
                     onChanged: (v) => setState(() => _accountId = v),
                   ),
                   const SizedBox(height: Spacing.lg),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     // A new key when the kind changes resets the field.
                     key: ValueKey(_kind),
                     initialValue: categories.any((c) => c.id == _categoryId)
@@ -276,7 +281,10 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: [
                       for (final c in categories)
-                        DropdownMenuItem(value: c.id, child: Text(c.name)),
+                        DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name, overflow: TextOverflow.ellipsis),
+                        ),
                     ],
                     validator: (v) => v == null ? 'Choose a category' : null,
                     onChanged: (v) => setState(() => _categoryId = v),
@@ -301,6 +309,7 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
                       const SizedBox(width: Spacing.md),
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: _frequency,
                           decoration: const InputDecoration(
                             labelText: 'Repeats',
@@ -356,6 +365,7 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
                   ),
                   const SizedBox(height: Spacing.sm),
                   DropdownButtonFormField<int>(
+                    isExpanded: true,
                     initialValue: _reminders.containsKey(_remind) ? _remind : 0,
                     decoration: const InputDecoration(labelText: 'Reminder'),
                     items: [

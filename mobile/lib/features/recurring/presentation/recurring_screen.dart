@@ -77,10 +77,12 @@ class _RuleTile extends StatelessWidget {
       ),
       title: Text(name),
       subtitle: Text('${frequencyLabel(r.frequency, r.every)} · $when'),
-      trailing: AmountText(
-        minor: r.kind == TxKind.expense ? -r.amountMinor : r.amountMinor,
-        currency: r.currency,
-        signed: true,
+      trailing: TrailingAmount(
+        child: AmountText(
+          minor: r.kind == TxKind.expense ? -r.amountMinor : r.amountMinor,
+          currency: r.currency,
+          signed: true,
+        ),
       ),
       onTap: () => context.push(Routes.editRecurring(r.id)),
     );

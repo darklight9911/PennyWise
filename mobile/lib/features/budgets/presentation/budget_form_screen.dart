@@ -164,6 +164,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 padding: const EdgeInsets.all(Spacing.lg),
                 children: [
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _categoryId,
                     decoration: const InputDecoration(labelText: 'Spending on'),
                     items: [
@@ -172,7 +173,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                         child: Text('All spending'),
                       ),
                       for (final c in categories)
-                        DropdownMenuItem(value: c.id, child: Text(c.name)),
+                        DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name, overflow: TextOverflow.ellipsis),
+                        ),
                       if (!categories.any((c) => c.id == _categoryId) &&
                           _categoryId != _all)
                         DropdownMenuItem(

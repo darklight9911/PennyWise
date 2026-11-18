@@ -87,7 +87,9 @@ class GoalDetailScreen extends ConsumerWidget {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AmountText(minor: c.amountMinor, currency: currency),
+                  TrailingAmount(
+                    child: AmountText(minor: c.amountMinor, currency: currency),
+                  ),
                   IconButton(
                     tooltip: 'Remove',
                     icon: const AppIcon(

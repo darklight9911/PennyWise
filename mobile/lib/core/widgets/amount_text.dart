@@ -44,3 +44,26 @@ class AmountText extends StatelessWidget {
     );
   }
 }
+
+/// An amount at the end of a list row. It may take up to 40 % of the
+/// screen width; a longer number (huge amounts, large text sizes) is
+/// shrunk to fit instead of pushing the row's title out.
+class TrailingAmount extends StatelessWidget {
+  const TrailingAmount({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.4,
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: child,
+      ),
+    );
+  }
+}

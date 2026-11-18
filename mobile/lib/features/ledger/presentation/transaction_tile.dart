@@ -54,11 +54,13 @@ class TransactionTile extends ConsumerWidget {
       leading: badge,
       title: Text(title),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: AmountText(
-        minor: t.kind == TxKind.expense ? -t.amountMinor : t.amountMinor,
-        currency: t.currency,
-        signed: t.kind != TxKind.transfer,
-        style: Theme.of(context).textTheme.titleMedium,
+      trailing: TrailingAmount(
+        child: AmountText(
+          minor: t.kind == TxKind.expense ? -t.amountMinor : t.amountMinor,
+          currency: t.currency,
+          signed: t.kind != TxKind.transfer,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       ),
       onTap: () => context.push(Routes.editTransaction(t.id)),
     );

@@ -91,10 +91,13 @@ class BrandMark extends StatelessWidget {
           ),
         ),
         const SizedBox(width: Spacing.md),
-        Text(
-          'pennyWise',
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.w600),
+        Flexible(
+          child: Text(
+            'pennyWise',
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );

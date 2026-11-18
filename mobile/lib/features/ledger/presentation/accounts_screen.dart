@@ -54,11 +54,13 @@ class AccountsScreen extends ConsumerWidget {
                     subtitle: Text(
                       '${accountTypes[a.type]?.$1 ?? a.type} · ${a.currency}',
                     ),
-                    trailing: AmountText(
-                      minor: balances[a.id] ?? a.openingBalanceMinor,
-                      currency: a.currency,
-                      signed: false,
-                      style: Theme.of(context).textTheme.titleMedium,
+                    trailing: TrailingAmount(
+                      child: AmountText(
+                        minor: balances[a.id] ?? a.openingBalanceMinor,
+                        currency: a.currency,
+                        signed: false,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                     onTap: () => context.push(Routes.editAccount(a.id)),
                   );

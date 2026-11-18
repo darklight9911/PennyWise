@@ -315,6 +315,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
           const SizedBox(height: Spacing.lg),
           DropdownButtonFormField<String>(
+            isExpanded: true,
             key: ValueKey('from-$_kind'),
             initialValue: from.id,
             decoration: InputDecoration(
@@ -324,7 +325,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               for (final a in accounts)
                 DropdownMenuItem(
                   value: a.id,
-                  child: Text('${a.name} (${a.currency})'),
+                  child: Text(
+                    '${a.name} (${a.currency})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: (v) => setState(() => _accountId = v),
@@ -335,6 +339,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               const Text('Add a second account to move money between accounts.')
             else
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 key: ValueKey('to-${from.id}'),
                 initialValue: to?.id,
                 decoration: const InputDecoration(labelText: 'To account'),
@@ -342,7 +347,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   for (final a in targets)
                     DropdownMenuItem(
                       value: a.id,
-                      child: Text('${a.name} (${a.currency})'),
+                      child: Text(
+                        '${a.name} (${a.currency})',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 validator: (v) =>
@@ -473,7 +481,7 @@ class _CategoryPicker extends ConsumerWidget {
                   size: 18,
                   color: colorFromHex(c.color, scheme.primary),
                 ),
-                label: Text(c.name),
+                label: Text(c.name, overflow: TextOverflow.ellipsis),
                 selected: c.id == selected,
                 onSelected: (_) => onSelected(c.id),
               ),

@@ -183,6 +183,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                   ),
                   const SizedBox(height: Spacing.lg),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _type,
                     decoration: const InputDecoration(labelText: 'Type'),
                     items: [
@@ -202,6 +203,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                   ),
                   const SizedBox(height: Spacing.lg),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _currency,
                     decoration: InputDecoration(
                       labelText: 'Currency',
