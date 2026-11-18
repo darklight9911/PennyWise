@@ -6,6 +6,7 @@ import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_controller.dart';
+import 'delete_account_dialog.dart';
 import 'verify_email_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -113,6 +114,21 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Log out'),
             onTap: () => _confirmLogout(context, ref),
           ),
+          if (user != null)
+            ListTile(
+              leading: AppIcon(
+                HugeIcons.strokeRoundedDelete02,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Delete account',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () => showDeleteAccountDialog(
+                context,
+                hasPassword: user.hasPassword,
+              ),
+            ),
         ],
       ),
     );

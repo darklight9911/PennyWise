@@ -154,6 +154,23 @@ class FakeBackend implements HttpClientAdapter {
             ? _json(200, {'user': users[email]})
             : _empty(202);
 
+      case 'DELETE /v1/me':
+        final auth = options.headers['Authorization'] as String?;
+        final email = auth == null
+            ? null
+            : _access[auth.replaceFirst('Bearer ', '')];
+        if (email == null) {
+          return _error(401, 'invalid_token', 'access token is invalid');
+        }
+        if (passwords[email] != body['password']) {
+          return _error(403, 'wrong_password', 'the password is wrong');
+        }
+        users.remove(email);
+        passwords.remove(email);
+        _access.removeWhere((_, e) => e == email);
+        _refresh.removeWhere((_, v) => v.email == email);
+        return _empty(204);
+
       case 'POST /v1/sync/push':
       case 'GET /v1/sync/pull':
         final auth = options.headers['Authorization'] as String?;

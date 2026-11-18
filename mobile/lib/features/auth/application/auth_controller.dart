@@ -124,6 +124,18 @@ class AuthController extends Notifier<AuthState> {
         // Offline: the local logout still happens; the token expires on its own.
       }
     }
+    await _endLocally();
+  }
+
+  /// Deletes the account on the server, then everything on the phone.
+  /// Throws (and changes nothing) if the server refuses, e.g. a wrong
+  /// password or no connection.
+  Future<void> deleteAccount({String? password}) async {
+    await _api.deleteAccount(password: password);
+    await _endLocally();
+  }
+
+  Future<void> _endLocally() async {
     try {
       await ref.read(googleAuthProvider).signOut();
     } on Object {

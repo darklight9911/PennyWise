@@ -87,6 +87,12 @@ class AuthApi {
     return AppUser.fromJson(res.data!['user'] as Map<String, dynamic>);
   });
 
+  /// Deletes the account on the server. Accounts with a password confirm
+  /// with it (a wrong one fails with code "wrong_password").
+  Future<void> deleteAccount({String? password}) => _call(
+    () => _dio.delete<void>('/v1/me', data: {'password': password ?? ''}),
+  );
+
   Future<void> verifyEmail(String token) => _call(
     () => _dio.post<void>(
       '/v1/auth/verify-email',
