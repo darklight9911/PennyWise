@@ -81,6 +81,13 @@ type EmailToken struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type ExchangeRate struct {
+	Base  string         `json:"base"`
+	Quote string         `json:"quote"`
+	Date  pgtype.Date    `json:"date"`
+	Rate  pgtype.Numeric `json:"rate"`
+}
+
 type Goal struct {
 	ID          uuid.UUID          `json:"id"`
 	UserID      uuid.UUID          `json:"user_id"`

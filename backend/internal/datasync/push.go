@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"slices"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/recurring"
 )
 
@@ -374,15 +376,24 @@ func upsertTransaction(ctx context.Context, tx pgx.Tx, r rowMeta, base string, d
 		}
 	}
 
-	// Amount in the user's base currency. Same currency: rate 1.
-	// Other currencies get rates in Milestone 6 (left empty until then).
-	var (
-		rate, source *string
-		baseAmount   *int64
-	)
-	if d.Currency == base {
-		one, auto := "1", "auto"
-		rate, source, baseAmount = &one, &auto, &d.AmountMinor
+	// Amount in the user's base currency, at the rate of its own date (or
+	// the user's typed rate). Left empty when no rate is known yet: the
+	// fx job fills it once rates arrive.
+	var manual *big.Rat
+	if d.ManualFxRate != nil && d.Currency != base {
+		r, ok := fx.ParseRate(*d.ManualFxRate)
+		if !ok {
+			return false, reject("invalid", "manual_fx_rate", "rate must be a positive decimal with at most 10 decimals"), nil
+		}
+		manual = r
+	}
+	day, _ := time.Parse(time.DateOnly, d.LocalDate)
+	rate, source, baseAmount, err := fx.BaseAmount(ctx, tx, d.AmountMinor, d.Currency, base, day, manual)
+	if errors.Is(err, fx.ErrOverflow) {
+		return false, reject("invalid", "amount_minor", "amount too large to convert"), nil
+	}
+	if err != nil {
+		return false, nil, err
 	}
 
 	return execUpsert(ctx, tx, upsertTransactionSQL, r.id, r.userID, d.AccountID, d.CategoryID, d.Kind,

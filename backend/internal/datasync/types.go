@@ -150,6 +150,9 @@ type TransactionData struct {
 	// recurring.OccurrenceID(rule, occurrence_date).
 	RecurringID    *uuid.UUID `json:"recurring_id"`
 	OccurrenceDate *string    `json:"occurrence_date"`
+	// A rate the user typed (1 unit of currency = this much base currency),
+	// for currencies without a daily rate. Ignored for the base currency.
+	ManualFxRate *string `json:"manual_fx_rate,omitempty"`
 }
 
 // BudgetData is the editable part of a budget. The amount is in the user's
