@@ -5,6 +5,8 @@
 package db
 
 import (
+	"net/netip"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -24,6 +26,18 @@ type Account struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type AuditLog struct {
+	ID        int64              `json:"id"`
+	UserID    uuid.NullUUID      `json:"user_id"`
+	Action    string             `json:"action"`
+	Entity    string             `json:"entity"`
+	EntityID  uuid.NullUUID      `json:"entity_id"`
+	Ip        *netip.Addr        `json:"ip"`
+	UserAgent string             `json:"user_agent"`
+	Detail    []byte             `json:"detail"`
+	At        pgtype.Timestamptz `json:"at"`
 }
 
 type Budget struct {

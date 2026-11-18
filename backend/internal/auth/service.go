@@ -394,17 +394,20 @@ func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 	return nil
 }
 
-// ResetPassword sets a new password from a reset link and logs out every device.
-func (s *Service) ResetPassword(ctx context.Context, plain, newPassword string) error {
+// ResetPassword sets a new password from a reset link and logs out every
+// device. It returns whose password changed.
+func (s *Service) ResetPassword(ctx context.Context, plain, newPassword string) (uuid.UUID, error) {
 	if err := ValidatePassword(newPassword); err != nil {
-		return &ValidationError{Field: "new_password", Message: err.Error()}
+		return uuid.Nil, &ValidationError{Field: "new_password", Message: err.Error()}
 	}
 	hash, err := HashPassword(newPassword)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
-	return s.inTx(ctx, func(q *db.Queries) error {
-		userID, err := q.ConsumeEmailToken(ctx, db.ConsumeEmailTokenParams{TokenHash: HashToken(plain), Purpose: purposeResetPassword})
+	var userID uuid.UUID
+	err = s.inTx(ctx, func(q *db.Queries) error {
+		var err error
+		userID, err = q.ConsumeEmailToken(ctx, db.ConsumeEmailTokenParams{TokenHash: HashToken(plain), Purpose: purposeResetPassword})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrInvalidEmailToken
 		}
@@ -416,6 +419,7 @@ func (s *Service) ResetPassword(ctx context.Context, plain, newPassword string) 
 		}
 		return q.RevokeAllUserRefreshTokens(ctx, userID)
 	})
+	return userID, err
 }
 
 // User returns a live (not deleted) user.

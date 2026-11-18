@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/db"
 	"pennywise/backend/internal/httpx"
 	"pennywise/backend/internal/ratelimit"
@@ -40,7 +41,11 @@ type Handler struct {
 	svc     *Service
 	limiter RateLimiter
 	logger  *slog.Logger
+	audit   *audit.Log // nil: no audit trail
 }
+
+// WithAudit records security events (logins, resets, ...) in audit_log.
+func (h *Handler) WithAudit(a *audit.Log) *Handler { h.audit = a; return h }
 
 // NewHandler creates the HTTP handler.
 func NewHandler(svc *Service, limiter RateLimiter, logger *slog.Logger) *Handler {
@@ -137,6 +142,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, r, err)
 		return
 	}
+	h.audit.Record(r, audit.Event{UserID: user.ID, Action: audit.Register})
 	httpx.WriteJSON(w, http.StatusCreated, authResponse{User: toUserResponse(user), Tokens: tokens, Created: true})
 }
 
@@ -157,9 +163,14 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	user, tokens, err := h.svc.Login(r.Context(), req.Email, req.Password, req.DeviceName)
 	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			h.audit.Record(r, audit.Event{Action: audit.LoginFailed,
+				Detail: map[string]any{"email_hash": audit.EmailHash(req.Email)}})
+		}
 		h.writeErr(w, r, err)
 		return
 	}
+	h.audit.Record(r, audit.Event{UserID: user.ID, Action: audit.Login})
 	httpx.WriteJSON(w, http.StatusOK, authResponse{User: toUserResponse(user), Tokens: tokens})
 }
 
@@ -182,10 +193,11 @@ func (h *Handler) googleLogin(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, r, err)
 		return
 	}
-	status := http.StatusOK
+	status, action := http.StatusOK, audit.GoogleLogin
 	if created {
-		status = http.StatusCreated
+		status, action = http.StatusCreated, audit.GoogleRegister
 	}
+	h.audit.Record(r, audit.Event{UserID: user.ID, Action: action})
 	httpx.WriteJSON(w, status, authResponse{User: toUserResponse(user), Tokens: tokens, Created: created})
 }
 
@@ -279,10 +291,12 @@ func (h *Handler) resetPassword(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.svc.ResetPassword(r.Context(), req.Token, req.NewPassword); err != nil {
+	userID, err := h.svc.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	if err != nil {
 		h.writeErr(w, r, err)
 		return
 	}
+	h.audit.Record(r, audit.Event{UserID: userID, Action: audit.PasswordReset})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -310,10 +324,19 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
+	before, err := h.svc.User(r.Context(), UserID(r.Context()))
+	if err != nil {
+		h.writeErr(w, r, err)
+		return
+	}
 	user, err := h.svc.UpdateProfile(r.Context(), UserID(r.Context()), ProfilePatch(req))
 	if err != nil {
 		h.writeErr(w, r, err)
 		return
+	}
+	if user.BaseCurrency != before.BaseCurrency {
+		h.audit.Record(r, audit.Event{UserID: user.ID, Action: audit.ProfileUpdate,
+			Detail: map[string]any{"base_currency": map[string]string{"from": before.BaseCurrency, "to": user.BaseCurrency}}})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]UserResponse{"user": toUserResponse(user)})
 }

@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	goredis "github.com/redis/go-redis/v9"
 
+	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/httpapi"
@@ -103,6 +104,22 @@ type env struct {
 	srv    *httptest.Server
 	mailer *captureMailer
 	jobs   *fakeQueue // base-currency recalculations queued
+	pool   *pgxpool.Pool
+}
+
+// auditActions lists the user's audit events, oldest first.
+func (e *env) auditActions(userID string) []string {
+	e.t.Helper()
+	rows, err := e.pool.Query(context.Background(),
+		`SELECT action FROM audit_log WHERE user_id = $1 ORDER BY id`, userID)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	out, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return out
 }
 
 type fakeQueue struct{ tasks []*asynq.Task }
@@ -175,14 +192,14 @@ func setupWithHook(t *testing.T, google auth.GoogleVerifier, hook userHook) *env
 				}
 				return err
 			}}, logger)
-	h := auth.NewHandler(svc, ratelimit.New(rdb), logger)
+	h := auth.NewHandler(svc, ratelimit.New(rdb), logger).WithAudit(audit.New(pool, logger))
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Logger: logger, Registry: prometheus.NewRegistry(), V1: []func(chi.Router){h.Routes},
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return &env{t: t, srv: srv, mailer: mailer, jobs: jobs}
+	return &env{t: t, srv: srv, mailer: mailer, jobs: jobs, pool: pool}
 }
 
 type resp struct {
@@ -575,4 +592,30 @@ func TestUpdateProfile(t *testing.T) {
 	expectStatus(t, busy, http.StatusConflict)
 
 	expectStatus(t, e.do(http.MethodPatch, "/v1/me", "", map[string]any{"name": "x"}), http.StatusUnauthorized)
+}
+
+func TestAuditTrail(t *testing.T) {
+	e := setup(t, nil)
+	r := e.register("ann@example.com")
+	id := user(r)["id"].(string)
+	access, _ := tokens(r)
+
+	expectStatus(t, e.post("/v1/auth/login", map[string]string{"email": "ann@example.com", "password": "wrong password 1"}), http.StatusUnauthorized)
+	expectStatus(t, e.post("/v1/auth/login", map[string]string{"email": "ann@example.com", "password": pw}), http.StatusOK)
+	expectStatus(t, e.do(http.MethodPatch, "/v1/me", access, map[string]any{"base_currency": "GBP"}), http.StatusOK)
+	// A name change is not a security event.
+	expectStatus(t, e.do(http.MethodPatch, "/v1/me", access, map[string]any{"name": "Ann B"}), http.StatusOK)
+
+	got := e.auditActions(id)
+	want := []string{audit.Register, audit.Login, audit.ProfileUpdate}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("audit trail %v, want %v", got, want)
+	}
+	var failed int
+	_ = e.pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM audit_log WHERE action = $1 AND user_id IS NULL AND detail->>'email_hash' = $2`,
+		audit.LoginFailed, audit.EmailHash(" ANN@example.com")).Scan(&failed)
+	if failed != 1 {
+		t.Errorf("failed logins recorded: %d", failed)
+	}
 }

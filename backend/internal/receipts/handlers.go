@@ -1,11 +1,9 @@
 package receipts
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,9 +14,7 @@ import (
 )
 
 // RateLimiter is the part of ratelimit.Limiter the handlers use.
-type RateLimiter interface {
-	Allow(ctx context.Context, rule ratelimit.Rule, key string) (bool, time.Duration, error)
-}
+type RateLimiter = ratelimit.Allower
 
 var ruleUpload = ratelimit.Rule{Name: "receipt-upload", Limit: 60, Window: time.Hour}
 
@@ -42,7 +38,9 @@ func NewHandler(svc *Service, limiter RateLimiter, requireAuth func(http.Handler
 func (h *Handler) Routes(r chi.Router) {
 	r.Route("/receipts", func(r chi.Router) {
 		r.Use(h.requireAuth, h.available)
-		r.Post("/upload-url", h.uploadURL)
+		r.With(ratelimit.Middleware(h.limiter, ruleUpload, func(r *http.Request) string {
+			return h.userID(r).String()
+		}, h.log)).Post("/upload-url", h.uploadURL)
 		r.Post("/{id}/confirm", h.confirm)
 		r.Get("/{id}/url", h.viewURL)
 		r.Delete("/{id}", h.remove)
@@ -61,16 +59,6 @@ func (h *Handler) available(next http.Handler) http.Handler {
 
 func (h *Handler) uploadURL(w http.ResponseWriter, r *http.Request) {
 	user := h.userID(r)
-	ok, retry, err := h.limiter.Allow(r.Context(), ruleUpload, user.String())
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	if !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		httpx.WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many uploads, try again later")
-		return
-	}
 	var req UploadRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return

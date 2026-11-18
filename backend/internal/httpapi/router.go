@@ -34,6 +34,8 @@ type Deps struct {
 	Checks map[string]Pinger
 	// V1 mounts the feature routes (auth, sync, ...) under /v1.
 	V1 []func(r chi.Router)
+	// V1Middleware runs before every /v1 route (e.g. a per-IP rate limit).
+	V1Middleware []func(http.Handler) http.Handler
 }
 
 // NewRouter builds the HTTP handler for the API.
@@ -54,6 +56,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Handle("/metrics", promhttp.HandlerFor(d.Registry, promhttp.HandlerOpts{}))
 
 	r.Route("/v1", func(r chi.Router) {
+		r.Use(d.V1Middleware...)
 		for _, mount := range d.V1 {
 			mount(r)
 		}

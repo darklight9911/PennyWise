@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -91,5 +92,26 @@ func TestMetricsEndpointCountsRequests(t *testing.T) {
 	want := `pennywise_http_requests_total{method="GET",route="/healthz",status="200"} 1`
 	if !strings.Contains(rec.Body.String(), want) {
 		t.Errorf("metrics output missing %q", want)
+	}
+}
+
+func TestV1MiddlewareGuardsOnlyV1(t *testing.T) {
+	block := func(http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTooManyRequests) })
+	}
+	h := NewRouter(Deps{
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry:     prometheus.NewRegistry(),
+		V1Middleware: []func(http.Handler) http.Handler{block},
+		V1: []func(chi.Router){func(r chi.Router) {
+			r.Get("/thing", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+		}},
+	})
+	for path, want := range map[string]int{"/v1/thing": http.StatusTooManyRequests, "/healthz": http.StatusOK} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != want {
+			t.Errorf("%s: %d, want %d", path, rec.Code, want)
+		}
 	}
 }

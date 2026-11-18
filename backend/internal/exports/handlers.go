@@ -1,25 +1,22 @@
 package exports
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/httpx"
 	"pennywise/backend/internal/ratelimit"
 	"pennywise/backend/internal/reports"
 )
 
 // RateLimiter is the part of ratelimit.Limiter the handlers use.
-type RateLimiter interface {
-	Allow(ctx context.Context, rule ratelimit.Rule, key string) (bool, time.Duration, error)
-}
+type RateLimiter = ratelimit.Allower
 
 var ruleExport = ratelimit.Rule{Name: "export", Limit: 20, Window: time.Hour}
 
@@ -30,7 +27,11 @@ type Handler struct {
 	requireAuth func(http.Handler) http.Handler
 	userID      func(*http.Request) uuid.UUID
 	log         *slog.Logger
+	audit       *audit.Log
 }
+
+// WithAudit records each export in the audit log.
+func (h *Handler) WithAudit(a *audit.Log) *Handler { h.audit = a; return h }
 
 // NewHandler creates the handler.
 func NewHandler(svc *Service, limiter RateLimiter, requireAuth func(http.Handler) http.Handler,
@@ -42,7 +43,9 @@ func NewHandler(svc *Service, limiter RateLimiter, requireAuth func(http.Handler
 func (h *Handler) Routes(r chi.Router) {
 	r.Route("/exports", func(r chi.Router) {
 		r.Use(h.requireAuth, h.available)
-		r.Post("/", h.create)
+		r.With(ratelimit.Middleware(h.limiter, ruleExport, func(r *http.Request) string {
+			return h.userID(r).String()
+		}, h.log)).Post("/", h.create)
 		r.Get("/{id}", h.get)
 	})
 }
@@ -65,16 +68,6 @@ type createRequest struct {
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	user := h.userID(r)
-	ok, retry, err := h.limiter.Allow(r.Context(), ruleExport, user.String())
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	if !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		httpx.WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many exports, try again later")
-		return
-	}
 	var req createRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
@@ -93,6 +86,8 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		h.fail(w, r, err)
 	default:
+		h.audit.Record(r, audit.Event{UserID: user, Action: audit.ExportCreate, Entity: "export", EntityID: e.ID,
+			Detail: map[string]any{"format": e.Format, "from": e.From, "to": e.To}})
 		httpx.WriteJSON(w, http.StatusAccepted, map[string]Export{"export": e})
 	}
 }

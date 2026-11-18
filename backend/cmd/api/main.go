@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
+	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/config"
 	"pennywise/backend/internal/datasync"
@@ -32,6 +33,12 @@ import (
 	"pennywise/backend/internal/receipts"
 	"pennywise/backend/internal/reports"
 	"pennywise/backend/internal/storage"
+)
+
+// Limits that apply to every request (feature routes add stricter ones).
+var (
+	ruleIP   = ratelimit.Rule{Name: "ip", Limit: 3000, Window: time.Minute}
+	ruleUser = ratelimit.Rule{Name: "user", Limit: 600, Window: time.Minute}
 )
 
 func main() {
@@ -95,15 +102,21 @@ func run(logger *slog.Logger) error {
 				return err
 			},
 		}, logger)
-	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
+	limiter := ratelimit.New(rdb)
+	auditLog := audit.New(db, logger)
+	authHandler := auth.NewHandler(authSvc, limiter, logger).WithAudit(auditLog)
 	userIDOf := func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }
+	// Every signed-in route: the token check, then a per-user limit
+	// (generous: a full sync is a few requests).
+	perUser := ratelimit.Middleware(limiter, ruleUser, func(r *http.Request) string { return userIDOf(r).String() }, logger)
+	requireAuth := func(next http.Handler) http.Handler { return authHandler.RequireAuth(perUser(next)) }
 
 	syncSvc := datasync.NewService(db, logger)
 	// New spending may cross a budget level: let the worker check.
 	syncSvc.OnApplied = enqueuer.EnqueueBudgetCheck
-	syncHandler := datasync.NewHandler(syncSvc, authHandler.RequireAuth, userIDOf, logger)
-	devicesHandler := notify.NewDevicesHandler(db, authHandler.RequireAuth, userIDOf, logger)
-	fxHandler := fx.NewHandler(db, authHandler.RequireAuth, logger)
+	syncHandler := datasync.NewHandler(syncSvc, requireAuth, userIDOf, logger)
+	devicesHandler := notify.NewDevicesHandler(db, requireAuth, userIDOf, logger)
+	fxHandler := fx.NewHandler(db, requireAuth, logger)
 
 	store, err := storage.Open(storage.R2Config(cfg.R2))
 	if err != nil {
@@ -119,9 +132,9 @@ func run(logger *slog.Logger) error {
 	} else {
 		logger.Warn("R2_BUCKET not set: receipt upload and export are disabled")
 	}
-	exportsHandler := exports.NewHandler(exportSvc, ratelimit.New(rdb), authHandler.RequireAuth, userIDOf, logger)
-	reportsHandler := reports.NewHandler(db, rdb, authHandler.RequireAuth, userIDOf, logger)
-	receiptsHandler := receipts.NewHandler(receiptSvc, ratelimit.New(rdb), authHandler.RequireAuth, userIDOf, logger)
+	exportsHandler := exports.NewHandler(exportSvc, limiter, requireAuth, userIDOf, logger).WithAudit(auditLog)
+	reportsHandler := reports.NewHandler(db, rdb, requireAuth, userIDOf, logger)
+	receiptsHandler := receipts.NewHandler(receiptSvc, limiter, requireAuth, userIDOf, logger)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -136,6 +149,11 @@ func run(logger *slog.Logger) error {
 				"redis": httpapi.PingFunc(func(ctx context.Context) error {
 					return rdb.Ping(ctx).Err()
 				}),
+			},
+			// Per IP over all of /v1. High, because many phones can share one
+			// carrier IP (CGNAT); auth routes have their own strict limits.
+			V1Middleware: []func(http.Handler) http.Handler{
+				ratelimit.Middleware(limiter, ruleIP, ratelimit.ClientIP, logger),
 			},
 			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes, receiptsHandler.Routes, reportsHandler.Routes, exportsHandler.Routes},
 		}),
