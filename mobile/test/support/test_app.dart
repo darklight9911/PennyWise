@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/features/currency/presentation/recalculating_banner.dart';
 import 'package:pennywise/core/database/local_database.dart';
 import 'package:pennywise/core/device/device_profile.dart';
 import 'package:pennywise/core/network/api_client.dart';
@@ -71,6 +72,7 @@ class TestHarness {
     incomingLinksProvider.overrideWithValue(links.stream),
     localDatabaseProvider.overrideWithValue(local),
     syncDebounceProvider.overrideWithValue(Duration.zero),
+    recalcPollProvider.overrideWithValue(const Duration(milliseconds: 200)),
     sessionManagerProvider.overrideWith((ref) {
       final s = SessionManager(
         refreshDio: _dio(),

@@ -100,7 +100,9 @@ void main() {
       reason: 'total: 1000 + 3000 − 45.50 (USD only)',
     );
     expect(
-      find.textContaining('1 account in other currencies not included yet'),
+      find.textContaining(
+        '1 account in other currencies not included (no rate yet)',
+      ),
       findsOneWidget,
     );
     expect(find.text('+3000.00'), findsWidgets, reason: 'income this month');

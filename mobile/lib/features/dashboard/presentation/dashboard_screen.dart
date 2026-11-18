@@ -9,7 +9,10 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/utils/money.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../currency/data/fx_rates.dart';
+import '../../currency/presentation/recalculating_banner.dart';
 import '../../budgets/presentation/budget_tile.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
@@ -42,17 +45,27 @@ class DashboardScreen extends ConsumerWidget {
     final budgets =
         ref.watch(budgetProgressProvider(currency)).value ?? const [];
 
-    // Accounts in other currencies need exchange rates (Milestone 6), so the
-    // total covers the main currency only and says so.
+    // Accounts in other currencies are converted at today's rate when it is
+    // known (online); otherwise the total says which ones are left out.
+    final rates = accounts.any((a) => a.currency != currency)
+        ? ref.watch(fxRatesProvider(currency)).value
+        : null;
     var total = 0;
+    var converted = 0;
     var otherCurrencies = 0;
     for (final a in accounts) {
+      final balance = balances[a.id] ?? a.openingBalanceMinor;
+      final rate = rates?.rates[a.currency];
       if (a.currency == currency) {
-        total += balances[a.id] ?? a.openingBalanceMinor;
+        total += balance;
+      } else if (rate != null) {
+        total += convertMinor(balance, a.currency, currency, invertRate(rate));
+        converted++;
       } else {
         otherCurrencies++;
       }
     }
+    final recalculating = user?.recalculating ?? false;
 
     final greeting = pennyGreetingForMonth(
       incomeMinor: totals.incomeMinor,
@@ -87,60 +100,82 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             _PennyCard(greeting: greeting),
             const SizedBox(height: Spacing.md),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(Spacing.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Total balance', style: muted),
-                    const SizedBox(height: Spacing.sm),
-                    AmountText(
-                      minor: total,
-                      currency: currency,
-                      signed: false,
-                      large: true,
-                      style: theme.textTheme.displaySmall,
-                    ),
-                    if (otherCurrencies > 0) ...[
+            if (recalculating) ...[
+              const RecalculatingBanner(),
+              const SizedBox(height: Spacing.md),
+            ] else ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Total balance', style: muted),
                       const SizedBox(height: Spacing.sm),
-                      Text(
-                        '$currency accounts only. $otherCurrencies '
-                        '${otherCurrencies == 1 ? 'account' : 'accounts'} in other '
-                        'currencies not included yet.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                      AmountText(
+                        minor: total,
+                        currency: currency,
+                        signed: false,
+                        large: true,
+                        style: theme.textTheme.displaySmall,
                       ),
+                      if (converted > 0 || otherCurrencies > 0) ...[
+                        const SizedBox(height: Spacing.sm),
+                        Text(
+                          [
+                            if (converted > 0)
+                              '$converted ${converted == 1 ? 'account' : 'accounts'} '
+                                  "converted at today's rate.",
+                            if (otherCurrencies > 0)
+                              '$otherCurrencies ${otherCurrencies == 1 ? 'account' : 'accounts'} '
+                                  'in other currencies not included (no rate yet).',
+                          ].join(' '),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: Spacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: _MonthFigure(
-                    label: 'Income this month',
-                    minor: totals.incomeMinor,
-                    currency: currency,
-                    labelStyle: muted,
+              const SizedBox(height: Spacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MonthFigure(
+                      label: 'Income this month',
+                      minor: totals.incomeMinor,
+                      currency: currency,
+                      labelStyle: muted,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: _MonthFigure(
+                      label: 'Spent this month',
+                      minor: -totals.expenseMinor,
+                      currency: currency,
+                      labelStyle: muted,
+                    ),
+                  ),
+                ],
+              ),
+              if (totals.missingRate > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: Spacing.sm),
+                  child: Text(
+                    '${totals.missingRate} ${totals.missingRate == 1 ? 'transaction' : 'transactions'} '
+                    'in other currencies not counted yet: '
+                    '${totals.missingRate == 1 ? 'it waits' : 'they wait'} for an exchange rate.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-                const SizedBox(width: Spacing.md),
-                Expanded(
-                  child: _MonthFigure(
-                    label: 'Spent this month',
-                    minor: -totals.expenseMinor,
-                    currency: currency,
-                    labelStyle: muted,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: Spacing.xl),
-            if (budgets.isNotEmpty) ...[
+              const SizedBox(height: Spacing.xl),
+            ],
+            if (budgets.isNotEmpty && !recalculating) ...[
               _SectionHeader(
                 title: 'Budgets',
                 action: 'Manage',

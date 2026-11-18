@@ -160,6 +160,14 @@ class AuthController extends Notifier<AuthState> {
     if (state is! SignedOut) _set(SignedIn(user));
   }
 
+  /// Switches the main currency. The server converts all amounts in the
+  /// background; until then the user is "recalculating".
+  Future<void> changeBaseCurrency(String currency) async {
+    final user = await _api.updateProfile(baseCurrency: currency);
+    await _store.writeUser(user.toJson());
+    if (state is! SignedOut) _set(SignedIn(user));
+  }
+
   /// Confirms an email address from a link. Works logged in or out.
   Future<void> verifyEmail(String token) async {
     await _api.verifyEmail(token);

@@ -30,6 +30,9 @@ class FakeBackend implements HttpClientAdapter {
   int callCount(String pathSuffix) =>
       calls.where((c) => c.endsWith(pathSuffix)).length;
 
+  /// Daily rates the fake serves: base EUR, quote -> rate (like the ECB).
+  final fxRates = <String, String>{};
+
   /// Creates a user directly (no HTTP), e.g. for login tests.
   void seedUser(String email, String password, {bool verified = false}) {
     users[email] = _user(email, verified: verified);
@@ -155,6 +158,37 @@ class FakeBackend implements HttpClientAdapter {
             ? _json(200, {'user': users[email]})
             : _empty(202);
 
+      case 'PATCH /v1/me':
+        final email = _emailOf(options);
+        if (email == null) return _error(401, 'invalid_token', 'invalid');
+        final u = users[email]!;
+        final next = body['base_currency'] as String?;
+        if (next != null && next != u['base_currency']) {
+          if (u['base_currency_status'] != 'ok') {
+            return _error(409, 'recalculating', 'still being applied');
+          }
+          u['base_currency'] = next;
+          u['base_currency_status'] = 'recalculating';
+        }
+        return _json(200, {'user': u});
+
+      case 'GET /v1/fx/rates':
+        final base = options.uri.queryParameters['base'] ?? 'EUR';
+        final eur = {'EUR': '1', ...fxRates};
+        if (!eur.containsKey(base) || fxRates.isEmpty) {
+          return _error(404, 'no_rates', 'no daily rate');
+        }
+        return _json(200, {
+          'base': base,
+          'date': '2026-11-17',
+          'rates': {
+            for (final e in eur.entries)
+              if (e.key != base)
+                e.key: (double.parse(e.value) / double.parse(eur[base]!))
+                    .toStringAsFixed(10),
+          },
+        });
+
       case 'DELETE /v1/me':
         final auth = options.headers['Authorization'] as String?;
         final email = auth == null
@@ -265,6 +299,11 @@ class FakeBackend implements HttpClientAdapter {
           return {...result, 'status': 'applied'};
         }(),
     ];
+  }
+
+  String? _emailOf(RequestOptions options) {
+    final auth = options.headers['Authorization'] as String?;
+    return auth == null ? null : _access[auth.replaceFirst('Bearer ', '')];
   }
 
   /// Like the real server: the main-currency amount at rate 1, at the

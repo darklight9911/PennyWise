@@ -9,6 +9,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../auth/application/auth_controller.dart';
 import '../application/ledger_providers.dart';
 import '../data/ledger_store.dart';
 import 'day_labels.dart';
@@ -35,6 +36,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _amount = TextEditingController();
   final _received = TextEditingController();
   final _note = TextEditingController();
+  final _rate = TextEditingController();
 
   late String _kind = widget.initialKind;
   String? _accountId;
@@ -71,6 +73,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           _received.text = formatMinor(t.transferAmountMinor!, t.currency);
         }
         _note.text = t.note;
+        if (t.fxRateSource == 'manual' && t.fxRateToBase != null) {
+          _rate.text = t.fxRateToBase!;
+        }
       }
     }
     if (mounted) setState(() => _loading = false);
@@ -81,7 +86,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _amount.dispose();
     _received.dispose();
     _note.dispose();
+    _rate.dispose();
     super.dispose();
+  }
+
+  String get _baseCurrency {
+    final auth = ref.read(authControllerProvider);
+    return auth is SignedIn ? auth.user.baseCurrency : 'USD';
   }
 
   Account? _find(List<Account> accounts, String? id) =>
@@ -130,6 +141,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ? amount // same currency: the same amount arrives
         : parseAmount(_received.text, to.currency).minor!;
 
+    final base = _baseCurrency;
+    final manualRate = _isTransfer || from.currency == base
+        ? null
+        : parseRate(_rate.text);
+
     setState(() => _saving = true);
     try {
       final store = await ref.read(ledgerStoreProvider.future);
@@ -145,6 +161,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           transferAccountId: to?.id,
           transferAmountMinor: received,
           note: _note.text,
+          baseCurrency: base,
+          manualRate: manualRate,
         );
       } else {
         await store.updateTransaction(
@@ -159,6 +177,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             transferAmountMinor: Value(received),
             note: _note.text,
           ),
+          baseCurrency: base,
+          manualRate: manualRate,
         );
       }
       if (mounted) context.pop();
@@ -332,12 +352,35 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 validator: (v) => _amountError(v, to.currency),
               ),
             ],
-          ] else
+          ] else ...[
+            if (from.currency != _baseCurrency) ...[
+              TextFormField(
+                controller: _rate,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Exchange rate (optional)',
+                  prefixText: '1 ${from.currency} = ',
+                  suffixText: _baseCurrency,
+                  helperText:
+                      "Leave empty to use the day's rate. Type one for "
+                      'currencies without a daily rate.',
+                  helperMaxLines: 2,
+                ),
+                validator: (v) =>
+                    (v ?? '').trim().isEmpty || parseRate(v!) != null
+                    ? null
+                    : 'Use a number above zero, like 1.08',
+              ),
+              const SizedBox(height: Spacing.lg),
+            ],
             _CategoryPicker(
               kind: _kind,
               selected: _categoryId,
               onSelected: (id) => setState(() => _categoryId = id),
             ),
+          ],
           const SizedBox(height: Spacing.lg),
           ListTile(
             contentPadding: EdgeInsets.zero,

@@ -6,6 +6,7 @@ import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../currency/presentation/main_currency_dialog.dart';
 import 'delete_account_dialog.dart';
 import 'verify_email_card.dart';
 
@@ -65,7 +66,19 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
             title: const Text('Main currency'),
-            subtitle: Text(user?.baseCurrency ?? '—'),
+            subtitle: Text(
+              user == null
+                  ? '—'
+                  : user.recalculating
+                  ? '${user.baseCurrency} · converting totals…'
+                  : user.baseCurrency,
+            ),
+            trailing: user == null
+                ? null
+                : const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+            onTap: user == null || user.recalculating
+                ? null
+                : () => showMainCurrencyDialog(context, user.baseCurrency),
           ),
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedClock01),

@@ -13,6 +13,7 @@ class AppUser {
     required this.emailVerified,
     required this.hasPassword,
     required this.googleLinked,
+    this.baseCurrencyStatus = 'ok',
   });
 
   final String id;
@@ -24,6 +25,12 @@ class AppUser {
   final bool emailVerified;
   final bool hasPassword;
   final bool googleLinked;
+
+  /// "recalculating" for a short while after the main currency changed:
+  /// totals are being converted on the server and should not be shown.
+  final String baseCurrencyStatus;
+
+  bool get recalculating => baseCurrencyStatus == 'recalculating';
 
   /// Name if set, otherwise the part of the email before "@".
   String get displayName => name.isNotEmpty ? name : email.split('@').first;
@@ -38,6 +45,7 @@ class AppUser {
     emailVerified: json['email_verified'] as bool? ?? false,
     hasPassword: json['has_password'] as bool? ?? false,
     googleLinked: json['google_linked'] as bool? ?? false,
+    baseCurrencyStatus: json['base_currency_status'] as String? ?? 'ok',
   );
 
   Map<String, dynamic> toJson() => {
@@ -50,6 +58,7 @@ class AppUser {
     'email_verified': emailVerified,
     'has_password': hasPassword,
     'google_linked': googleLinked,
+    'base_currency_status': baseCurrencyStatus,
   };
 
   @override
@@ -63,7 +72,8 @@ class AppUser {
       other.locale == locale &&
       other.emailVerified == emailVerified &&
       other.hasPassword == hasPassword &&
-      other.googleLinked == googleLinked;
+      other.googleLinked == googleLinked &&
+      other.baseCurrencyStatus == baseCurrencyStatus;
 
   @override
   int get hashCode => Object.hash(
@@ -76,5 +86,6 @@ class AppUser {
     emailVerified,
     hasPassword,
     googleLinked,
+    baseCurrencyStatus,
   );
 }

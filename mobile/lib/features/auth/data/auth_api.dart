@@ -87,6 +87,16 @@ class AuthApi {
     return AppUser.fromJson(res.data!['user'] as Map<String, dynamic>);
   });
 
+  /// Changes profile fields. A new main currency answers at once with
+  /// status "recalculating" (code "recalculating" if one is running).
+  Future<AppUser> updateProfile({String? baseCurrency}) => _call(() async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/v1/me',
+      data: {'base_currency': ?baseCurrency},
+    );
+    return AppUser.fromJson(res.data!['user'] as Map<String, dynamic>);
+  });
+
   /// Deletes the account on the server. Accounts with a password confirm
   /// with it (a wrong one fails with code "wrong_password").
   Future<void> deleteAccount({String? password}) => _call(

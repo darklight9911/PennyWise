@@ -105,6 +105,13 @@ void main() {
       }
     });
 
+    test('invertRate', () {
+      expect(invertRate('0.91'), '1.0989010989');
+      expect(invertRate('1.25'), '0.8');
+      expect(invertRate('2'), '0.5');
+      expect(invertRate('150.5'), '0.0066445183');
+    });
+
     test('convertMinor matches the server', () {
       // The same cases as backend/internal/fx/rates_test.go.
       expect(convertMinor(1000, 'USD', 'EUR', '0.91'), 910);
