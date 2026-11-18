@@ -86,6 +86,35 @@ class MonthTotals {
   final int missingRate;
 }
 
+/// Spending (or income) of one top-level category in a report.
+class CategoryTotal {
+  const CategoryTotal({
+    required this.categoryId,
+    required this.name,
+    required this.color,
+    required this.totalMinor,
+    required this.count,
+  });
+  final String categoryId;
+  final String name;
+  final String color; // "#RRGGBB" or ""
+  final int totalMinor;
+  final int count;
+}
+
+/// Money in and out in one month (YYYY-MM).
+class MonthFlow {
+  const MonthFlow({
+    required this.month,
+    required this.incomeMinor,
+    required this.expenseMinor,
+  });
+  final String month;
+  final int incomeMinor;
+  final int expenseMinor;
+  int get netMinor => incomeMinor - expenseMinor;
+}
+
 /// A transaction's amount in the main currency, worked out on the phone
 /// when it can be: same currency (rate 1) or a typed rate. Null fields
 /// mean the server fills them in with the daily rate.
@@ -464,6 +493,114 @@ class LedgerStore {
             expenseMinor: expense,
             missingRate: missing,
           );
+        });
+  }
+
+  // ----------------------------------------------------------------- reports
+
+  /// Income or spending per top-level category between two local dates
+  /// (both included), in the main currency. Sub-categories count towards
+  /// their parent. Biggest first.
+  Stream<List<CategoryTotal>> watchCategoryTotals({
+    required String from,
+    required String to,
+    required String baseCurrency,
+    String kind = TxKind.expense,
+  }) {
+    return db
+        .customSelect(
+          '''
+          SELECT COALESCE(p.id, c.id) AS id, COALESCE(p.name, c.name) AS name,
+                 COALESCE(p.color, c.color) AS color,
+                 SUM(COALESCE(t.amount_base_minor,
+                     CASE WHEN t.currency = ?1 THEN t.amount_minor END)) AS total,
+                 COUNT(*) AS n
+            FROM transactions t
+            JOIN categories c ON c.id = t.category_id
+            LEFT JOIN categories p ON p.id = c.parent_id
+           WHERE t.deleted_at IS NULL AND t.kind = ?4
+             AND t.local_date BETWEEN ?2 AND ?3
+             AND (t.amount_base_minor IS NOT NULL OR t.currency = ?1)
+           GROUP BY 1, 2, 3
+           ORDER BY total DESC, name
+          ''',
+          variables: [
+            Variable.withString(baseCurrency),
+            Variable.withString(from),
+            Variable.withString(to),
+            Variable.withString(kind),
+          ],
+          readsFrom: {db.transactions, db.categories},
+        )
+        .watch()
+        .map(
+          (rows) => [
+            for (final r in rows)
+              CategoryTotal(
+                categoryId: r.read<String>('id'),
+                name: r.read<String>('name'),
+                color: r.read<String>('color'),
+                totalMinor: r.read<int>('total'),
+                count: r.read<int>('n'),
+              ),
+          ],
+        );
+  }
+
+  /// Income and spending per month (YYYY-MM), from [fromMonth] to
+  /// [toMonth] inclusive, in the main currency. Months without
+  /// transactions are included with zeros.
+  Stream<List<MonthFlow>> watchMonthlyFlow({
+    required String fromMonth,
+    required String toMonth,
+    required String baseCurrency,
+  }) {
+    return db
+        .customSelect(
+          '''
+          SELECT substr(local_date, 1, 7) AS month, kind,
+                 SUM(COALESCE(amount_base_minor,
+                     CASE WHEN currency = ?1 THEN amount_minor END)) AS total
+            FROM transactions
+           WHERE deleted_at IS NULL AND kind IN ('income', 'expense')
+             AND substr(local_date, 1, 7) BETWEEN ?2 AND ?3
+             AND (amount_base_minor IS NOT NULL OR currency = ?1)
+           GROUP BY 1, 2
+          ''',
+          variables: [
+            Variable.withString(baseCurrency),
+            Variable.withString(fromMonth),
+            Variable.withString(toMonth),
+          ],
+          readsFrom: {db.transactions},
+        )
+        .watch()
+        .map((rows) {
+          final sums = <String, (int, int)>{};
+          for (final r in rows) {
+            final m = r.read<String>('month');
+            final v = sums[m] ?? (0, 0);
+            final total = r.read<int>('total');
+            sums[m] = r.read<String>('kind') == TxKind.income
+                ? (total, v.$2)
+                : (v.$1, total);
+          }
+          final out = <MonthFlow>[];
+          var y = int.parse(fromMonth.substring(0, 4));
+          var mo = int.parse(fromMonth.substring(5, 7));
+          while (true) {
+            final key = '$y-${mo.toString().padLeft(2, '0')}';
+            if (key.compareTo(toMonth) > 0) break;
+            final v = sums[key] ?? (0, 0);
+            out.add(
+              MonthFlow(month: key, incomeMinor: v.$1, expenseMinor: v.$2),
+            );
+            if (++mo == 13) {
+              mo = 1;
+              y++;
+            }
+          }
+          return out;
         });
   }
 

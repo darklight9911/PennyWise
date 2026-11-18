@@ -473,4 +473,89 @@ void main() {
       expect((m.incomeMinor, m.expenseMinor, m.missingRate), (300000, 2100, 1));
     });
   });
+
+  group('reports', () {
+    test('category totals roll up and monthly flow fills gaps', () async {
+      final bank = await store.createAccount(
+        name: 'Bank',
+        type: 'bank',
+        currency: 'USD',
+      );
+      final eur = await store.createAccount(
+        name: 'Euro',
+        type: 'cash',
+        currency: 'EUR',
+      );
+      final food = await store.createCategory(name: 'Food', kind: 'expense');
+      final cafe = await store.createCategory(
+        name: 'Cafe',
+        kind: 'expense',
+        parentId: food.id,
+      );
+      final rent = await store.createCategory(name: 'Rent', kind: 'expense');
+      final pay = await store.createCategory(name: 'Pay', kind: 'income');
+      Future<void> add(
+        Account a,
+        Category c,
+        int amount,
+        String day, {
+        String? rate,
+      }) => store.createTransaction(
+        kind: c.kind,
+        accountId: a.id,
+        amountMinor: amount,
+        currency: a.currency,
+        occurredAt: DateTime.parse('${day}T12:00:00'),
+        categoryId: c.id,
+        baseCurrency: 'USD',
+        manualRate: rate,
+      );
+      await add(bank, rent, 100000, '2026-09-01');
+      await add(bank, food, 2000, '2026-09-02');
+      await add(bank, cafe, 500, '2026-09-03');
+      await add(eur, cafe, 1000, '2026-09-04', rate: '1.1'); // 11.00 USD
+      await add(eur, food, 9999, '2026-09-05'); // no rate: left out
+      await add(bank, pay, 300000, '2026-11-30');
+
+      final cats = await store
+          .watchCategoryTotals(
+            from: '2026-09-01',
+            to: '2026-09-30',
+            baseCurrency: 'USD',
+          )
+          .first;
+      expect(
+        [for (final c in cats) (c.name, c.totalMinor, c.count)],
+        [('Rent', 100000, 1), ('Food', 3600, 3)],
+      );
+
+      final flow = await store
+          .watchMonthlyFlow(
+            fromMonth: '2026-08',
+            toMonth: '2026-11',
+            baseCurrency: 'USD',
+          )
+          .first;
+      expect(
+        [for (final m in flow) (m.month, m.incomeMinor, m.expenseMinor)],
+        [
+          ('2026-08', 0, 0),
+          ('2026-09', 0, 103600),
+          ('2026-10', 0, 0),
+          ('2026-11', 300000, 0),
+        ],
+      );
+      final wrap = await store
+          .watchMonthlyFlow(
+            fromMonth: '2025-11',
+            toMonth: '2026-02',
+            baseCurrency: 'USD',
+          )
+          .first;
+      expect(
+        [for (final m in wrap) m.month],
+        ['2025-11', '2025-12', '2026-01', '2026-02'],
+      );
+    });
+  });
 }

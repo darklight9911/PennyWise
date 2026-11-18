@@ -96,3 +96,32 @@ final recurringRulesProvider = StreamProvider<List<RecurringRule>>((
   final store = await ref.watch(ledgerStoreProvider.future);
   yield* store.watchRecurringRules();
 });
+
+/// Report: totals per top-level category for a date range.
+final categoryTotalsProvider =
+    StreamProvider.family<
+      List<CategoryTotal>,
+      ({String from, String to, String base, String kind})
+    >((ref, k) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchCategoryTotals(
+        from: k.from,
+        to: k.to,
+        baseCurrency: k.base,
+        kind: k.kind,
+      );
+    });
+
+/// Report: money in and out per month.
+final monthlyFlowProvider =
+    StreamProvider.family<
+      List<MonthFlow>,
+      ({String from, String to, String base})
+    >((ref, k) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchMonthlyFlow(
+        fromMonth: k.from,
+        toMonth: k.to,
+        baseCurrency: k.base,
+      );
+    });
