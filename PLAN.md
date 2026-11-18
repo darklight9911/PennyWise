@@ -307,14 +307,14 @@ Rules:
 | 0 ✅ | Setup | Repo, Docker Compose, CI skeleton, Flutter project, design tokens | 3 days |
 | 1 ✅ | Auth | Register/login/Google, JWT + refresh, email verification, encrypted local DB, app shell | 1 week |
 | 2 ✅ | Core data | Accounts, categories, transactions (sync-only server path + local DB + UI), default categories, dashboard | 2 weeks |
-| 2b | Receipts | R2 bucket, presigned upload/view, HEAD check on confirm, nightly clean-up job, photo attach UI | 4 days |
+| 2b 🟡 | Receipts | **Server done:** receipts table, presigned PUT/GET (type and size signed), HEAD check on confirm, nightly clean-up, receipts in sync pull. **Open:** phone photo attach/upload/view UI | 4 days |
 | 3 ✅ | Sync | Outbox, push/pull with per-user versions, conflict handling, idempotent push, offline and race-condition tests (built together with Milestone 2) | 1.5 weeks |
 | 4 🟡 | Budgets + alerts | Budgets (sync, screens, dashboard), worker job with once-per-period alerts, device registration. **Open:** real FCM delivery and the phone's push registration need a Firebase project (alerts are logged until then) | 1 week |
 | 5 🟡 | Goals + recurring | Goals with contributions, recurring rules with deterministic occurrence IDs generated on the phone and the server (15-minute worker job), reminders, screens for both. **Open:** reminders are logged until Firebase push is set up | 1 week |
-| 6 | Multi-currency | FX job, conversion in totals and reports, base-currency change job | 1 week |
-| 7 | Reports + export | Charts, CSV/PDF export jobs | 1 week |
-| 8 | Polish + security | App lock, dark mode, empty states, a11y, rate limits, audit | 1 week |
-| 9 | Release | Play Console setup, closed testing, store listing, production | 1–2 weeks |
+| 6 🟡 | Multi-currency | **Server done:** exchange_rates (Frankfurter, every 6 h, backfill), base amounts at push by the rate of the day or a typed rate, fill job, base-currency change job (PATCH /v1/me), GET /v1/fx/rates. **Open:** phone UI for changing the main currency, typing a rate, "Recalculating totals…" | 1 week |
+| 7 🟡 | Reports + export | **Server done:** /v1/reports summary, by-category, trend (cached by sync version); CSV and PDF export jobs into R2. **Open:** phone charts and export screens | 1 week |
+| 8 🟡 | Polish + security | **Done:** audit log, per-IP and per-user rate limits on every route, account deletion (API + phone + erase job). **Open:** app lock, dark mode, a11y pass | 1 week |
+| 9 🟡 | Release | **Done:** production compose with Caddy HTTPS, backups, release signing, privacy and deletion pages, docs/RELEASE.md. **Open (owner):** email provider, domain, Play Console steps, closed test | 1–2 weeks |
 
 Total: about 12–13 weeks for one developer (sum of the rows above, 5 working days a week).
 
@@ -326,8 +326,8 @@ Total: about 12–13 weeks for one developer (sum of the rows above, 5 working d
 - [ ] App signing with Play App Signing, release built as **AAB**
 - [ ] Target the latest required API level
 - [ ] Confirm the name "pennyWise" is free on the Play Store and the domain is available
-- [ ] **Privacy policy URL** (hosted) and **Data safety form** (finance data, email, photos/receipts, device IDs, crash logs via Crashlytics; no ads, no data sold)
-- [ ] **In-app account deletion + a web deletion link** (required by Play)
+- [ ] **Privacy policy URL** (hosted; page ready in `deploy/site/`) and **Data safety form** (answers in `docs/RELEASE.md`) (finance data, email, photos/receipts, device IDs; no crash SDK yet; no ads, no data sold)
+- [x] **In-app account deletion + a web deletion link** (required by Play; web page in `deploy/site/`)
 - [ ] Financial features declaration (personal finance tracker, no lending)
 - [ ] **Closed testing with at least 12 testers for 14 days** (required for new personal developer accounts)
 - [ ] Store listing: icon 512px, feature graphic 1024×500, at least 4 phone screenshots, short and full description
