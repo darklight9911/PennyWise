@@ -12,6 +12,9 @@ func setValid(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	t.Setenv("MAILER", "")
 	t.Setenv("GOOGLE_CLIENT_IDS", "")
+	for _, k := range []string{"R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_ENDPOINT"} {
+		t.Setenv(k, "")
+	}
 }
 
 func TestLoadValid(t *testing.T) {
@@ -37,6 +40,7 @@ func TestLoadRejectsBadConfig(t *testing.T) {
 		{"missing DB", "DATABASE_URL", "", "DATABASE_URL"},
 		{"unknown mailer", "MAILER", "smtp", "not supported"},
 		{"log mailer in production", "APP_ENV", "production", "development only"},
+		{"bucket without keys", "R2_BUCKET", "pennywise", "R2_ACCESS_KEY_ID"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -55,5 +59,21 @@ func TestLoadWorkerNeedsNoJWTSecret(t *testing.T) {
 	t.Setenv("JWT_SECRET", "")
 	if _, err := LoadWorker(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestR2Settings(t *testing.T) {
+	setValid(t)
+	cfg, err := Load()
+	if err != nil || cfg.R2.Configured() {
+		t.Fatalf("no bucket: configured=%v err=%v", cfg.R2.Configured(), err)
+	}
+	t.Setenv("R2_BUCKET", "pennywise")
+	t.Setenv("R2_ACCESS_KEY_ID", "id")
+	t.Setenv("R2_SECRET_ACCESS_KEY", "secret")
+	t.Setenv("R2_ACCOUNT_ID", "acct")
+	cfg, err = Load()
+	if err != nil || !cfg.R2.Configured() || cfg.R2.AccountID != "acct" {
+		t.Fatalf("bucket set: %+v %v", cfg.R2, err)
 	}
 }

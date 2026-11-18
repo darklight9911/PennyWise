@@ -116,6 +116,21 @@ type GoalContribution struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type Receipt struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	TransactionID uuid.UUID          `json:"transaction_id"`
+	ObjectKey     string             `json:"object_key"`
+	ContentType   string             `json:"content_type"`
+	SizeBytes     int32              `json:"size_bytes"`
+	Status        string             `json:"status"`
+	Version       int64              `json:"version"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
+	PurgedAt      pgtype.Timestamptz `json:"purged_at"`
+}
+
 type RecurringReminder struct {
 	RuleID         uuid.UUID          `json:"rule_id"`
 	OccurrenceDate pgtype.Date        `json:"occurrence_date"`

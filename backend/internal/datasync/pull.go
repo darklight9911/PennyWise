@@ -70,6 +70,15 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'goal_id', goal_id, 'amount_minor', amount_minor,
                'local_date', to_char(local_date, 'YYYY-MM-DD'), 'note', note)
       FROM goal_contributions WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    -- Read-only for phones (the receipts API writes them). Only files the
+    -- API has seen in storage, and tombstones.
+    SELECT 'receipt', 7, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'transaction_id', transaction_id, 'content_type', content_type,
+               'size_bytes', size_bytes)
+      FROM receipts WHERE user_id = $1 AND version > $2 AND version <= $3
+                      AND (status = 'uploaded' OR deleted_at IS NOT NULL)
 ) rows
 ORDER BY version, ord, id
 LIMIT $4`

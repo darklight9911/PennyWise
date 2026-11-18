@@ -28,6 +28,8 @@ import (
 	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
 	"pennywise/backend/internal/ratelimit"
+	"pennywise/backend/internal/receipts"
+	"pennywise/backend/internal/storage"
 )
 
 func main() {
@@ -101,6 +103,18 @@ func run(logger *slog.Logger) error {
 	devicesHandler := notify.NewDevicesHandler(db, authHandler.RequireAuth, userIDOf, logger)
 	fxHandler := fx.NewHandler(db, authHandler.RequireAuth, logger)
 
+	store, err := storage.Open(storage.R2Config(cfg.R2))
+	if err != nil {
+		return err
+	}
+	var receiptSvc *receipts.Service
+	if store != nil {
+		receiptSvc = receipts.NewService(db, store, logger)
+	} else {
+		logger.Warn("R2_BUCKET not set: receipt upload is disabled")
+	}
+	receiptsHandler := receipts.NewHandler(receiptSvc, ratelimit.New(rdb), authHandler.RequireAuth, userIDOf, logger)
+
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
@@ -115,7 +129,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
-			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes},
+			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes, receiptsHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

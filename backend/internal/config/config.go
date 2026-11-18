@@ -33,7 +33,22 @@ type Config struct {
 	Mailer string
 	// FXAPIURL is the Frankfurter API base (daily exchange rates).
 	FXAPIURL string
+	// R2 is the private bucket for receipts and exports. Empty Bucket means
+	// not configured: receipt upload and export are switched off.
+	R2 R2
 }
+
+// R2 holds the Cloudflare R2 (S3 API) settings.
+type R2 struct {
+	AccountID       string
+	AccessKeyID     string
+	SecretAccessKey string
+	Bucket          string
+	Endpoint        string // optional, e.g. a local MinIO
+}
+
+// Configured reports whether a bucket is set up.
+func (r R2) Configured() bool { return r.Bucket != "" }
 
 // Load reads the configuration from the environment and validates it.
 // The API needs everything; the worker calls LoadWorker.
@@ -73,6 +88,13 @@ func base() Config {
 		LinkBase:        getenv("LINK_BASE", "pennywise://"),
 		Mailer:          getenv("MAILER", "log"),
 		FXAPIURL:        getenv("FX_API_URL", "https://api.frankfurter.dev/v1"),
+		R2: R2{
+			AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+			Bucket:          os.Getenv("R2_BUCKET"),
+			Endpoint:        os.Getenv("R2_ENDPOINT"),
+		},
 	}
 }
 
@@ -83,6 +105,10 @@ func (c Config) requireCore() []error {
 	}
 	if c.RedisURL == "" {
 		errs = append(errs, errors.New("REDIS_URL is required"))
+	}
+	r := c.R2
+	if r.Configured() && (r.AccessKeyID == "" || r.SecretAccessKey == "" || (r.AccountID == "" && r.Endpoint == "")) {
+		errs = append(errs, errors.New("R2_BUCKET is set: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_ACCOUNT_ID (or R2_ENDPOINT) are required too"))
 	}
 	return errs
 }

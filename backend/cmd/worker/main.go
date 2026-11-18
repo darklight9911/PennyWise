@@ -17,7 +17,9 @@ import (
 	"pennywise/backend/internal/notify"
 	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
+	"pennywise/backend/internal/receipts"
 	"pennywise/backend/internal/recurring"
+	"pennywise/backend/internal/storage"
 )
 
 func main() {
@@ -68,6 +70,20 @@ func run(logger *slog.Logger) error {
 		asynq.Unique(5*time.Hour), asynq.Timeout(20*time.Minute), asynq.MaxRetry(3)); err != nil {
 		return err
 	}
+	store, err := storage.Open(storage.R2Config(cfg.R2))
+	if err != nil {
+		return err
+	}
+	var receiptSvc *receipts.Service
+	if store != nil {
+		receiptSvc = receipts.NewService(db, store, logger)
+		// Nightly: unfinished uploads, receipts of deleted transactions,
+		// files of deleted receipts.
+		if _, err := scheduler.Register("30 3 * * *", asynq.NewTask(receipts.TaskCleanup, nil),
+			asynq.Unique(23*time.Hour), asynq.Timeout(30*time.Minute)); err != nil {
+			return err
+		}
+	}
 	if err := scheduler.Start(); err != nil {
 		return err
 	}
@@ -85,6 +101,9 @@ func run(logger *slog.Logger) error {
 	rates := fx.NewService(db, fx.NewFrankfurter(cfg.FXAPIURL), logger)
 	mux.HandleFunc(fx.TaskRefresh, rates.HandleRefresh)
 	mux.HandleFunc(fx.TaskRebase, rates.HandleRebase)
+	if receiptSvc != nil {
+		mux.HandleFunc(receipts.TaskCleanup, receiptSvc.HandleCleanup)
+	}
 	mux.HandleFunc("system:ping", func(ctx context.Context, t *asynq.Task) error {
 		logger.InfoContext(ctx, "ping job received")
 		return nil

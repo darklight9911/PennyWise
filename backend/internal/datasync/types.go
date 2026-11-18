@@ -27,6 +27,8 @@ const (
 	EntityRecurring   = "recurring_rule"
 	EntityGoal        = "goal"
 	EntityGoalContrib = "goal_contribution"
+	// EntityReceipt is pulled only; the receipts API writes receipts.
+	EntityReceipt = "receipt"
 )
 
 var entityOrder = map[string]int{
