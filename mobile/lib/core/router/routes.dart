@@ -11,6 +11,7 @@ abstract final class Routes {
   static const dashboard = '/';
   static const transactions = '/transactions';
   static const reports = '/reports';
+  static const export = '/export';
   static const settings = '/settings';
 
   static const categories = '/categories';

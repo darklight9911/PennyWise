@@ -49,6 +49,7 @@ dependencies:
   uuid: ^4.6.0
   rive: ^0.14.11
   hugeicons: ^4.4.0
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

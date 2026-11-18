@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/core/platform/link_opener.dart';
+import 'package:pennywise/features/export/data/export_api.dart';
 import 'package:pennywise/features/currency/presentation/recalculating_banner.dart';
 import 'package:pennywise/core/database/local_database.dart';
 import 'package:pennywise/core/device/device_profile.dart';
@@ -64,6 +66,9 @@ class TestHarness {
 
   static const config = AppConfig(apiBaseUrl: 'http://fake.test');
 
+  /// Links the app asked the phone to open (e.g. export downloads).
+  final opened = <Uri>[];
+
   List<Override> get overrides => [
     appConfigProvider.overrideWithValue(config),
     tokenStoreProvider.overrideWithValue(store),
@@ -73,6 +78,11 @@ class TestHarness {
     localDatabaseProvider.overrideWithValue(local),
     syncDebounceProvider.overrideWithValue(Duration.zero),
     recalcPollProvider.overrideWithValue(const Duration(milliseconds: 200)),
+    exportPollProvider.overrideWithValue(const Duration(milliseconds: 100)),
+    linkOpenerProvider.overrideWithValue((uri) async {
+      opened.add(uri);
+      return true;
+    }),
     sessionManagerProvider.overrideWith((ref) {
       final s = SessionManager(
         refreshDio: _dio(),

@@ -30,6 +30,13 @@ class FakeBackend implements HttpClientAdapter {
   int callCount(String pathSuffix) =>
       calls.where((c) => c.endsWith(pathSuffix)).length;
 
+  /// Exports: id -> (format, from, to, polls so far). Ready after one poll.
+  final exports =
+      <String, ({String format, String from, String to, int polls})>{};
+
+  /// Code to refuse exports with (e.g. "exports_unavailable"), or null.
+  String? exportsError;
+
   /// Daily rates the fake serves: base EUR, quote -> rate (like the ECB).
   final fxRates = <String, String>{};
 
@@ -57,6 +64,19 @@ class FakeBackend implements HttpClientAdapter {
     final path = options.uri.path;
     calls.add('${options.method} $path');
     final body = (options.data as Map?)?.cast<String, dynamic>() ?? {};
+
+    if (options.method == 'GET' && path.startsWith('/v1/exports/')) {
+      final id = path.substring('/v1/exports/'.length);
+      final e = exports[id];
+      if (e == null) return _error(404, 'not_found', 'export not found');
+      exports[id] = (
+        format: e.format,
+        from: e.from,
+        to: e.to,
+        polls: e.polls + 1,
+      );
+      return _json(200, {'export': _exportJson(id)});
+    }
 
     switch ('${options.method} $path') {
       case 'POST /v1/auth/register':
@@ -160,7 +180,9 @@ class FakeBackend implements HttpClientAdapter {
 
       case 'PATCH /v1/me':
         final email = _emailOf(options);
-        if (email == null) return _error(401, 'invalid_token', 'invalid');
+        if (email == null) {
+          return _error(401, 'invalid_token', 'invalid');
+        }
         final u = users[email]!;
         final next = body['base_currency'] as String?;
         if (next != null && next != u['base_currency']) {
@@ -188,6 +210,22 @@ class FakeBackend implements HttpClientAdapter {
                     .toStringAsFixed(10),
           },
         });
+
+      case 'POST /v1/exports':
+        if (_emailOf(options) == null) {
+          return _error(401, 'invalid_token', 'invalid');
+        }
+        if (exportsError != null) {
+          return _error(503, exportsError!, 'refused by test');
+        }
+        final id = 'exp-${exports.length + 1}';
+        exports[id] = (
+          format: body['format'] as String,
+          from: body['from'] as String,
+          to: body['to'] as String,
+          polls: 0,
+        );
+        return _json(202, {'export': _exportJson(id)});
 
       case 'DELETE /v1/me':
         final auth = options.headers['Authorization'] as String?;
@@ -299,6 +337,20 @@ class FakeBackend implements HttpClientAdapter {
           return {...result, 'status': 'applied'};
         }(),
     ];
+  }
+
+  Map<String, dynamic> _exportJson(String id) {
+    final e = exports[id]!;
+    final ready = e.polls > 0;
+    return {
+      'id': id,
+      'format': e.format,
+      'from': e.from,
+      'to': e.to,
+      'status': ready ? 'ready' : 'pending',
+      'file_name': 'pennywise-${e.from}-to-${e.to}.${e.format}',
+      if (ready) 'download_url': 'https://files.example.com/$id?sig=${e.polls}',
+    };
   }
 
   String? _emailOf(RequestOptions options) {

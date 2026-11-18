@@ -11,6 +11,7 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/budgets/presentation/budget_form_screen.dart';
 import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/export/presentation/export_screen.dart';
 import '../../features/goals/presentation/goal_detail_screen.dart';
 import '../../features/goals/presentation/goal_form_screen.dart';
 import '../../features/goals/presentation/goals_screen.dart';
@@ -65,6 +66,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             BudgetFormScreen(budgetId: state.pathParameters['id']),
       ),
+      GoRoute(path: Routes.export, builder: (_, _) => const ExportScreen()),
       GoRoute(path: Routes.goals, builder: (_, _) => const GoalsScreen()),
       GoRoute(path: Routes.newGoal, builder: (_, _) => const GoalFormScreen()),
       GoRoute(
