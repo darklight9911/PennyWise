@@ -10,6 +10,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
     required this.incomeText,
     required this.expense,
     required this.muted,
+    required this.warning,
   });
 
   /// Large income amounts (24 px+, or 18.7 px+ bold), icons and charts.
@@ -24,11 +25,23 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
   /// Secondary text such as labels and dates.
   final Color muted;
 
+  /// Close to a limit (budgets at 80 %).
+  final Color warning;
+
   static const light = FinanceColors(
     income: AppColors.income,
     incomeText: AppColors.incomeText,
     expense: AppColors.expense,
     muted: AppColors.muted,
+    warning: AppColors.warning,
+  );
+
+  static const dark = FinanceColors(
+    income: AppDarkColors.income,
+    incomeText: AppDarkColors.incomeText,
+    expense: AppDarkColors.expense,
+    muted: AppDarkColors.muted,
+    warning: AppDarkColors.warning,
   );
 
   @override
@@ -37,12 +50,14 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
     Color? incomeText,
     Color? expense,
     Color? muted,
+    Color? warning,
   }) {
     return FinanceColors(
       income: income ?? this.income,
       incomeText: incomeText ?? this.incomeText,
       expense: expense ?? this.expense,
       muted: muted ?? this.muted,
+      warning: warning ?? this.warning,
     );
   }
 
@@ -54,6 +69,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
       incomeText: Color.lerp(incomeText, other.incomeText, t)!,
       expense: Color.lerp(expense, other.expense, t)!,
       muted: Color.lerp(muted, other.muted, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
     );
   }
 }

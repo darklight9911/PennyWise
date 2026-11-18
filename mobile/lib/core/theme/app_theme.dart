@@ -28,7 +28,6 @@ abstract final class AppTypography {
     fontWeight: FontWeight.w400,
     height: 24 / 16,
     letterSpacing: 0,
-    color: AppColors.onSurface,
   );
 }
 
@@ -52,23 +51,59 @@ abstract final class AppTheme {
     outlineVariant: AppColors.outline,
   );
 
-  static ThemeData light() {
-    const scheme = _lightScheme;
+  static const _darkScheme = ColorScheme(
+    brightness: Brightness.dark,
+    primary: AppDarkColors.primary,
+    onPrimary: AppDarkColors.onPrimary,
+    secondary: AppDarkColors.secondary,
+    onSecondary: AppDarkColors.onSurface,
+    secondaryContainer: AppDarkColors.secondary,
+    onSecondaryContainer: AppDarkColors.onSurface,
+    error: AppDarkColors.expense,
+    onError: AppDarkColors.onPrimary,
+    surface: AppDarkColors.surface,
+    onSurface: AppDarkColors.onSurface,
+    onSurfaceVariant: AppDarkColors.muted,
+    outline: AppDarkColors.outline,
+    outlineVariant: AppDarkColors.outline,
+  );
+
+  static ThemeData light() => _build(
+    scheme: _lightScheme,
+    canvas: AppColors.canvas,
+    outline: AppColors.outline,
+    finance: FinanceColors.light,
+  );
+
+  static ThemeData dark() => _build(
+    scheme: _darkScheme,
+    canvas: AppDarkColors.canvas,
+    outline: AppDarkColors.outline,
+    finance: FinanceColors.dark,
+  );
+
+  static ThemeData _build({
+    required ColorScheme scheme,
+    required Color canvas,
+    required Color outline,
+    required FinanceColors finance,
+  }) {
     final base = ThemeData(
       useMaterial3: true,
+      brightness: scheme.brightness,
       fontFamily: AppTypography.fontFamily,
       colorScheme: scheme,
-      scaffoldBackgroundColor: AppColors.canvas,
-      extensions: const [FinanceColors.light],
+      scaffoldBackgroundColor: canvas,
+      extensions: [finance],
     );
 
     return base.copyWith(
       textTheme: base.textTheme
           .copyWith(bodyLarge: AppTypography.body)
           .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.canvas,
-        foregroundColor: AppColors.onSurface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: canvas,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -79,7 +114,7 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.card),
-          side: const BorderSide(color: AppColors.outline),
+          side: BorderSide(color: outline),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -92,13 +127,13 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scheme.surface,
-        indicatorColor: AppColors.secondary,
+        indicatorColor: scheme.secondaryContainer,
         surfaceTintColor: Colors.transparent,
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -106,31 +141,27 @@ abstract final class AppTheme {
         fillColor: scheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.button),
-          borderSide: const BorderSide(color: AppColors.outline),
+          borderSide: BorderSide(color: outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.button),
-          borderSide: const BorderSide(color: AppColors.outline),
+          borderSide: BorderSide(color: outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.button),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: BorderSide(color: scheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.button),
-          borderSide: const BorderSide(color: AppColors.expense),
+          borderSide: BorderSide(color: scheme.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.button),
-          borderSide: const BorderSide(color: AppColors.expense, width: 2),
+          borderSide: BorderSide(color: scheme.error, width: 2),
         ),
         helperMaxLines: 2,
       ),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.outline,
-        space: 1,
-        thickness: 1,
-      ),
+      dividerTheme: DividerThemeData(color: outline, space: 1, thickness: 1),
     );
   }
 }

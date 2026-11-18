@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/router/routes.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/finance_colors.dart';
 import '../../../core/utils/money.dart';
@@ -10,7 +11,7 @@ import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
 
 /// Amber used when a budget is at 80 % or more (dark enough for text).
-const budgetWarning = Color(0xFF9A5B00);
+const budgetWarning = AppColors.warning;
 
 /// One budget: name, progress bar and what is left.
 class BudgetTile extends ConsumerWidget {
@@ -35,7 +36,9 @@ class BudgetTile extends ConsumerWidget {
       color = context.financeColors.expense;
       status = '${formatMinor(-p.leftMinor, currency)} over $when';
     } else {
-      color = p.fraction >= 0.8 ? budgetWarning : theme.colorScheme.primary;
+      color = p.fraction >= 0.8
+          ? context.financeColors.warning
+          : theme.colorScheme.primary;
       status =
           '${formatMinor(p.leftMinor, currency)} left of '
           '${formatMinor(p.budget.amountMinor, currency)} $when';

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/core/storage/device_prefs.dart';
 import 'package:pennywise/features/receipts/data/receipt_files.dart';
 import 'package:pennywise/features/receipts/data/receipt_picker.dart';
 import 'package:pennywise/features/receipts/data/receipt_sync.dart';
@@ -69,6 +70,9 @@ class TestHarness {
 
   static const config = AppConfig(apiBaseUrl: 'http://fake.test');
 
+  /// Settings of the "phone" (theme, app lock).
+  final prefs = MemoryDevicePrefs();
+
   /// Receipt photos on the "phone".
   final receiptFiles = MemoryReceiptFiles();
 
@@ -90,6 +94,7 @@ class TestHarness {
     recalcPollProvider.overrideWithValue(const Duration(milliseconds: 200)),
     exportPollProvider.overrideWithValue(const Duration(milliseconds: 100)),
     receiptFilesProvider.overrideWithValue(receiptFiles),
+    devicePrefsProvider.overrideWithValue(prefs),
     uploadDioProvider.overrideWithValue(Dio()..httpClientAdapter = backend),
     photoPickerProvider.overrideWithValue((source) async {
       pickedFrom.add(source);

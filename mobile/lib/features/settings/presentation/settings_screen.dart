@@ -7,6 +7,7 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../currency/presentation/main_currency_dialog.dart';
+import '../application/theme_mode.dart';
 import 'delete_account_dialog.dart';
 import 'verify_email_card.dart';
 
@@ -32,6 +33,31 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
     if (ok == true) await ref.read(authControllerProvider.notifier).logout();
+  }
+
+  Future<void> _pickTheme(BuildContext context, WidgetRef ref) async {
+    final picked = await showDialog<ThemeMode>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Appearance'),
+        children: [
+          RadioGroup<ThemeMode>(
+            groupValue: ref.read(themeModeProvider),
+            onChanged: (m) => Navigator.pop(context, m),
+            child: Column(
+              children: [
+                for (final m in ThemeMode.values)
+                  RadioListTile<ThemeMode>(
+                    value: m,
+                    title: Text(themeModeLabel(m)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (picked != null) await ref.read(themeModeProvider.notifier).set(picked);
   }
 
   @override
@@ -84,6 +110,13 @@ class SettingsScreen extends ConsumerWidget {
             leading: const AppIcon(HugeIcons.strokeRoundedClock01),
             title: const Text('Time zone'),
             subtitle: Text(user?.timezone ?? '—'),
+          ),
+          ListTile(
+            leading: const AppIcon(HugeIcons.strokeRoundedPaintBrush02),
+            title: const Text('Appearance'),
+            subtitle: Text(themeModeLabel(ref.watch(themeModeProvider))),
+            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+            onTap: () => _pickTheme(context, ref),
           ),
           const Divider(),
           ListTile(
