@@ -52,6 +52,13 @@ android {
         }
     }
 
+    // Android Lint crashes on the image_picker plugin's Java sources (a
+    // lint bug: "Unexpected failure during lint analysis"), which fails
+    // release builds. Our Dart code is checked by `flutter analyze`.
+    lint {
+        checkReleaseBuilds = false
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName(if (hasUploadKey) "upload" else "debug")
