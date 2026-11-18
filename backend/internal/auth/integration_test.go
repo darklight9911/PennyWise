@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -36,6 +37,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"pennywise/backend/internal/auth"
+	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/httpapi"
 	"pennywise/backend/internal/mail"
 	"pennywise/backend/internal/ratelimit"
@@ -100,6 +102,14 @@ type env struct {
 	t      *testing.T
 	srv    *httptest.Server
 	mailer *captureMailer
+	jobs   *fakeQueue // base-currency recalculations queued
+}
+
+type fakeQueue struct{ tasks []*asynq.Task }
+
+func (q *fakeQueue) EnqueueContext(_ context.Context, t *asynq.Task, _ ...asynq.Option) (*asynq.TaskInfo, error) {
+	q.tasks = append(q.tasks, t)
+	return &asynq.TaskInfo{}, nil
 }
 
 func setup(t *testing.T, google auth.GoogleVerifier) *env {
@@ -155,8 +165,16 @@ func setupWithHook(t *testing.T, google auth.GoogleVerifier, hook userHook) *env
 		t.Fatal(err)
 	}
 	mailer := &captureMailer{}
+	jobs := &fakeQueue{}
 	svc := auth.NewService(pool, jwtIssuer, google, mailer,
-		auth.Config{RefreshTTL: time.Hour, LinkBase: "pennywise://", OnUserCreated: hook}, logger)
+		auth.Config{RefreshTTL: time.Hour, LinkBase: "pennywise://", OnUserCreated: hook,
+			ChangeBaseCurrency: func(ctx context.Context, id uuid.UUID, c string) error {
+				err := fx.ChangeBase(ctx, pool, jobs, id, c)
+				if errors.Is(err, fx.ErrRecalculating) {
+					return auth.ErrBaseCurrencyBusy
+				}
+				return err
+			}}, logger)
 	h := auth.NewHandler(svc, ratelimit.New(rdb), logger)
 
 	router := httpapi.NewRouter(httpapi.Deps{
@@ -164,7 +182,7 @@ func setupWithHook(t *testing.T, google auth.GoogleVerifier, hook userHook) *env
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return &env{t: t, srv: srv, mailer: mailer}
+	return &env{t: t, srv: srv, mailer: mailer, jobs: jobs}
 }
 
 type resp struct {
@@ -527,4 +545,34 @@ func TestFailingNewUserHookCreatesNoUser(t *testing.T) {
 	// Nothing was left behind: had the user been saved, this login would work.
 	login := e.post("/v1/auth/login", map[string]string{"email": "half@example.com", "password": pw})
 	expectStatus(t, login, http.StatusUnauthorized)
+}
+
+func TestUpdateProfile(t *testing.T) {
+	e := setup(t, nil)
+	access, _ := tokens(e.register("ann@example.com")) // EUR, Asia/Dhaka
+
+	r := e.do(http.MethodPatch, "/v1/me", access, map[string]any{"name": "  Ann  ", "timezone": "Europe/Berlin"})
+	expectStatus(t, r, http.StatusOK)
+	if u := user(r); u["name"] != "Ann" || u["timezone"] != "Europe/Berlin" || u["base_currency"] != "EUR" {
+		t.Fatalf("profile: %v", u)
+	}
+	if len(e.jobs.tasks) != 0 {
+		t.Fatal("no base change, but a job was queued")
+	}
+
+	bad := e.do(http.MethodPatch, "/v1/me", access, map[string]any{"timezone": "Mars/Base"})
+	expectStatus(t, bad, http.StatusUnprocessableEntity)
+
+	r = e.do(http.MethodPatch, "/v1/me", access, map[string]any{"base_currency": "usd"})
+	expectStatus(t, r, http.StatusOK)
+	if u := user(r); u["base_currency"] != "USD" || u["base_currency_status"] != "recalculating" {
+		t.Fatalf("after base change: %v", u)
+	}
+	if len(e.jobs.tasks) != 1 || e.jobs.tasks[0].Type() != fx.TaskRebase {
+		t.Fatalf("jobs: %v", e.jobs.tasks)
+	}
+	busy := e.do(http.MethodPatch, "/v1/me", access, map[string]any{"base_currency": "GBP"})
+	expectStatus(t, busy, http.StatusConflict)
+
+	expectStatus(t, e.do(http.MethodPatch, "/v1/me", "", map[string]any{"name": "x"}), http.StatusUnauthorized)
 }

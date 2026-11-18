@@ -31,6 +31,8 @@ type Config struct {
 	LinkBase string
 	// Mailer selects the email sender. Only "log" exists so far (dev only).
 	Mailer string
+	// FXAPIURL is the Frankfurter API base (daily exchange rates).
+	FXAPIURL string
 }
 
 // Load reads the configuration from the environment and validates it.
@@ -70,6 +72,7 @@ func base() Config {
 		GoogleClientIDs: splitList(os.Getenv("GOOGLE_CLIENT_IDS")),
 		LinkBase:        getenv("LINK_BASE", "pennywise://"),
 		Mailer:          getenv("MAILER", "log"),
+		FXAPIURL:        getenv("FX_API_URL", "https://api.frankfurter.dev/v1"),
 	}
 }
 

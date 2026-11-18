@@ -21,6 +21,7 @@ import (
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/config"
 	"pennywise/backend/internal/datasync"
+	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/httpapi"
 	"pennywise/backend/internal/mail"
 	"pennywise/backend/internal/notify"
@@ -69,15 +70,6 @@ func run(logger *slog.Logger) error {
 	} else {
 		logger.Warn("GOOGLE_CLIENT_IDS not set: Google sign-in is disabled")
 	}
-	authSvc := auth.NewService(db, jwtIssuer, google, mail.LogMailer{Logger: logger},
-		auth.Config{
-			RefreshTTL:    cfg.RefreshTokenTTL,
-			LinkBase:      cfg.LinkBase,
-			OnUserCreated: datasync.SeedDefaultCategories,
-		}, logger)
-	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
-	userIDOf := func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }
-
 	redisOpt, err := asynq.ParseRedisURI(cfg.RedisURL)
 	if err != nil {
 		return err
@@ -86,11 +78,28 @@ func run(logger *slog.Logger) error {
 	defer queue.Close()
 	enqueuer := notify.NewEnqueuer(queue)
 
+	authSvc := auth.NewService(db, jwtIssuer, google, mail.LogMailer{Logger: logger},
+		auth.Config{
+			RefreshTTL:    cfg.RefreshTokenTTL,
+			LinkBase:      cfg.LinkBase,
+			OnUserCreated: datasync.SeedDefaultCategories,
+			ChangeBaseCurrency: func(ctx context.Context, id uuid.UUID, c string) error {
+				err := fx.ChangeBase(ctx, db, queue, id, c)
+				if errors.Is(err, fx.ErrRecalculating) {
+					return auth.ErrBaseCurrencyBusy
+				}
+				return err
+			},
+		}, logger)
+	authHandler := auth.NewHandler(authSvc, ratelimit.New(rdb), logger)
+	userIDOf := func(r *http.Request) uuid.UUID { return auth.UserID(r.Context()) }
+
 	syncSvc := datasync.NewService(db, logger)
 	// New spending may cross a budget level: let the worker check.
 	syncSvc.OnApplied = enqueuer.EnqueueBudgetCheck
 	syncHandler := datasync.NewHandler(syncSvc, authHandler.RequireAuth, userIDOf, logger)
 	devicesHandler := notify.NewDevicesHandler(db, authHandler.RequireAuth, userIDOf, logger)
+	fxHandler := fx.NewHandler(db, authHandler.RequireAuth, logger)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -106,7 +115,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
-			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes},
+			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

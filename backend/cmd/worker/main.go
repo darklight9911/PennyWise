@@ -13,6 +13,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"pennywise/backend/internal/config"
+	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/notify"
 	"pennywise/backend/internal/platform/postgres"
 	"pennywise/backend/internal/platform/redis"
@@ -61,6 +62,12 @@ func run(logger *slog.Logger) error {
 		asynq.Unique(14*time.Minute), asynq.Timeout(10*time.Minute)); err != nil {
 		return err
 	}
+	// Every 6 hours: new exchange rates (ECB publishes once a working day,
+	// around 16:00 CET), then base amounts that waited for them.
+	if _, err := scheduler.Register("15 */6 * * *", asynq.NewTask(fx.TaskRefresh, nil),
+		asynq.Unique(5*time.Hour), asynq.Timeout(20*time.Minute), asynq.MaxRetry(3)); err != nil {
+		return err
+	}
 	if err := scheduler.Start(); err != nil {
 		return err
 	}
@@ -75,6 +82,9 @@ func run(logger *slog.Logger) error {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(notify.TaskCheckBudgets, budgets.HandleCheckBudgets)
 	mux.HandleFunc(recurring.TaskRunAll, gen.HandleRunAll)
+	rates := fx.NewService(db, fx.NewFrankfurter(cfg.FXAPIURL), logger)
+	mux.HandleFunc(fx.TaskRefresh, rates.HandleRefresh)
+	mux.HandleFunc(fx.TaskRebase, rates.HandleRebase)
 	mux.HandleFunc("system:ping", func(ctx context.Context, t *asynq.Task) error {
 		logger.InfoContext(ctx, "ping job received")
 		return nil

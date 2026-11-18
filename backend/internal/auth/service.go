@@ -59,6 +59,9 @@ type Config struct {
 	// OnUserCreated runs inside the transaction that creates a user, e.g. to
 	// add the default categories. If it fails, the user is not created.
 	OnUserCreated func(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error
+	// ChangeBaseCurrency switches the user's base currency and starts the
+	// recalculation (fx.ChangeBase). Nil means the base currency is fixed.
+	ChangeBaseCurrency func(ctx context.Context, userID uuid.UUID, currency string) error
 }
 
 // Service implements the account and session logic.
@@ -524,6 +527,59 @@ func normalizeEmail(raw string) (string, error) {
 		return "", &ValidationError{Field: "email", Message: "enter a valid email address"}
 	}
 	return email, nil
+}
+
+// ProfilePatch lists the profile fields to change; nil fields stay.
+type ProfilePatch struct {
+	Name         *string
+	BaseCurrency *string
+	Locale       *string
+	Timezone     *string
+}
+
+// ErrBaseCurrencyBusy means the last base-currency change is still running.
+var ErrBaseCurrencyBusy = errors.New("auth: base currency change still in progress")
+
+// UpdateProfile changes the given fields and returns the updated user.
+// A new base currency starts a background recalculation of all amounts.
+func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, p ProfilePatch) (db.User, error) {
+	cur, err := s.User(ctx, id)
+	if err != nil {
+		return db.User{}, err
+	}
+	next := Profile{Name: cur.Name, BaseCurrency: cur.BaseCurrency, Locale: cur.Locale, Timezone: cur.Timezone}
+	if p.Name != nil {
+		next.Name = *p.Name
+	}
+	if p.BaseCurrency != nil {
+		next.BaseCurrency = strings.ToUpper(strings.TrimSpace(*p.BaseCurrency))
+	}
+	if p.Locale != nil {
+		next.Locale = *p.Locale
+	}
+	if p.Timezone != nil {
+		next.Timezone = *p.Timezone
+	}
+	if p.BaseCurrency != nil && next.BaseCurrency == "" {
+		return db.User{}, &ValidationError{Field: "base_currency", Message: "must be a 3-letter ISO 4217 code such as USD"}
+	}
+	if next, err = normalizeProfile(next); err != nil {
+		return db.User{}, err
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE users SET name = $2, locale = $3, timezone = $4 WHERE id = $1 AND deleted_at IS NULL`,
+		id, next.Name, next.Locale, next.Timezone); err != nil {
+		return db.User{}, err
+	}
+	if next.BaseCurrency != cur.BaseCurrency {
+		if s.cfg.ChangeBaseCurrency == nil {
+			return db.User{}, &ValidationError{Field: "base_currency", Message: "the base currency cannot be changed yet"}
+		}
+		if err := s.cfg.ChangeBaseCurrency(ctx, id, next.BaseCurrency); err != nil {
+			return db.User{}, err
+		}
+	}
+	return s.User(ctx, id)
 }
 
 func normalizeProfile(p Profile) (Profile, error) {

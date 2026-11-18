@@ -61,6 +61,7 @@ func (h *Handler) Routes(r chi.Router) {
 		r.With(h.RequireAuth).Post("/resend-verification", h.resendVerification)
 	})
 	r.With(h.RequireAuth).Get("/me", h.me)
+	r.With(h.RequireAuth).Patch("/me", h.updateMe)
 }
 
 // --- request / response shapes ---
@@ -294,6 +295,29 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]UserResponse{"user": toUserResponse(user)})
 }
 
+type updateMeRequest struct {
+	Name         *string `json:"name"`
+	BaseCurrency *string `json:"base_currency"`
+	Locale       *string `json:"locale"`
+	Timezone     *string `json:"timezone"`
+}
+
+// updateMe changes profile fields. A new base_currency answers at once
+// with base_currency_status "recalculating"; amounts follow in the
+// background and arrive through sync.
+func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
+	var req updateMeRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	user, err := h.svc.UpdateProfile(r.Context(), UserID(r.Context()), ProfilePatch(req))
+	if err != nil {
+		h.writeErr(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]UserResponse{"user": toUserResponse(user)})
+}
+
 // --- auth middleware ---
 
 type ctxKey struct{}
@@ -364,6 +388,8 @@ func (h *Handler) writeErr(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteError(w, http.StatusConflict, "google_account_conflict", "this email is linked to a different Google account")
 	case errors.Is(err, ErrGoogleNotConfigured):
 		httpx.WriteError(w, http.StatusServiceUnavailable, "google_not_configured", "Google sign-in is not available yet")
+	case errors.Is(err, ErrBaseCurrencyBusy):
+		httpx.WriteError(w, http.StatusConflict, "recalculating", "the last base currency change is still being applied")
 	case errors.Is(err, ErrUserNotFound):
 		httpx.WriteError(w, http.StatusUnauthorized, "invalid_token", "account no longer exists")
 	default:
