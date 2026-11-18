@@ -57,9 +57,14 @@ class Transactions extends Table with SyncedColumns {
   IntColumn get amountMinor => integer()();
   TextColumn get currency => text().withLength(min: 3, max: 3)();
 
-  /// Set by the server (same currency: rate 1). Null until known.
+  /// The amount in the user's main currency and the rate used. Set on the
+  /// phone for the main currency and for typed rates, otherwise by the
+  /// server (daily rate of local_date). Null until known.
   IntColumn get amountBaseMinor => integer().nullable()();
   TextColumn get fxRateToBase => text().nullable()();
+
+  /// auto (daily rate) or manual (typed by the user). v5.
+  TextColumn get fxRateSource => text().nullable()();
 
   TextColumn get transferAccountId => text().nullable()();
   IntColumn get transferAmountMinor => integer().nullable()();

@@ -1676,6 +1676,17 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _fxRateSourceMeta = const VerificationMeta(
+    'fxRateSource',
+  );
+  @override
+  late final GeneratedColumn<String> fxRateSource = GeneratedColumn<String>(
+    'fx_rate_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _transferAccountIdMeta = const VerificationMeta(
     'transferAccountId',
   );
@@ -1769,6 +1780,7 @@ class $TransactionsTable extends Transactions
     currency,
     amountBaseMinor,
     fxRateToBase,
+    fxRateSource,
     transferAccountId,
     transferAmountMinor,
     occurredAt,
@@ -1873,6 +1885,15 @@ class $TransactionsTable extends Transactions
         fxRateToBase.isAcceptableOrUnknown(
           data['fx_rate_to_base']!,
           _fxRateToBaseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fx_rate_source')) {
+      context.handle(
+        _fxRateSourceMeta,
+        fxRateSource.isAcceptableOrUnknown(
+          data['fx_rate_source']!,
+          _fxRateSourceMeta,
         ),
       );
     }
@@ -1987,6 +2008,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}fx_rate_to_base'],
       ),
+      fxRateSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fx_rate_source'],
+      ),
       transferAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}transfer_account_id'],
@@ -2047,9 +2072,14 @@ class MoneyTransaction extends DataClass
   final int amountMinor;
   final String currency;
 
-  /// Set by the server (same currency: rate 1). Null until known.
+  /// The amount in the user's main currency and the rate used. Set on the
+  /// phone for the main currency and for typed rates, otherwise by the
+  /// server (daily rate of local_date). Null until known.
   final int? amountBaseMinor;
   final String? fxRateToBase;
+
+  /// auto (daily rate) or manual (typed by the user). v5.
+  final String? fxRateSource;
   final String? transferAccountId;
   final int? transferAmountMinor;
   final DateTime occurredAt;
@@ -2074,6 +2104,7 @@ class MoneyTransaction extends DataClass
     required this.currency,
     this.amountBaseMinor,
     this.fxRateToBase,
+    this.fxRateSource,
     this.transferAccountId,
     this.transferAmountMinor,
     required this.occurredAt,
@@ -2105,6 +2136,9 @@ class MoneyTransaction extends DataClass
     }
     if (!nullToAbsent || fxRateToBase != null) {
       map['fx_rate_to_base'] = Variable<String>(fxRateToBase);
+    }
+    if (!nullToAbsent || fxRateSource != null) {
+      map['fx_rate_source'] = Variable<String>(fxRateSource);
     }
     if (!nullToAbsent || transferAccountId != null) {
       map['transfer_account_id'] = Variable<String>(transferAccountId);
@@ -2147,6 +2181,9 @@ class MoneyTransaction extends DataClass
       fxRateToBase: fxRateToBase == null && nullToAbsent
           ? const Value.absent()
           : Value(fxRateToBase),
+      fxRateSource: fxRateSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fxRateSource),
       transferAccountId: transferAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(transferAccountId),
@@ -2182,6 +2219,7 @@ class MoneyTransaction extends DataClass
       currency: serializer.fromJson<String>(json['currency']),
       amountBaseMinor: serializer.fromJson<int?>(json['amountBaseMinor']),
       fxRateToBase: serializer.fromJson<String?>(json['fxRateToBase']),
+      fxRateSource: serializer.fromJson<String?>(json['fxRateSource']),
       transferAccountId: serializer.fromJson<String?>(
         json['transferAccountId'],
       ),
@@ -2210,6 +2248,7 @@ class MoneyTransaction extends DataClass
       'currency': serializer.toJson<String>(currency),
       'amountBaseMinor': serializer.toJson<int?>(amountBaseMinor),
       'fxRateToBase': serializer.toJson<String?>(fxRateToBase),
+      'fxRateSource': serializer.toJson<String?>(fxRateSource),
       'transferAccountId': serializer.toJson<String?>(transferAccountId),
       'transferAmountMinor': serializer.toJson<int?>(transferAmountMinor),
       'occurredAt': serializer.toJson<DateTime>(occurredAt),
@@ -2232,6 +2271,7 @@ class MoneyTransaction extends DataClass
     String? currency,
     Value<int?> amountBaseMinor = const Value.absent(),
     Value<String?> fxRateToBase = const Value.absent(),
+    Value<String?> fxRateSource = const Value.absent(),
     Value<String?> transferAccountId = const Value.absent(),
     Value<int?> transferAmountMinor = const Value.absent(),
     DateTime? occurredAt,
@@ -2255,6 +2295,7 @@ class MoneyTransaction extends DataClass
         ? amountBaseMinor.value
         : this.amountBaseMinor,
     fxRateToBase: fxRateToBase.present ? fxRateToBase.value : this.fxRateToBase,
+    fxRateSource: fxRateSource.present ? fxRateSource.value : this.fxRateSource,
     transferAccountId: transferAccountId.present
         ? transferAccountId.value
         : this.transferAccountId,
@@ -2292,6 +2333,9 @@ class MoneyTransaction extends DataClass
       fxRateToBase: data.fxRateToBase.present
           ? data.fxRateToBase.value
           : this.fxRateToBase,
+      fxRateSource: data.fxRateSource.present
+          ? data.fxRateSource.value
+          : this.fxRateSource,
       transferAccountId: data.transferAccountId.present
           ? data.transferAccountId.value
           : this.transferAccountId,
@@ -2326,6 +2370,7 @@ class MoneyTransaction extends DataClass
           ..write('currency: $currency, ')
           ..write('amountBaseMinor: $amountBaseMinor, ')
           ..write('fxRateToBase: $fxRateToBase, ')
+          ..write('fxRateSource: $fxRateSource, ')
           ..write('transferAccountId: $transferAccountId, ')
           ..write('transferAmountMinor: $transferAmountMinor, ')
           ..write('occurredAt: $occurredAt, ')
@@ -2350,6 +2395,7 @@ class MoneyTransaction extends DataClass
     currency,
     amountBaseMinor,
     fxRateToBase,
+    fxRateSource,
     transferAccountId,
     transferAmountMinor,
     occurredAt,
@@ -2373,6 +2419,7 @@ class MoneyTransaction extends DataClass
           other.currency == this.currency &&
           other.amountBaseMinor == this.amountBaseMinor &&
           other.fxRateToBase == this.fxRateToBase &&
+          other.fxRateSource == this.fxRateSource &&
           other.transferAccountId == this.transferAccountId &&
           other.transferAmountMinor == this.transferAmountMinor &&
           other.occurredAt == this.occurredAt &&
@@ -2394,6 +2441,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
   final Value<String> currency;
   final Value<int?> amountBaseMinor;
   final Value<String?> fxRateToBase;
+  final Value<String?> fxRateSource;
   final Value<String?> transferAccountId;
   final Value<int?> transferAmountMinor;
   final Value<DateTime> occurredAt;
@@ -2414,6 +2462,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
     this.currency = const Value.absent(),
     this.amountBaseMinor = const Value.absent(),
     this.fxRateToBase = const Value.absent(),
+    this.fxRateSource = const Value.absent(),
     this.transferAccountId = const Value.absent(),
     this.transferAmountMinor = const Value.absent(),
     this.occurredAt = const Value.absent(),
@@ -2435,6 +2484,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
     required String currency,
     this.amountBaseMinor = const Value.absent(),
     this.fxRateToBase = const Value.absent(),
+    this.fxRateSource = const Value.absent(),
     this.transferAccountId = const Value.absent(),
     this.transferAmountMinor = const Value.absent(),
     required DateTime occurredAt,
@@ -2463,6 +2513,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
     Expression<String>? currency,
     Expression<int>? amountBaseMinor,
     Expression<String>? fxRateToBase,
+    Expression<String>? fxRateSource,
     Expression<String>? transferAccountId,
     Expression<int>? transferAmountMinor,
     Expression<DateTime>? occurredAt,
@@ -2484,6 +2535,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
       if (currency != null) 'currency': currency,
       if (amountBaseMinor != null) 'amount_base_minor': amountBaseMinor,
       if (fxRateToBase != null) 'fx_rate_to_base': fxRateToBase,
+      if (fxRateSource != null) 'fx_rate_source': fxRateSource,
       if (transferAccountId != null) 'transfer_account_id': transferAccountId,
       if (transferAmountMinor != null)
         'transfer_amount_minor': transferAmountMinor,
@@ -2508,6 +2560,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
     Value<String>? currency,
     Value<int?>? amountBaseMinor,
     Value<String?>? fxRateToBase,
+    Value<String?>? fxRateSource,
     Value<String?>? transferAccountId,
     Value<int?>? transferAmountMinor,
     Value<DateTime>? occurredAt,
@@ -2529,6 +2582,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
       currency: currency ?? this.currency,
       amountBaseMinor: amountBaseMinor ?? this.amountBaseMinor,
       fxRateToBase: fxRateToBase ?? this.fxRateToBase,
+      fxRateSource: fxRateSource ?? this.fxRateSource,
       transferAccountId: transferAccountId ?? this.transferAccountId,
       transferAmountMinor: transferAmountMinor ?? this.transferAmountMinor,
       occurredAt: occurredAt ?? this.occurredAt,
@@ -2576,6 +2630,9 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
     if (fxRateToBase.present) {
       map['fx_rate_to_base'] = Variable<String>(fxRateToBase.value);
     }
+    if (fxRateSource.present) {
+      map['fx_rate_source'] = Variable<String>(fxRateSource.value);
+    }
     if (transferAccountId.present) {
       map['transfer_account_id'] = Variable<String>(transferAccountId.value);
     }
@@ -2617,6 +2674,7 @@ class TransactionsCompanion extends UpdateCompanion<MoneyTransaction> {
           ..write('currency: $currency, ')
           ..write('amountBaseMinor: $amountBaseMinor, ')
           ..write('fxRateToBase: $fxRateToBase, ')
+          ..write('fxRateSource: $fxRateSource, ')
           ..write('transferAccountId: $transferAccountId, ')
           ..write('transferAmountMinor: $transferAmountMinor, ')
           ..write('occurredAt: $occurredAt, ')
@@ -6512,6 +6570,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required String currency,
       Value<int?> amountBaseMinor,
       Value<String?> fxRateToBase,
+      Value<String?> fxRateSource,
       Value<String?> transferAccountId,
       Value<int?> transferAmountMinor,
       required DateTime occurredAt,
@@ -6534,6 +6593,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<String> currency,
       Value<int?> amountBaseMinor,
       Value<String?> fxRateToBase,
+      Value<String?> fxRateSource,
       Value<String?> transferAccountId,
       Value<int?> transferAmountMinor,
       Value<DateTime> occurredAt,
@@ -6605,6 +6665,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get fxRateToBase => $composableBuilder(
     column: $table.fxRateToBase,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fxRateSource => $composableBuilder(
+    column: $table.fxRateSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6708,6 +6773,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get fxRateSource => $composableBuilder(
+    column: $table.fxRateSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get transferAccountId => $composableBuilder(
     column: $table.transferAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -6796,6 +6866,11 @@ class $$TransactionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get fxRateSource => $composableBuilder(
+    column: $table.fxRateSource,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get transferAccountId => $composableBuilder(
     column: $table.transferAccountId,
     builder: (column) => column,
@@ -6870,6 +6945,7 @@ class $$TransactionsTableTableManager
                 Value<String> currency = const Value.absent(),
                 Value<int?> amountBaseMinor = const Value.absent(),
                 Value<String?> fxRateToBase = const Value.absent(),
+                Value<String?> fxRateSource = const Value.absent(),
                 Value<String?> transferAccountId = const Value.absent(),
                 Value<int?> transferAmountMinor = const Value.absent(),
                 Value<DateTime> occurredAt = const Value.absent(),
@@ -6890,6 +6966,7 @@ class $$TransactionsTableTableManager
                 currency: currency,
                 amountBaseMinor: amountBaseMinor,
                 fxRateToBase: fxRateToBase,
+                fxRateSource: fxRateSource,
                 transferAccountId: transferAccountId,
                 transferAmountMinor: transferAmountMinor,
                 occurredAt: occurredAt,
@@ -6912,6 +6989,7 @@ class $$TransactionsTableTableManager
                 required String currency,
                 Value<int?> amountBaseMinor = const Value.absent(),
                 Value<String?> fxRateToBase = const Value.absent(),
+                Value<String?> fxRateSource = const Value.absent(),
                 Value<String?> transferAccountId = const Value.absent(),
                 Value<int?> transferAmountMinor = const Value.absent(),
                 required DateTime occurredAt,
@@ -6932,6 +7010,7 @@ class $$TransactionsTableTableManager
                 currency: currency,
                 amountBaseMinor: amountBaseMinor,
                 fxRateToBase: fxRateToBase,
+                fxRateSource: fxRateSource,
                 transferAccountId: transferAccountId,
                 transferAmountMinor: transferAmountMinor,
                 occurredAt: occurredAt,

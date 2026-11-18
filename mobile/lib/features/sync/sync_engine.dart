@@ -229,6 +229,9 @@ class SyncEngine {
             'note': t.note,
             'recurring_id': t.recurringId,
             'occurrence_date': t.occurrenceDate,
+            // A rate the user typed; daily rates are the server's job.
+            if (t.fxRateSource == 'manual' && t.fxRateToBase != null)
+              'manual_fx_rate': t.fxRateToBase,
           }),
         );
       case Entity.budget:
@@ -403,6 +406,7 @@ class SyncEngine {
                 currency: d['currency'] as String,
                 amountBaseMinor: Value(d['amount_base_minor'] as int?),
                 fxRateToBase: Value(d['fx_rate_to_base'] as String?),
+                fxRateSource: Value(d['fx_rate_source'] as String?),
                 transferAccountId: Value(d['transfer_account_id'] as String?),
                 transferAmountMinor: Value(d['transfer_amount_minor'] as int?),
                 occurredAt: DateTime.parse(d['occurred_at'] as String),

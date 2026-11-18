@@ -82,4 +82,39 @@ void main() {
       }
     });
   });
+
+  group('exchange rates', () {
+    test('parseRate accepts plain positive decimals', () {
+      expect(parseRate(' 1.0989 '), '1.0989');
+      expect(parseRate('117,50'), '117.5');
+      expect(parseRate('007'), '7');
+      expect(parseRate('0.0000000001'), '0.0000000001');
+      for (final bad in [
+        '',
+        '0',
+        '0.00',
+        '-1',
+        '1e5',
+        '1.',
+        '.5',
+        'abc',
+        '1.00000000001',
+        '12345678901',
+      ]) {
+        expect(parseRate(bad), isNull, reason: bad);
+      }
+    });
+
+    test('convertMinor matches the server', () {
+      // The same cases as backend/internal/fx/rates_test.go.
+      expect(convertMinor(1000, 'USD', 'EUR', '0.91'), 910);
+      expect(convertMinor(1234, 'USD', 'JPY', '150.5'), 1857);
+      expect(convertMinor(1857, 'JPY', 'USD', '0.0066445'), 1234);
+      expect(convertMinor(1000, 'USD', 'KWD', '0.3075'), 3075);
+      expect(convertMinor(5, 'USD', 'EUR', '0.5'), 3);
+      expect(convertMinor(-5, 'USD', 'EUR', '0.5'), -3);
+      expect(convertMinor(999999, 'IDR', 'USD', '0.0000613'), 61);
+      expect(convertMinor(100, 'EUR', 'EUR', '1'), 100);
+    });
+  });
 }

@@ -97,3 +97,40 @@ String amountErrorText(AmountError error, String currency) => switch (error) {
   AmountError.negative => 'Enter a positive amount',
   AmountError.tooLarge => 'That amount is too large',
 };
+
+/// Reads an exchange rate the user typed ("1.0989", "117,5"): a positive
+/// decimal with at most 10 decimals and 10 digits before the point (what
+/// the server stores). Returns it in plain form, or null if not valid.
+String? parseRate(String input) {
+  var s = input.trim().replaceAll(',', '.');
+  if (!RegExp(r'^\d{1,10}(\.\d{1,10})?$').hasMatch(s)) return null;
+  if (s.contains('.')) {
+    s = s.replaceFirst(RegExp(r'0+$'), '');
+    if (s.endsWith('.')) s = s.substring(0, s.length - 1);
+  }
+  s = s.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+  if (RegExp(r'^0(\.0*)?$').hasMatch(s)) return null; // zero
+  return s;
+}
+
+/// Converts [amountMinor] of [from] into minor units of [to] at [rate]
+/// (how much `to` one `from` buys, a decimal string). Exact integer maths;
+/// halves round away from zero, like the server.
+int convertMinor(int amountMinor, String from, String to, String rate) {
+  final parts = rate.split('.');
+  final decimals = parts.length == 2 ? parts[1].length : 0;
+  final rateNum = BigInt.parse(parts.join());
+  final shift = currencyExponent(to) - currencyExponent(from) - decimals;
+  var num = BigInt.from(amountMinor) * rateNum;
+  var den = BigInt.one;
+  if (shift >= 0) {
+    num *= BigInt.from(10).pow(shift);
+  } else {
+    den = BigInt.from(10).pow(-shift);
+  }
+  final neg = num.isNegative;
+  final abs = num.abs();
+  var q = abs ~/ den;
+  if ((abs % den) * BigInt.two >= den) q += BigInt.one;
+  return (neg ? -q : q).toInt();
+}

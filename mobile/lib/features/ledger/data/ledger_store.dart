@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/utils/money.dart';
 import '../../recurring/domain/recurrence.dart';
 
 /// Entity names, as the sync API uses them.
@@ -72,9 +73,41 @@ class GoalProgress {
 
 /// Income and expense totals of one month, in one currency.
 class MonthTotals {
-  const MonthTotals({this.incomeMinor = 0, this.expenseMinor = 0});
+  const MonthTotals({
+    this.incomeMinor = 0,
+    this.expenseMinor = 0,
+    this.missingRate = 0,
+  });
   final int incomeMinor;
   final int expenseMinor;
+
+  /// Transactions in another currency whose rate is not known yet, so they
+  /// are not in the totals (the server adds it, or the user types one).
+  final int missingRate;
+}
+
+/// A transaction's amount in the main currency, worked out on the phone
+/// when it can be: same currency (rate 1) or a typed rate. Null fields
+/// mean the server fills them in with the daily rate.
+typedef BaseAmount = ({int? amount, String? rate, String? source});
+
+BaseAmount baseAmountOf({
+  required int amountMinor,
+  required String currency,
+  required String baseCurrency,
+  String? manualRate,
+}) {
+  if (currency == baseCurrency) {
+    return (amount: amountMinor, rate: '1', source: 'auto');
+  }
+  if (manualRate != null) {
+    return (
+      amount: convertMinor(amountMinor, currency, baseCurrency, manualRate),
+      rate: manualRate,
+      source: 'manual',
+    );
+  }
+  return (amount: null, rate: null, source: null);
 }
 
 /// Reads and writes accounts, categories and transactions on the phone.
@@ -316,7 +349,17 @@ class LedgerStore {
     String? transferAccountId,
     int? transferAmountMinor,
     String note = '',
+    String? baseCurrency,
+    String? manualRate,
   }) {
+    final fx = baseCurrency == null
+        ? (amount: null, rate: null, source: null)
+        : baseAmountOf(
+            amountMinor: amountMinor,
+            currency: currency,
+            baseCurrency: baseCurrency,
+            manualRate: manualRate,
+          );
     final row = TransactionsCompanion.insert(
       id: _newId(),
       kind: kind,
@@ -329,6 +372,9 @@ class LedgerStore {
       occurredAt: occurredAt.toUtc(),
       localDate: localDateOf(occurredAt),
       note: Value(note.trim()),
+      amountBaseMinor: Value(fx.amount),
+      fxRateToBase: Value(fx.rate),
+      fxRateSource: Value(fx.source),
       updatedAt: _stamp(),
     );
     return _write(
@@ -339,14 +385,29 @@ class LedgerStore {
     );
   }
 
-  Future<MoneyTransaction> updateTransaction(MoneyTransaction t) {
+  /// Saves an edited transaction. With [baseCurrency], the main-currency
+  /// amount is worked out again (see [baseAmountOf]); without it, it is
+  /// left to the server.
+  Future<MoneyTransaction> updateTransaction(
+    MoneyTransaction t, {
+    String? baseCurrency,
+    String? manualRate,
+  }) {
+    final fx = baseCurrency == null
+        ? (amount: null, rate: null, source: null)
+        : baseAmountOf(
+            amountMinor: t.amountMinor,
+            currency: t.currency,
+            baseCurrency: baseCurrency,
+            manualRate: manualRate,
+          );
     final changed = t.copyWith(
       occurredAt: t.occurredAt.toUtc(),
       localDate: localDateOf(t.occurredAt),
       note: t.note.trim(),
-      // The server recomputes these from the new amount and currency.
-      amountBaseMinor: const Value(null),
-      fxRateToBase: const Value(null),
+      amountBaseMinor: Value(fx.amount),
+      fxRateToBase: Value(fx.rate),
+      fxRateSource: Value(fx.source),
       updatedAt: _stamp(),
     );
     return _write(Entity.transaction, t.id, changed.updatedAt, () async {
@@ -364,34 +425,45 @@ class LedgerStore {
     onLocalWrite?.call();
   }
 
-  /// Income and expenses of one month (YYYY-MM) in one currency.
-  /// Transfers are moves between own accounts, so they are not counted.
-  Stream<MonthTotals> watchMonthTotals(String yearMonth, String currency) {
+  /// Income and expenses of one month (YYYY-MM) in the main currency, each
+  /// transaction converted at its own rate. Transfers are moves between
+  /// own accounts, so they are not counted.
+  Stream<MonthTotals> watchMonthTotals(String yearMonth, String baseCurrency) {
     return db
         .customSelect(
           '''
-          SELECT kind, SUM(amount_minor) AS total FROM transactions
-           WHERE deleted_at IS NULL AND currency = ? AND substr(local_date, 1, 7) = ?
+          SELECT kind,
+                 SUM(COALESCE(amount_base_minor,
+                     CASE WHEN currency = ?1 THEN amount_minor END)) AS total,
+                 SUM(amount_base_minor IS NULL AND currency <> ?1) AS missing
+            FROM transactions
+           WHERE deleted_at IS NULL AND substr(local_date, 1, 7) = ?2
              AND kind IN ('income', 'expense')
            GROUP BY kind
           ''',
           variables: [
-            Variable.withString(currency),
+            Variable.withString(baseCurrency),
             Variable.withString(yearMonth),
           ],
           readsFrom: {db.transactions},
         )
         .watch()
         .map((rows) {
-          var income = 0, expense = 0;
+          var income = 0, expense = 0, missing = 0;
           for (final r in rows) {
+            final total = r.read<int?>('total') ?? 0;
+            missing += r.read<int>('missing');
             if (r.read<String>('kind') == TxKind.income) {
-              income = r.read<int>('total');
+              income = total;
             } else {
-              expense = r.read<int>('total');
+              expense = total;
             }
           }
-          return MonthTotals(incomeMinor: income, expenseMinor: expense);
+          return MonthTotals(
+            incomeMinor: income,
+            expenseMinor: expense,
+            missingRate: missing,
+          );
         });
   }
 

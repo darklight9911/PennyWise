@@ -68,6 +68,7 @@ void main() {
       raw.execute('DROP INDEX transactions_occurrence_key');
       raw.execute('ALTER TABLE transactions DROP COLUMN recurring_id');
       raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
+      raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
       raw.execute('PRAGMA user_version = 2');
       await v2.close();
 
@@ -111,6 +112,7 @@ void main() {
     raw.execute('DROP INDEX transactions_occurrence_key');
     raw.execute('ALTER TABLE transactions DROP COLUMN recurring_id');
     raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
+    raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
     raw.execute('PRAGMA user_version = 3');
     await v3.close();
 
@@ -121,6 +123,52 @@ void main() {
     expect(old!.recurringId, isNull, reason: 'old rows keep working');
     final g = await store4.createGoal(name: 'Trip', targetMinor: 100);
     expect((await store4.watchGoalProgress().first).single.goal.id, g.id);
-    expect(raw.select('PRAGMA user_version').single.values.single, 4);
+    expect(
+      raw.select('PRAGMA user_version').single.values.single,
+      v4.schemaVersion,
+    );
+  });
+
+  test('a version-4 database gets fx_rate_source (v5)', () async {
+    final raw = sqlite3.openInMemory();
+    final v4 = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    final store = LedgerStore(v4);
+    final a = await store.createAccount(
+      name: 'Wallet',
+      type: 'cash',
+      currency: 'EUR',
+    );
+    final food = await store.createCategory(name: 'Food', kind: 'expense');
+    final t = await store.createTransaction(
+      kind: 'expense',
+      accountId: a.id,
+      amountMinor: 1000,
+      currency: 'EUR',
+      occurredAt: DateTime(2026, 11, 1),
+      categoryId: food.id,
+    );
+    raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
+    raw.execute('PRAGMA user_version = 4');
+    await v4.close();
+
+    final v5 = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(v5.close);
+    final store5 = LedgerStore(v5);
+    expect((await store5.getTransaction(t.id))!.fxRateSource, isNull);
+    final typed = await store5.createTransaction(
+      kind: 'expense',
+      accountId: a.id,
+      amountMinor: 1000,
+      currency: 'EUR',
+      occurredAt: DateTime(2026, 11, 2),
+      categoryId: food.id,
+      baseCurrency: 'USD',
+      manualRate: '1.1',
+    );
+    expect(typed.fxRateSource, 'manual');
+    expect(typed.amountBaseMinor, 1100);
+    expect(raw.select('PRAGMA user_version').single.values.single, 5);
   });
 }

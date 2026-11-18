@@ -425,4 +425,66 @@ void main() {
       expect(pulled.occurrenceDate, '2026-11-30');
     },
   );
+
+  test(
+    'a typed exchange rate reaches the server and survives the pull',
+    () async {
+      final eur = await store.createAccount(
+        name: 'Euro',
+        type: 'cash',
+        currency: 'EUR',
+      );
+      final food = await store.createCategory(name: 'Food', kind: 'expense');
+      final t = await store.createTransaction(
+        kind: TxKind.expense,
+        accountId: eur.id,
+        amountMinor: 1000,
+        currency: 'EUR',
+        occurredAt: DateTime.utc(2026, 11, 15, 12),
+        categoryId: food.id,
+        baseCurrency: 'USD',
+        manualRate: '1.25',
+      );
+      await engine.sync();
+      final row = onServer(Entity.transaction, t.id)!;
+      expect(row.data['fx_rate_source'], 'manual');
+      expect(row.data['amount_base_minor'], 1250);
+
+      final local = await store.getTransaction(t.id);
+      expect(
+        (local!.amountBaseMinor, local.fxRateToBase, local.fxRateSource),
+        (1250, '1.25', 'manual'),
+      );
+    },
+  );
+
+  test('the server fills a missing rate and the phone takes it', () async {
+    final eur = await store.createAccount(
+      name: 'Euro',
+      type: 'cash',
+      currency: 'EUR',
+    );
+    final food = await store.createCategory(name: 'Food', kind: 'expense');
+    final t = await store.createTransaction(
+      kind: TxKind.expense,
+      accountId: eur.id,
+      amountMinor: 1000,
+      currency: 'EUR',
+      occurredAt: DateTime.utc(2026, 11, 15, 12),
+      categoryId: food.id,
+      baseCurrency: 'USD',
+    );
+    await engine.sync();
+    final row = onServer(Entity.transaction, t.id)!;
+    // The fx job on the server found the day's rate.
+    h.backend.serverWrite(email, Entity.transaction, t.id, {
+      ...row.data,
+      'fx_rate_to_base': '1.08',
+      'fx_rate_source': 'auto',
+      'amount_base_minor': 1080,
+    }, updatedAt: row.updatedAt);
+    await engine.sync();
+    final local = await store.getTransaction(t.id);
+    expect((local!.amountBaseMinor, local.fxRateSource), (1080, 'auto'));
+  });
 }

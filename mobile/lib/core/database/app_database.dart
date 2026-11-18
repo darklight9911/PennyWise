@@ -35,9 +35,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// v1: local_meta. v2: accounts, categories, transactions, outbox.
   /// v3: budgets. v4: goals, contributions, recurring rules, and the
-  /// recurring fields on transactions.
+  /// recurring fields on transactions. v5: transactions.fx_rate_source.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -66,6 +66,10 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(transactions, transactions.occurrenceDate);
         }
         await _createIndexes();
+      }
+      if (from < 5 && from >= 2) {
+        // Tables created fresh above already have the column.
+        await m.addColumn(transactions, transactions.fxRateSource);
       }
     },
     beforeOpen: (details) async {

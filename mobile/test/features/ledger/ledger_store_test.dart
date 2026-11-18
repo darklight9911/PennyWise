@@ -396,4 +396,81 @@ void main() {
       expect((await store.watchAccounts().first).single.name, 'B');
     },
   );
+
+  group('main-currency amounts', () {
+    late Account usd, eur;
+    late Category food, pay;
+    setUp(() async {
+      usd = await store.createAccount(
+        name: 'Bank',
+        type: 'bank',
+        currency: 'USD',
+      );
+      eur = await store.createAccount(
+        name: 'Euro',
+        type: 'cash',
+        currency: 'EUR',
+      );
+      food = await store.createCategory(name: 'Food', kind: 'expense');
+      pay = await store.createCategory(name: 'Pay', kind: 'income');
+    });
+
+    Future<MoneyTransaction> add(
+      Account a,
+      int amount, {
+      String kind = 'expense',
+      String? rate,
+      String day = '2026-11-10',
+    }) => store.createTransaction(
+      kind: kind,
+      accountId: a.id,
+      amountMinor: amount,
+      currency: a.currency,
+      occurredAt: DateTime.parse('${day}T12:00:00'),
+      categoryId: kind == 'income' ? pay.id : food.id,
+      baseCurrency: 'USD',
+      manualRate: rate,
+    );
+
+    test('are worked out on the phone when they can be', () async {
+      final same = await add(usd, 1234);
+      expect(
+        (same.amountBaseMinor, same.fxRateToBase, same.fxRateSource),
+        (1234, '1', 'auto'),
+      );
+      final typed = await add(eur, 1000, rate: '1.1');
+      expect(
+        (typed.amountBaseMinor, typed.fxRateToBase, typed.fxRateSource),
+        (1100, '1.1', 'manual'),
+      );
+      final waiting = await add(eur, 1000);
+      expect(
+        (waiting.amountBaseMinor, waiting.fxRateToBase, waiting.fxRateSource),
+        (null, null, null),
+      );
+
+      // Editing works it out again; a typed rate can be removed.
+      final edited = await store.updateTransaction(
+        typed.copyWith(amountMinor: 2000),
+        baseCurrency: 'USD',
+        manualRate: '1.1',
+      );
+      expect(edited.amountBaseMinor, 2200);
+      final cleared = await store.updateTransaction(
+        edited,
+        baseCurrency: 'USD',
+      );
+      expect((cleared.amountBaseMinor, cleared.fxRateSource), (null, null));
+    });
+
+    test('month totals add every currency at its rate', () async {
+      await add(usd, 300000, kind: 'income');
+      await add(usd, 1000);
+      await add(eur, 1000, rate: '1.1'); // 11.00 USD
+      await add(eur, 500); // no rate yet
+      await add(usd, 9999, day: '2026-10-31'); // other month
+      final m = await store.watchMonthTotals('2026-11', 'USD').first;
+      expect((m.incomeMinor, m.expenseMinor, m.missingRate), (300000, 2100, 1));
+    });
+  });
 }

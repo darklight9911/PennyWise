@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:pennywise/core/utils/money.dart';
 
 /// An in-memory imitation of the pennyWise auth API, plugged into Dio as
 /// its HTTP adapter. It follows the real server's rules that matter to the
@@ -249,6 +250,7 @@ class FakeBackend implements HttpClientAdapter {
           if (existing != null && !existing.updatedAt.isBefore(updatedAt)) {
             return {...result, 'status': 'stale'};
           }
+          if (key.$1 == 'transaction') _addBaseAmount(email, data);
           serverRows[key] = FakeServerRow(
             owner: email,
             entity: key.$1,
@@ -263,6 +265,34 @@ class FakeBackend implements HttpClientAdapter {
           return {...result, 'status': 'applied'};
         }(),
     ];
+  }
+
+  /// Like the real server: the main-currency amount at rate 1, at the
+  /// typed rate, or empty (no daily rates in this fake).
+  void _addBaseAmount(String email, Map<String, dynamic> data) {
+    final base = users[email]?['base_currency'] as String? ?? 'USD';
+    final currency = data['currency'] as String;
+    final amount = data['amount_minor'] as int;
+    final typed = data.remove('manual_fx_rate') as String?;
+    if (currency == base) {
+      data.addAll({
+        'fx_rate_to_base': '1',
+        'fx_rate_source': 'auto',
+        'amount_base_minor': amount,
+      });
+    } else if (typed != null) {
+      data.addAll({
+        'fx_rate_to_base': typed,
+        'fx_rate_source': 'manual',
+        'amount_base_minor': convertMinor(amount, currency, base, typed),
+      });
+    } else {
+      data.addAll({
+        'fx_rate_to_base': null,
+        'fx_rate_source': null,
+        'amount_base_minor': null,
+      });
+    }
   }
 
   Map<String, dynamic> _pull(String email, int since) {
