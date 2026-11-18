@@ -12,6 +12,7 @@ abstract final class Routes {
   static const transactions = '/transactions';
   static const reports = '/reports';
   static const export = '/export';
+  static const setPin = '/settings/app-lock';
   static const settings = '/settings';
 
   static const categories = '/categories';

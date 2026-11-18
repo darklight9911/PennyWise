@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../features/app_lock/presentation/set_pin_screen.dart';
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -67,6 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             BudgetFormScreen(budgetId: state.pathParameters['id']),
       ),
       GoRoute(path: Routes.export, builder: (_, _) => const ExportScreen()),
+      GoRoute(path: Routes.setPin, builder: (_, _) => const SetPinScreen()),
       GoRoute(path: Routes.goals, builder: (_, _) => const GoalsScreen()),
       GoRoute(path: Routes.newGoal, builder: (_, _) => const GoalFormScreen()),
       GoRoute(

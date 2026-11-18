@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/features/app_lock/application/app_lock.dart';
+import 'package:pennywise/features/app_lock/application/biometrics.dart';
 import 'package:pennywise/core/storage/device_prefs.dart';
 import 'package:pennywise/features/receipts/data/receipt_files.dart';
 import 'package:pennywise/features/receipts/data/receipt_picker.dart';
@@ -70,6 +72,12 @@ class TestHarness {
 
   static const config = AppConfig(apiBaseUrl: 'http://fake.test');
 
+  /// Fingerprint / face on the "phone".
+  final biometrics = FakeBiometrics();
+
+  /// Time for the app lock rules; tests move it forward.
+  DateTime clock = DateTime(2026, 11, 19, 12);
+
   /// Settings of the "phone" (theme, app lock).
   final prefs = MemoryDevicePrefs();
 
@@ -95,6 +103,8 @@ class TestHarness {
     exportPollProvider.overrideWithValue(const Duration(milliseconds: 100)),
     receiptFilesProvider.overrideWithValue(receiptFiles),
     devicePrefsProvider.overrideWithValue(prefs),
+    biometricsProvider.overrideWithValue(biometrics),
+    lockClockProvider.overrideWithValue(() => clock),
     uploadDioProvider.overrideWithValue(Dio()..httpClientAdapter = backend),
     photoPickerProvider.overrideWithValue((source) async {
       pickedFrom.add(source);
@@ -128,5 +138,20 @@ class TestHarness {
   ProviderContainer container() {
     final c = ProviderContainer(overrides: overrides);
     return c;
+  }
+}
+
+class FakeBiometrics implements Biometrics {
+  bool hasBiometrics = true;
+  bool willSucceed = true;
+  int prompts = 0;
+
+  @override
+  Future<bool> available() async => hasBiometrics;
+
+  @override
+  Future<bool> authenticate(String reason) async {
+    prompts++;
+    return willSucceed;
   }
 }

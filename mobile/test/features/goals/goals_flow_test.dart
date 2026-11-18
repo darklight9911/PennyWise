@@ -25,6 +25,11 @@ void main() {
     ).read(ledgerStoreProvider.future);
 
     await tapOn(tester, find.text('Settings'));
+    await tester.scrollUntilVisible(
+      find.text('Goals'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tapOn(tester, find.text('Goals'));
     expect(find.text('No goals yet'), findsOneWidget);
 
