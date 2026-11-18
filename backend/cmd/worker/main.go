@@ -13,6 +13,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"pennywise/backend/internal/config"
+	"pennywise/backend/internal/exports"
 	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/notify"
 	"pennywise/backend/internal/platform/postgres"
@@ -74,9 +75,18 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	var receiptSvc *receipts.Service
+	var (
+		receiptSvc *receipts.Service
+		exportSvc  *exports.Service
+	)
 	if store != nil {
 		receiptSvc = receipts.NewService(db, store, logger)
+		exportSvc = exports.NewService(db, store, queue, logger)
+		// Nightly: export files older than 7 days.
+		if _, err := scheduler.Register("45 3 * * *", asynq.NewTask(exports.TaskCleanup, nil),
+			asynq.Unique(23*time.Hour), asynq.Timeout(30*time.Minute)); err != nil {
+			return err
+		}
 		// Nightly: unfinished uploads, receipts of deleted transactions,
 		// files of deleted receipts.
 		if _, err := scheduler.Register("30 3 * * *", asynq.NewTask(receipts.TaskCleanup, nil),
@@ -103,6 +113,8 @@ func run(logger *slog.Logger) error {
 	mux.HandleFunc(fx.TaskRebase, rates.HandleRebase)
 	if receiptSvc != nil {
 		mux.HandleFunc(receipts.TaskCleanup, receiptSvc.HandleCleanup)
+		mux.HandleFunc(exports.TaskBuild, exportSvc.HandleBuild)
+		mux.HandleFunc(exports.TaskCleanup, exportSvc.HandleCleanup)
 	}
 	mux.HandleFunc("system:ping", func(ctx context.Context, t *asynq.Task) error {
 		logger.InfoContext(ctx, "ping job received")

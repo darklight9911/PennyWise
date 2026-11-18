@@ -88,6 +88,21 @@ type ExchangeRate struct {
 	Rate  pgtype.Numeric `json:"rate"`
 }
 
+type Export struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	Format     string             `json:"format"`
+	FromDate   pgtype.Date        `json:"from_date"`
+	ToDate     pgtype.Date        `json:"to_date"`
+	Status     string             `json:"status"`
+	ObjectKey  pgtype.Text        `json:"object_key"`
+	SizeBytes  pgtype.Int8        `json:"size_bytes"`
+	Error      string             `json:"error"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Goal struct {
 	ID          uuid.UUID          `json:"id"`
 	UserID      uuid.UUID          `json:"user_id"`

@@ -21,6 +21,7 @@ import (
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/config"
 	"pennywise/backend/internal/datasync"
+	"pennywise/backend/internal/exports"
 	"pennywise/backend/internal/fx"
 	"pennywise/backend/internal/httpapi"
 	"pennywise/backend/internal/mail"
@@ -108,12 +109,17 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	var receiptSvc *receipts.Service
+	var (
+		receiptSvc *receipts.Service
+		exportSvc  *exports.Service
+	)
 	if store != nil {
 		receiptSvc = receipts.NewService(db, store, logger)
+		exportSvc = exports.NewService(db, store, queue, logger)
 	} else {
-		logger.Warn("R2_BUCKET not set: receipt upload is disabled")
+		logger.Warn("R2_BUCKET not set: receipt upload and export are disabled")
 	}
+	exportsHandler := exports.NewHandler(exportSvc, ratelimit.New(rdb), authHandler.RequireAuth, userIDOf, logger)
 	reportsHandler := reports.NewHandler(db, rdb, authHandler.RequireAuth, userIDOf, logger)
 	receiptsHandler := receipts.NewHandler(receiptSvc, ratelimit.New(rdb), authHandler.RequireAuth, userIDOf, logger)
 
@@ -131,7 +137,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
-			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes, receiptsHandler.Routes, reportsHandler.Routes},
+			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes, receiptsHandler.Routes, reportsHandler.Routes, exportsHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
