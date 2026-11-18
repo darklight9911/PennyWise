@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · pennyWise</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+<div class="card">
+<h1>Privacy policy</h1>
+<p class="muted">pennyWise · Last updated: [DATE]</p>
+
+<p>pennyWise is a free app that helps you track your money. It is made by [YOUR NAME OR COMPANY] ("we").
+This page explains what data the app keeps, why, where, and how you can delete it.
+If anything is unclear, write to <a href="mailto:[CONTACT EMAIL]">[CONTACT EMAIL]</a>.</p>
+
+<h2>The short version</h2>
+<ul>
+<li>We keep only what the app needs to work and to sync between your devices.</li>
+<li>No ads, no tracking or analytics tools, and we never sell or rent your data.</li>
+<li>You can export your data and delete your account at any time, in the app.</li>
+</ul>
+
+<h2>What we keep</h2>
+<table>
+<tr><th>Data</th><th>Why</th></tr>
+<tr><td>Email address, and a name if you give one</td><td>To create your account and let you sign in.</td></tr>
+<tr><td>Password, stored only as a one-way hash (argon2id)</td><td>To check your password. We cannot read it.</td></tr>
+<tr><td>Your Google account ID, if you sign in with Google</td><td>To recognise you when you sign in with Google.</td></tr>
+<tr><td>Main currency, language and time zone</td><td>To show totals in your currency and put each expense in the right day and month.</td></tr>
+<tr><td>What you enter: accounts, transactions, categories, notes, budgets, goals and recurring bills</td><td>This is the app. It is synced so it is safe if you lose your phone and so it appears on your other devices.</td></tr>
+<tr><td>Receipt photos you attach</td><td>To show them with the transaction. Stored in a private bucket; only your signed-in app gets short-lived links to them.</td></tr>
+<tr><td>Device name and a push token (only if notifications are on)</td><td>To list your signed-in devices and to send budget and bill reminders.</td></tr>
+<tr><td>IP address, device type and time of sign-ins, failed sign-ins, password resets, exports and currency changes</td><td>To protect your account and stop abuse.</td></tr>
+<tr><td>Server request logs (time, address called, IP address)</td><td>To keep the service running and find errors.</td></tr>
+</table>
+<p>We do not collect your contacts, location, SMS messages or bank logins. The app does not read your bank account.</p>
+
+<h2>Where it is stored</h2>
+<p>On your phone, in an encrypted database. On our server at [HOSTING PROVIDER] in [COUNTRY].
+Receipt photos, export files and database backups are stored in Cloudflare R2, a private storage service.
+All traffic between the app and the server uses HTTPS.</p>
+
+<h2>Who else is involved</h2>
+<ul>
+<li><b>Google</b>: only if you choose "Sign in with Google", and for push notifications (Firebase Cloud Messaging) when they are turned on.</li>
+<li><b>Cloudflare</b>: stores receipt photos, exports and backups for us.</li>
+<li><b>[HOSTING PROVIDER]</b>: runs our server.</li>
+<li><b>Frankfurter / European Central Bank</b>: our server downloads public exchange rates. None of your data is sent.</li>
+</ul>
+<p>These companies process data only to provide their service to us.</p>
+
+<h2>How long we keep it</h2>
+<ul>
+<li>Your account data: until you delete your account.</li>
+<li>Export files: deleted 7 days after they are made.</li>
+<li>Security events: 180 days. Server request logs: about two weeks.</li>
+<li>Backups: copies of the database are kept for up to 6 months, then deleted. After you delete your account, your data disappears from backups as they expire.</li>
+</ul>
+
+<h2>Your choices and rights</h2>
+<ul>
+<li><b>See and take your data</b>: export it as CSV or PDF in the app.</li>
+<li><b>Correct it</b>: edit anything in the app.</li>
+<li><b>Delete it</b>: Settings → Delete account. This removes your account and all your data from the app and our server at once; files are removed within an hour. If you cannot use the app, see <a href="/delete-account">Delete your account</a>.</li>
+<li>Depending on where you live (for example the EU or UK), you may have more rights, such as to object or to complain to a data protection authority. Write to us and we will help.</li>
+</ul>
+
+<h2>Children</h2>
+<p>pennyWise is not meant for children under 13 (or the minimum age in your country) and we do not knowingly keep their data.</p>
+
+<h2>Changes</h2>
+<p>If we change this policy, we will update the date at the top and, for important changes, tell you in the app.</p>
+</div>
+</main>
+</body>
+</html>
