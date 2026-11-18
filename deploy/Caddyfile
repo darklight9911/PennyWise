@@ -1,0 +1,39 @@
+# Caddy gets and renews the HTTPS certificate by itself (Let's Encrypt).
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Prometheus metrics are for the server itself, never the internet.
+	@metrics path /metrics /metrics/*
+	respond @metrics 404
+
+	@api path /v1/* /healthz /readyz
+	handle @api {
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy api:8080 {
+			# The API reads the client IP from these headers (rate limits,
+			# audit log). Set them here so a client cannot fake its IP.
+			header_up -True-Client-IP
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Privacy policy and account deletion pages (Play Store needs both URLs).
+	handle {
+		root * /srv/site
+		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
+}
