@@ -307,12 +307,12 @@ Rules:
 | 0 ✅ | Setup | Repo, Docker Compose, CI skeleton, Flutter project, design tokens | 3 days |
 | 1 ✅ | Auth | Register/login/Google, JWT + refresh, email verification, encrypted local DB, app shell | 1 week |
 | 2 ✅ | Core data | Accounts, categories, transactions (sync-only server path + local DB + UI), default categories, dashboard | 2 weeks |
-| 2b 🟡 | Receipts | **Server done:** receipts table, presigned PUT/GET (type and size signed), HEAD check on confirm, nightly clean-up, receipts in sync pull. **Open:** phone photo attach/upload/view UI | 4 days |
+| 2b ✅ | Receipts | Receipts table, presigned PUT/GET (type and size signed), HEAD check on confirm, nightly clean-up, receipts in sync pull; phone: attach from camera or gallery (also offline), upload after sync, full-screen view and delete | 4 days |
 | 3 ✅ | Sync | Outbox, push/pull with per-user versions, conflict handling, idempotent push, offline and race-condition tests (built together with Milestone 2) | 1.5 weeks |
 | 4 🟡 | Budgets + alerts | Budgets (sync, screens, dashboard), worker job with once-per-period alerts, device registration. **Open:** real FCM delivery and the phone's push registration need a Firebase project (alerts are logged until then) | 1 week |
 | 5 🟡 | Goals + recurring | Goals with contributions, recurring rules with deterministic occurrence IDs generated on the phone and the server (15-minute worker job), reminders, screens for both. **Open:** reminders are logged until Firebase push is set up | 1 week |
-| 6 🟡 | Multi-currency | **Server done:** exchange_rates (Frankfurter, every 6 h, backfill), base amounts at push by the rate of the day or a typed rate, fill job, base-currency change job (PATCH /v1/me), GET /v1/fx/rates. **Open:** phone UI for changing the main currency, typing a rate, "Recalculating totals…" | 1 week |
-| 7 🟡 | Reports + export | **Server done:** /v1/reports summary, by-category, trend (cached by sync version); CSV and PDF export jobs into R2. **Open:** phone charts and export screens | 1 week |
+| 6 ✅ | Multi-currency | exchange_rates (Frankfurter, every 6 h, backfill), base amounts by the rate of the day or a typed rate, fill job, base-currency change job, GET /v1/fx/rates; phone: main-currency change with "Recalculating totals" banner, typed rate on foreign transactions, totals in every currency, total balance converted at today's rate | 1 week |
+| 7 ✅ | Reports + export | /v1/reports (summary, by category, trend), CSV and PDF export jobs into R2; phone: Reports screen (totals, spending ring, 6-month in/out bars, offline from the local database) and Export screen | 1 week |
 | 8 🟡 | Polish + security | **Done:** audit log, per-IP and per-user rate limits on every route, account deletion (API + phone + erase job). **Open:** app lock, dark mode, a11y pass | 1 week |
 | 9 🟡 | Release | **Done:** production compose with Caddy HTTPS, backups, release signing, privacy and deletion pages, docs/RELEASE.md. **Open (owner):** email provider, domain, Play Console steps, closed test | 1–2 weeks |
 
