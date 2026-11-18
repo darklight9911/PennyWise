@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	goredis "github.com/redis/go-redis/v9"
 
+	"pennywise/backend/internal/account"
 	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/fx"
@@ -185,6 +186,7 @@ func setupWithHook(t *testing.T, google auth.GoogleVerifier, hook userHook) *env
 	jobs := &fakeQueue{}
 	svc := auth.NewService(pool, jwtIssuer, google, mailer,
 		auth.Config{RefreshTTL: time.Hour, LinkBase: "pennywise://", OnUserCreated: hook,
+			OnAccountDeleted: account.EnqueuePurge(jobs),
 			ChangeBaseCurrency: func(ctx context.Context, id uuid.UUID, c string) error {
 				err := fx.ChangeBase(ctx, pool, jobs, id, c)
 				if errors.Is(err, fx.ErrRecalculating) {
@@ -618,4 +620,26 @@ func TestAuditTrail(t *testing.T) {
 	if failed != 1 {
 		t.Errorf("failed logins recorded: %d", failed)
 	}
+}
+
+func TestDeleteAccount(t *testing.T) {
+	e := setup(t, nil)
+	r := e.register("ann@example.com")
+	access, refresh := tokens(r)
+
+	wrong := e.do(http.MethodDelete, "/v1/me", access, map[string]string{"password": "not my password"})
+	expectStatus(t, wrong, http.StatusForbidden)
+	expectStatus(t, e.do(http.MethodGet, "/v1/me", access, nil), http.StatusOK) // still there
+
+	expectStatus(t, e.do(http.MethodDelete, "/v1/me", access, map[string]string{"password": pw}), http.StatusNoContent)
+	if len(e.jobs.tasks) != 1 || e.jobs.tasks[0].Type() != account.TaskPurge {
+		t.Fatalf("purge job not queued: %v", e.jobs.tasks)
+	}
+	expectStatus(t, e.do(http.MethodGet, "/v1/me", access, nil), http.StatusUnauthorized)
+	expectStatus(t, e.post("/v1/auth/refresh", map[string]string{"refresh_token": refresh}), http.StatusUnauthorized)
+	expectStatus(t, e.post("/v1/auth/login", map[string]string{"email": "ann@example.com", "password": pw}), http.StatusUnauthorized)
+	expectStatus(t, e.do(http.MethodDelete, "/v1/me", access, map[string]string{"password": pw}), http.StatusUnauthorized)
+
+	// The email is free for a new account.
+	e.register("ann@example.com")
 }

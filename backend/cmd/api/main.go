@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
+	"pennywise/backend/internal/account"
 	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/auth"
 	"pennywise/backend/internal/config"
@@ -91,9 +92,10 @@ func run(logger *slog.Logger) error {
 
 	authSvc := auth.NewService(db, jwtIssuer, google, mail.LogMailer{Logger: logger},
 		auth.Config{
-			RefreshTTL:    cfg.RefreshTokenTTL,
-			LinkBase:      cfg.LinkBase,
-			OnUserCreated: datasync.SeedDefaultCategories,
+			RefreshTTL:       cfg.RefreshTokenTTL,
+			LinkBase:         cfg.LinkBase,
+			OnUserCreated:    datasync.SeedDefaultCategories,
+			OnAccountDeleted: account.EnqueuePurge(queue),
 			ChangeBaseCurrency: func(ctx context.Context, id uuid.UUID, c string) error {
 				err := fx.ChangeBase(ctx, db, queue, id, c)
 				if errors.Is(err, fx.ErrRecalculating) {

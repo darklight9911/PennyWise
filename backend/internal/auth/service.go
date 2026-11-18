@@ -62,6 +62,10 @@ type Config struct {
 	// ChangeBaseCurrency switches the user's base currency and starts the
 	// recalculation (fx.ChangeBase). Nil means the base currency is fixed.
 	ChangeBaseCurrency func(ctx context.Context, userID uuid.UUID, currency string) error
+	// OnAccountDeleted runs inside the transaction that deletes an account,
+	// e.g. to queue the job that erases its data and files. If it fails,
+	// nothing is deleted.
+	OnAccountDeleted func(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error
 }
 
 // Service implements the account and session logic.
@@ -420,6 +424,48 @@ func (s *Service) ResetPassword(ctx context.Context, plain, newPassword string) 
 		return q.RevokeAllUserRefreshTokens(ctx, userID)
 	})
 	return userID, err
+}
+
+// ErrWrongPassword means the password typed to confirm a deletion is wrong.
+var ErrWrongPassword = errors.New("auth: wrong password")
+
+// DeleteAccount closes the account at once: it can no longer log in, every
+// session ends and the email is free again. The data itself is erased by
+// the job OnAccountDeleted queues. Accounts with a password must confirm
+// with it; Google-only accounts are confirmed by their session.
+func (s *Service) DeleteAccount(ctx context.Context, id uuid.UUID, password string) error {
+	u, err := s.User(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u.PasswordHash.Valid {
+		ok, err := CheckPassword(password, u.PasswordHash.String)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrWrongPassword
+		}
+	}
+	return s.inTxRaw(ctx, func(tx pgx.Tx, q *db.Queries) error {
+		tag, err := tx.Exec(ctx, `UPDATE users SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrUserNotFound
+		}
+		if err := q.RevokeAllUserRefreshTokens(ctx, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM devices WHERE user_id = $1`, id); err != nil {
+			return err
+		}
+		if s.cfg.OnAccountDeleted != nil {
+			return s.cfg.OnAccountDeleted(ctx, tx, id)
+		}
+		return nil
+	})
 }
 
 // User returns a live (not deleted) user.

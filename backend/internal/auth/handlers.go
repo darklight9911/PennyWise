@@ -34,6 +34,7 @@ var (
 	ruleRefresh    = ratelimit.Rule{Name: "refresh", Limit: 60, Window: time.Minute}
 	ruleEmailLink  = ratelimit.Rule{Name: "email-link", Limit: 20, Window: 10 * time.Minute}
 	ruleSendEmail  = ratelimit.Rule{Name: "send-email", Limit: 3, Window: time.Hour}
+	ruleDelete     = ratelimit.Rule{Name: "delete-account", Limit: 5, Window: time.Hour}
 )
 
 // Handler exposes the auth service over HTTP.
@@ -67,6 +68,7 @@ func (h *Handler) Routes(r chi.Router) {
 	})
 	r.With(h.RequireAuth).Get("/me", h.me)
 	r.With(h.RequireAuth).Patch("/me", h.updateMe)
+	r.With(h.RequireAuth).Delete("/me", h.deleteMe)
 }
 
 // --- request / response shapes ---
@@ -341,6 +343,30 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]UserResponse{"user": toUserResponse(user)})
 }
 
+// deleteMe deletes the account (Play Store requirement). Body:
+// {"password": "..."} for accounts with a password, {} for Google-only.
+func (h *Handler) deleteMe(w http.ResponseWriter, r *http.Request) {
+	if !h.allow(w, r, ruleDelete, "user:"+UserID(r.Context()).String()) {
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	id := UserID(r.Context())
+	if err := h.svc.DeleteAccount(r.Context(), id, req.Password); err != nil {
+		h.writeErr(w, r, err)
+		return
+	}
+	// The row (and so this event) is erased with the account; the log line
+	// stays as the record that the request was carried out.
+	h.audit.Record(r, audit.Event{UserID: id, Action: audit.AccountDelete})
+	h.logger.InfoContext(r.Context(), "account deleted", "user", id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // --- auth middleware ---
 
 type ctxKey struct{}
@@ -411,6 +437,9 @@ func (h *Handler) writeErr(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteError(w, http.StatusConflict, "google_account_conflict", "this email is linked to a different Google account")
 	case errors.Is(err, ErrGoogleNotConfigured):
 		httpx.WriteError(w, http.StatusServiceUnavailable, "google_not_configured", "Google sign-in is not available yet")
+	case errors.Is(err, ErrWrongPassword):
+		// 403, not 401: the session is fine, only the confirmation failed.
+		httpx.WriteError(w, http.StatusForbidden, "wrong_password", "the password is wrong")
 	case errors.Is(err, ErrBaseCurrencyBusy):
 		httpx.WriteError(w, http.StatusConflict, "recalculating", "the last base currency change is still being applied")
 	case errors.Is(err, ErrUserNotFound):

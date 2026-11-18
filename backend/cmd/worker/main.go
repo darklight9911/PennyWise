@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
+	"pennywise/backend/internal/account"
 	"pennywise/backend/internal/audit"
 	"pennywise/backend/internal/config"
 	"pennywise/backend/internal/exports"
@@ -95,6 +96,11 @@ func run(logger *slog.Logger) error {
 			return err
 		}
 	}
+	purger := account.NewPurger(db, store, queue, logger)
+	if _, err := scheduler.Register("15 4 * * *", asynq.NewTask(account.TaskSweep, nil),
+		asynq.Unique(23*time.Hour), asynq.Timeout(30*time.Minute)); err != nil {
+		return err
+	}
 	auditLog := audit.New(db, logger)
 	if _, err := scheduler.Register("0 4 * * *", asynq.NewTask(audit.TaskPrune, nil),
 		asynq.Unique(23*time.Hour), asynq.Timeout(10*time.Minute)); err != nil {
@@ -118,6 +124,8 @@ func run(logger *slog.Logger) error {
 	mux.HandleFunc(fx.TaskRefresh, rates.HandleRefresh)
 	mux.HandleFunc(fx.TaskRebase, rates.HandleRebase)
 	mux.HandleFunc(audit.TaskPrune, auditLog.HandlePrune)
+	mux.HandleFunc(account.TaskPurge, purger.HandlePurge)
+	mux.HandleFunc(account.TaskSweep, purger.HandleSweep)
 	if receiptSvc != nil {
 		mux.HandleFunc(receipts.TaskCleanup, receiptSvc.HandleCleanup)
 		mux.HandleFunc(exports.TaskBuild, exportSvc.HandleBuild)
