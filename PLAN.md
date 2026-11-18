@@ -313,7 +313,7 @@ Rules:
 | 5 🟡 | Goals + recurring | Goals with contributions, recurring rules with deterministic occurrence IDs generated on the phone and the server (15-minute worker job), reminders, screens for both. **Open:** reminders are logged until Firebase push is set up | 1 week |
 | 6 ✅ | Multi-currency | exchange_rates (Frankfurter, every 6 h, backfill), base amounts by the rate of the day or a typed rate, fill job, base-currency change job, GET /v1/fx/rates; phone: main-currency change with "Recalculating totals" banner, typed rate on foreign transactions, totals in every currency, total balance converted at today's rate | 1 week |
 | 7 ✅ | Reports + export | /v1/reports (summary, by category, trend), CSV and PDF export jobs into R2; phone: Reports screen (totals, spending ring, 6-month in/out bars, offline from the local database) and Export screen | 1 week |
-| 8 🟡 | Polish + security | **Done:** audit log, per-IP and per-user rate limits on every route, account deletion (API + phone + erase job). **Open:** app lock, dark mode, a11y pass | 1 week |
+| 8 ✅ | Polish + security | Audit log, per-IP and per-user rate limits on every route, account deletion (API + phone + erase job); phone: app lock (PIN, fingerprint or face, locks after 30 s away), dark mode (contrast-checked), accessibility tests (tap targets, labels, contrast, double text size) | 1 week |
 | 9 🟡 | Release | **Done:** production compose with Caddy HTTPS, backups, release signing, privacy and deletion pages, docs/RELEASE.md. **Open (owner):** email provider, domain, Play Console steps, closed test | 1–2 weeks |
 
 Total: about 12–13 weeks for one developer (sum of the rows above, 5 working days a week).
