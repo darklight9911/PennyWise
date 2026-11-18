@@ -8,6 +8,8 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../ledger/application/ledger_providers.dart';
 import '../ledger/data/ledger_store.dart';
+import '../receipts/data/receipt_files.dart';
+import '../receipts/data/receipt_sync.dart';
 import 'sync_engine.dart';
 
 /// What the UI shows about syncing.
@@ -79,6 +81,7 @@ class SyncController extends Notifier<SyncStatus> {
       final engine = _engine = SyncEngine(
         db: store.db,
         dio: ref.read(dioProvider),
+        receiptFiles: ref.read(receiptFilesProvider),
       );
       // Before the database closes (logout, other user), stop syncing:
       // the request in flight is cancelled and the run ends first.
@@ -123,6 +126,9 @@ class SyncController extends Notifier<SyncStatus> {
       // first, with the server's fixed ids, so this sync uploads them.
       await _store?.generateDueBills(DateTime.now());
       await engine.sync();
+      if (engine.isStopped || !identical(engine, _engine)) return;
+      // Photos go after the data, so their transactions exist on the server.
+      await receiptSyncFor(ref, engine.db).run();
       if (engine.isStopped || !identical(engine, _engine)) return;
       _set(SyncStatus(lastSyncedAt: DateTime.now()));
     } on Object catch (e, st) {

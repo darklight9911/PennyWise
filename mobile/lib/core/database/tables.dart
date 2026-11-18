@@ -155,3 +155,26 @@ class RecurringRules extends Table with SyncedColumns {
   IntColumn get remindDaysBefore => integer().withDefault(const Constant(0))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
 }
+
+/// Receipt photos (v6). Not synced through the outbox: the receipts API
+/// uploads them, and pull brings other phones' receipts (without the file,
+/// which is fetched on demand).
+class Receipts extends Table {
+  TextColumn get id => text()(); // UUID, also the server id
+  TextColumn get transactionId => text()();
+  TextColumn get contentType => text()(); // image/jpeg or image/png
+  IntColumn get sizeBytes => integer()();
+
+  /// Where the photo is on this phone, or null if it is only on the server.
+  TextColumn get localPath => text().nullable()();
+
+  /// local: waiting for upload. uploaded: the server has it.
+  TextColumn get status => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// Deleted on the phone; the server copy is removed at the next sync.
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

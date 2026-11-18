@@ -4,6 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/features/receipts/data/receipt_files.dart';
+import 'package:pennywise/features/receipts/data/receipt_picker.dart';
+import 'package:pennywise/features/receipts/data/receipt_sync.dart';
 import 'package:pennywise/core/platform/link_opener.dart';
 import 'package:pennywise/features/export/data/export_api.dart';
 import 'package:pennywise/features/currency/presentation/recalculating_banner.dart';
@@ -66,6 +69,13 @@ class TestHarness {
 
   static const config = AppConfig(apiBaseUrl: 'http://fake.test');
 
+  /// Receipt photos on the "phone".
+  final receiptFiles = MemoryReceiptFiles();
+
+  /// What the photo picker returns next (null: the user cancelled).
+  PickedPhoto? nextPhoto;
+  final pickedFrom = <PhotoSource>[];
+
   /// Links the app asked the phone to open (e.g. export downloads).
   final opened = <Uri>[];
 
@@ -79,6 +89,12 @@ class TestHarness {
     syncDebounceProvider.overrideWithValue(Duration.zero),
     recalcPollProvider.overrideWithValue(const Duration(milliseconds: 200)),
     exportPollProvider.overrideWithValue(const Duration(milliseconds: 100)),
+    receiptFilesProvider.overrideWithValue(receiptFiles),
+    uploadDioProvider.overrideWithValue(Dio()..httpClientAdapter = backend),
+    photoPickerProvider.overrideWithValue((source) async {
+      pickedFrom.add(source);
+      return nextPhoto;
+    }),
     linkOpenerProvider.overrideWithValue((uri) async {
       opened.add(uri);
       return true;

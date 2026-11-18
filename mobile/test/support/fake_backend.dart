@@ -37,6 +37,26 @@ class FakeBackend implements HttpClientAdapter {
   /// Code to refuse exports with (e.g. "exports_unavailable"), or null.
   String? exportsError;
 
+  /// Receipts: id -> state; file bytes uploaded to the fake bucket.
+  final receipts =
+      <
+        String,
+        ({
+          String email,
+          String transactionId,
+          String contentType,
+          int size,
+          bool uploaded,
+        })
+      >{};
+  final bucket = <String, Uint8List>{};
+
+  /// Code to refuse receipts with (e.g. "receipts_unavailable"), or null.
+  String? receiptsError;
+
+  /// True if any upload to the bucket carried the API login token.
+  bool uploadSawToken = false;
+
   /// Daily rates the fake serves: base EUR, quote -> rate (like the ECB).
   final fxRates = <String, String>{};
 
@@ -63,12 +83,21 @@ class FakeBackend implements HttpClientAdapter {
     }
     final path = options.uri.path;
     calls.add('${options.method} $path');
-    final body = (options.data as Map?)?.cast<String, dynamic>() ?? {};
+    final body = options.data is Map
+        ? (options.data as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
+
+    final r = await _receiptsRoute(options, path, requestStream);
+    if (r != null) {
+      return r;
+    }
 
     if (options.method == 'GET' && path.startsWith('/v1/exports/')) {
       final id = path.substring('/v1/exports/'.length);
       final e = exports[id];
-      if (e == null) return _error(404, 'not_found', 'export not found');
+      if (e == null) {
+        return _error(404, 'not_found', 'export not found');
+      }
       exports[id] = (
         format: e.format,
         from: e.from,
@@ -351,6 +380,121 @@ class FakeBackend implements HttpClientAdapter {
       'file_name': 'pennywise-${e.from}-to-${e.to}.${e.format}',
       if (ready) 'download_url': 'https://files.example.com/$id?sig=${e.polls}',
     };
+  }
+
+  Future<ResponseBody?> _receiptsRoute(
+    RequestOptions options,
+    String path,
+    Stream<Uint8List>? body,
+  ) async {
+    // The storage bucket (R2), reached with the signed URL only.
+    if (options.uri.host == 'r2.example.com') {
+      if (options.headers.containsKey('Authorization')) {
+        uploadSawToken = true;
+      }
+      final id = path.split('/').last;
+      final bytes = <int>[];
+      if (body != null) {
+        await for (final chunk in body) {
+          bytes.addAll(chunk);
+        }
+      }
+      final want = receipts[id];
+      if (options.method != 'PUT' ||
+          want == null ||
+          bytes.length != want.size) {
+        return _error(403, 'signature', 'does not match the signature');
+      }
+      bucket[id] = Uint8List.fromList(bytes);
+      return _empty(200);
+    }
+    if (!path.startsWith('/v1/receipts')) {
+      return null;
+    }
+    final email = _emailOf(options);
+    if (email == null) {
+      return _error(401, 'invalid_token', 'invalid');
+    }
+    if (receiptsError != null) {
+      return _error(503, receiptsError!, 'refused by test');
+    }
+    final data = options.data is Map
+        ? (options.data as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
+    if (options.method == 'POST' && path == '/v1/receipts/upload-url') {
+      final id = data['id'] as String;
+      final tx = serverRows[('transaction', data['transaction_id'] as String)];
+      if (tx == null || tx.deletedAt != null || tx.owner != email) {
+        return _error(
+          409,
+          'transaction_not_synced',
+          'sync the transaction first',
+        );
+      }
+      receipts[id] = (
+        email: email,
+        transactionId: data['transaction_id'] as String,
+        contentType: data['content_type'] as String,
+        size: data['size_bytes'] as int,
+        uploaded: false,
+      );
+      return _json(200, {
+        'id': id,
+        'url': 'https://r2.example.com/put/$id',
+        'method': 'PUT',
+        'headers': {
+          'Content-Type': data['content_type'],
+          'Content-Length': '${data['size_bytes']}',
+        },
+      });
+    }
+    final parts = path.split('/'); // ['', 'v1', 'receipts', id, ...]
+    final id = parts.length > 3 ? parts[3] : '';
+    final rec = receipts[id];
+    if (rec == null || rec.email != email) {
+      return _error(404, 'not_found', 'receipt not found');
+    }
+    if (options.method == 'POST' && path.endsWith('/confirm')) {
+      if (!bucket.containsKey(id)) {
+        return _error(409, 'not_uploaded', 'not there yet');
+      }
+      receipts[id] = (
+        email: rec.email,
+        transactionId: rec.transactionId,
+        contentType: rec.contentType,
+        size: rec.size,
+        uploaded: true,
+      );
+      serverWrite(email, 'receipt', id, {
+        'transaction_id': rec.transactionId,
+        'content_type': rec.contentType,
+        'size_bytes': rec.size,
+      }, updatedAt: DateTime.now().toUtc());
+      return _empty(204);
+    }
+    if (options.method == 'GET' && path.endsWith('/url')) {
+      return _json(200, {
+        'url': 'https://r2.example.com/get/$id',
+        'expires_at': '2099-01-01T00:00:00Z',
+      });
+    }
+    if (options.method == 'DELETE') {
+      final row = serverRows[('receipt', id)];
+      receipts.remove(id);
+      bucket.remove(id);
+      if (row != null) {
+        serverWrite(
+          email,
+          'receipt',
+          id,
+          row.data,
+          updatedAt: DateTime.now().toUtc(),
+          deletedAt: DateTime.now().toUtc(),
+        );
+      }
+      return _empty(204);
+    }
+    return _error(404, 'not_found', 'route not found');
   }
 
   String? _emailOf(RequestOptions options) {

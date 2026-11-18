@@ -28,6 +28,7 @@ class LocalMeta extends Table {
     Goals,
     GoalContributions,
     RecurringRules,
+    Receipts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -36,8 +37,9 @@ class AppDatabase extends _$AppDatabase {
   /// v1: local_meta. v2: accounts, categories, transactions, outbox.
   /// v3: budgets. v4: goals, contributions, recurring rules, and the
   /// recurring fields on transactions. v5: transactions.fx_rate_source.
+  /// v6: receipts.
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -70,6 +72,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5 && from >= 2) {
         // Tables created fresh above already have the column.
         await m.addColumn(transactions, transactions.fxRateSource);
+      }
+      if (from < 6) {
+        await m.createTable(receipts);
       }
     },
     beforeOpen: (details) async {

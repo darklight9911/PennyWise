@@ -111,9 +111,16 @@ class LocalDatabase {
         // It never opened; nothing to close.
       }
     }
-    await _deleteFiles(await _file());
+    final file = await _file();
+    await _deleteFiles(file);
+    final photos = Directory(p.join(file.parent.path, 'receipts'));
+    if (await photos.exists()) await photos.delete(recursive: true);
     await _keys.delete();
   }
+
+  /// Folder for receipt photos, next to the database (deleted by [wipe]).
+  Future<Directory> receiptsDir() async =>
+      Directory(p.join((await _file()).parent.path, 'receipts'));
 
   Future<void> close() async {
     await runCloseHooks();

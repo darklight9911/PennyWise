@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/local_database.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../../core/database/app_database.dart';
+import '../../receipts/data/receipt_files.dart';
+import '../../receipts/data/receipt_store.dart';
 import '../data/ledger_store.dart';
 
 /// The signed-in user's id, or null.
@@ -125,3 +127,22 @@ final monthlyFlowProvider =
         baseCurrency: k.base,
       );
     });
+
+/// Receipt photos on this phone (the same database as the ledger).
+final receiptStoreProvider = FutureProvider<ReceiptStore>((ref) async {
+  final ledger = await ref.watch(ledgerStoreProvider.future);
+  return ReceiptStore(
+    ledger.db,
+    ref.watch(receiptFilesProvider),
+    onChange: () => ledger.onLocalWrite?.call(),
+  );
+});
+
+/// The live receipts of one transaction.
+final receiptsProvider = StreamProvider.family<List<Receipt>, String>((
+  ref,
+  transactionId,
+) async* {
+  final store = await ref.watch(receiptStoreProvider.future);
+  yield* store.watch(transactionId);
+});

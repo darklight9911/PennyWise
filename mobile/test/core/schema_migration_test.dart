@@ -69,6 +69,7 @@ void main() {
       raw.execute('ALTER TABLE transactions DROP COLUMN recurring_id');
       raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
       raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
+      raw.execute('DROP TABLE receipts');
       raw.execute('PRAGMA user_version = 2');
       await v2.close();
 
@@ -113,6 +114,7 @@ void main() {
     raw.execute('ALTER TABLE transactions DROP COLUMN recurring_id');
     raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
     raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
+    raw.execute('DROP TABLE receipts');
     raw.execute('PRAGMA user_version = 3');
     await v3.close();
 
@@ -129,7 +131,7 @@ void main() {
     );
   });
 
-  test('a version-4 database gets fx_rate_source (v5)', () async {
+  test('a version-4 database gets fx_rate_source and receipts', () async {
     final raw = sqlite3.openInMemory();
     final v4 = AppDatabase(
       NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
@@ -150,6 +152,7 @@ void main() {
       categoryId: food.id,
     );
     raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
+    raw.execute('DROP TABLE receipts');
     raw.execute('PRAGMA user_version = 4');
     await v4.close();
 
@@ -168,7 +171,15 @@ void main() {
       manualRate: '1.1',
     );
     expect(typed.fxRateSource, 'manual');
+    expect(
+      await v5.select(v5.receipts).get(),
+      isEmpty,
+      reason: 'v6 table exists',
+    );
     expect(typed.amountBaseMinor, 1100);
-    expect(raw.select('PRAGMA user_version').single.values.single, 5);
+    expect(
+      raw.select('PRAGMA user_version').single.values.single,
+      v5.schemaVersion,
+    );
   });
 }

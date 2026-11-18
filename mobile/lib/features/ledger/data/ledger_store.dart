@@ -14,6 +14,9 @@ abstract final class Entity {
   static const recurringRule = 'recurring_rule';
   static const goal = 'goal';
   static const goalContribution = 'goal_contribution';
+
+  /// Pulled only: the receipts API writes receipts.
+  static const receipt = 'receipt';
 }
 
 abstract final class TxKind {

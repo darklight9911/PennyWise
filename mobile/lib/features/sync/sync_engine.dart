@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../../core/database/app_database.dart';
 import '../../core/network/api_exception.dart';
 import '../ledger/data/ledger_store.dart';
+import '../receipts/data/receipt_files.dart';
 
 /// Result of one sync run.
 class SyncReport {
@@ -22,11 +23,14 @@ class SyncReport {
 /// waiting to be pushed is not overwritten: that edit is newer, and the
 /// server decides once it arrives (newer edit wins).
 class SyncEngine {
-  SyncEngine({required this.db, required Dio dio})
+  SyncEngine({required this.db, required Dio dio, this.receiptFiles})
     : _dio = dio; // ignore: prefer_initializing_formals
 
   final AppDatabase db;
   final Dio _dio;
+
+  /// Deletes the photo of a receipt removed on another phone.
+  final ReceiptFiles? receiptFiles;
 
   static const cursorKey = 'sync_cursor';
   static const _batchSize = 500; // server maximum per push
@@ -493,6 +497,34 @@ class SyncEngine {
                 serverVersion: Value(version),
               ),
             );
+      case Entity.receipt:
+        final local = await (db.select(
+          db.receipts,
+        )..where((r) => r.id.equals(id))).getSingleOrNull();
+        if (deletedAt != null) {
+          if (local?.localPath != null) {
+            await receiptFiles?.delete(local!.localPath!);
+          }
+          await (db.delete(db.receipts)..where((r) => r.id.equals(id))).go();
+        } else if (local == null) {
+          // Another phone's photo: the file is fetched when shown.
+          await db
+              .into(db.receipts)
+              .insert(
+                ReceiptsCompanion.insert(
+                  id: id,
+                  transactionId: d['transaction_id'] as String,
+                  contentType: d['content_type'] as String,
+                  sizeBytes: d['size_bytes'] as int,
+                  status: 'uploaded',
+                  createdAt: updatedAt,
+                ),
+              );
+        } else if (local.deletedAt == null) {
+          await (db.update(db.receipts)..where((r) => r.id.equals(id))).write(
+            const ReceiptsCompanion(status: Value('uploaded')),
+          );
+        }
       default:
         return false; // a newer server may send types this app does not know yet
     }

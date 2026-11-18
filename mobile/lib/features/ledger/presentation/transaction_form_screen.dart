@@ -10,6 +10,8 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../receipts/data/receipt_picker.dart';
+import '../../receipts/presentation/receipts_section.dart';
 import '../application/ledger_providers.dart';
 import '../data/ledger_store.dart';
 import 'day_labels.dart';
@@ -37,6 +39,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _received = TextEditingController();
   final _note = TextEditingController();
   final _rate = TextEditingController();
+  List<PickedPhoto> _photos = []; // picked before the first save
 
   late String _kind = widget.initialKind;
   String? _accountId;
@@ -151,7 +154,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       final store = await ref.read(ledgerStoreProvider.future);
       final existing = _existing;
       if (existing == null) {
-        await store.createTransaction(
+        final created = await store.createTransaction(
           kind: _kind,
           accountId: from.id,
           amountMinor: amount,
@@ -164,6 +167,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           baseCurrency: base,
           manualRate: manualRate,
         );
+        if (_photos.isNotEmpty && !_isTransfer) {
+          final receipts = await ref.read(receiptStoreProvider.future);
+          for (final p in _photos) {
+            await receipts.add(created.id, p.bytes, p.contentType);
+          }
+        }
       } else {
         await store.updateTransaction(
           existing.copyWith(
@@ -213,6 +222,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (ok != true) return;
     final store = await ref.read(ledgerStoreProvider.future);
     await store.deleteTransaction(_existing!.id);
+    // Its photos go too (the server removes its copies by itself).
+    final receipts = await ref.read(receiptStoreProvider.future);
+    await receipts.deleteAllOf(_existing!.id);
     if (mounted) context.pop();
   }
 
@@ -396,6 +408,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(labelText: 'Note (optional)'),
           ),
+          if (!_isTransfer) ...[
+            const SizedBox(height: Spacing.sm),
+            ReceiptsSection(
+              transactionId: _existing?.id,
+              pending: _photos,
+              onPendingChanged: (list) => setState(() => _photos = list),
+            ),
+          ],
           const SizedBox(height: Spacing.lg),
           if (_error != null)
             Padding(

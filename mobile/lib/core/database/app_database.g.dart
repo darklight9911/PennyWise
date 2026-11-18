@@ -5748,6 +5748,533 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
   }
 }
 
+class $ReceiptsTable extends Receipts with TableInfo<$ReceiptsTable, Receipt> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<String> transactionId = GeneratedColumn<String>(
+    'transaction_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentTypeMeta = const VerificationMeta(
+    'contentType',
+  );
+  @override
+  late final GeneratedColumn<String> contentType = GeneratedColumn<String>(
+    'content_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localPathMeta = const VerificationMeta(
+    'localPath',
+  );
+  @override
+  late final GeneratedColumn<String> localPath = GeneratedColumn<String>(
+    'local_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    transactionId,
+    contentType,
+    sizeBytes,
+    localPath,
+    status,
+    createdAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Receipt> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_transactionIdMeta);
+    }
+    if (data.containsKey('content_type')) {
+      context.handle(
+        _contentTypeMeta,
+        contentType.isAcceptableOrUnknown(
+          data['content_type']!,
+          _contentTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentTypeMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sizeBytesMeta);
+    }
+    if (data.containsKey('local_path')) {
+      context.handle(
+        _localPathMeta,
+        localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Receipt map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Receipt(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_id'],
+      )!,
+      contentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_type'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      localPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_path'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $ReceiptsTable createAlias(String alias) {
+    return $ReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class Receipt extends DataClass implements Insertable<Receipt> {
+  final String id;
+  final String transactionId;
+  final String contentType;
+  final int sizeBytes;
+
+  /// Where the photo is on this phone, or null if it is only on the server.
+  final String? localPath;
+
+  /// local: waiting for upload. uploaded: the server has it.
+  final String status;
+  final DateTime createdAt;
+
+  /// Deleted on the phone; the server copy is removed at the next sync.
+  final DateTime? deletedAt;
+  const Receipt({
+    required this.id,
+    required this.transactionId,
+    required this.contentType,
+    required this.sizeBytes,
+    this.localPath,
+    required this.status,
+    required this.createdAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['transaction_id'] = Variable<String>(transactionId);
+    map['content_type'] = Variable<String>(contentType);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    if (!nullToAbsent || localPath != null) {
+      map['local_path'] = Variable<String>(localPath);
+    }
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  ReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return ReceiptsCompanion(
+      id: Value(id),
+      transactionId: Value(transactionId),
+      contentType: Value(contentType),
+      sizeBytes: Value(sizeBytes),
+      localPath: localPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localPath),
+      status: Value(status),
+      createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Receipt.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Receipt(
+      id: serializer.fromJson<String>(json['id']),
+      transactionId: serializer.fromJson<String>(json['transactionId']),
+      contentType: serializer.fromJson<String>(json['contentType']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      localPath: serializer.fromJson<String?>(json['localPath']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'transactionId': serializer.toJson<String>(transactionId),
+      'contentType': serializer.toJson<String>(contentType),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'localPath': serializer.toJson<String?>(localPath),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Receipt copyWith({
+    String? id,
+    String? transactionId,
+    String? contentType,
+    int? sizeBytes,
+    Value<String?> localPath = const Value.absent(),
+    String? status,
+    DateTime? createdAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => Receipt(
+    id: id ?? this.id,
+    transactionId: transactionId ?? this.transactionId,
+    contentType: contentType ?? this.contentType,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    localPath: localPath.present ? localPath.value : this.localPath,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  Receipt copyWithCompanion(ReceiptsCompanion data) {
+    return Receipt(
+      id: data.id.present ? data.id.value : this.id,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      contentType: data.contentType.present
+          ? data.contentType.value
+          : this.contentType,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Receipt(')
+          ..write('id: $id, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('contentType: $contentType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('localPath: $localPath, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    transactionId,
+    contentType,
+    sizeBytes,
+    localPath,
+    status,
+    createdAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Receipt &&
+          other.id == this.id &&
+          other.transactionId == this.transactionId &&
+          other.contentType == this.contentType &&
+          other.sizeBytes == this.sizeBytes &&
+          other.localPath == this.localPath &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ReceiptsCompanion extends UpdateCompanion<Receipt> {
+  final Value<String> id;
+  final Value<String> transactionId;
+  final Value<String> contentType;
+  final Value<int> sizeBytes;
+  final Value<String?> localPath;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const ReceiptsCompanion({
+    this.id = const Value.absent(),
+    this.transactionId = const Value.absent(),
+    this.contentType = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReceiptsCompanion.insert({
+    required String id,
+    required String transactionId,
+    required String contentType,
+    required int sizeBytes,
+    this.localPath = const Value.absent(),
+    required String status,
+    required DateTime createdAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       transactionId = Value(transactionId),
+       contentType = Value(contentType),
+       sizeBytes = Value(sizeBytes),
+       status = Value(status),
+       createdAt = Value(createdAt);
+  static Insertable<Receipt> custom({
+    Expression<String>? id,
+    Expression<String>? transactionId,
+    Expression<String>? contentType,
+    Expression<int>? sizeBytes,
+    Expression<String>? localPath,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (contentType != null) 'content_type': contentType,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (localPath != null) 'local_path': localPath,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReceiptsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? transactionId,
+    Value<String>? contentType,
+    Value<int>? sizeBytes,
+    Value<String?>? localPath,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ReceiptsCompanion(
+      id: id ?? this.id,
+      transactionId: transactionId ?? this.transactionId,
+      contentType: contentType ?? this.contentType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      localPath: localPath ?? this.localPath,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<String>(transactionId.value);
+    }
+    if (contentType.present) {
+      map['content_type'] = Variable<String>(contentType.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (localPath.present) {
+      map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReceiptsCompanion(')
+          ..write('id: $id, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('contentType: $contentType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('localPath: $localPath, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5761,6 +6288,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $GoalContributionsTable goalContributions =
       $GoalContributionsTable(this);
   late final $RecurringRulesTable recurringRules = $RecurringRulesTable(this);
+  late final $ReceiptsTable receipts = $ReceiptsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5775,6 +6303,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     goals,
     goalContributions,
     recurringRules,
+    receipts,
   ];
   @override
   DriftDatabaseOptions get options =>
@@ -8556,6 +9085,268 @@ typedef $$RecurringRulesTableProcessedTableManager =
       RecurringRule,
       PrefetchHooks Function()
     >;
+typedef $$ReceiptsTableCreateCompanionBuilder = ReceiptsCompanion Function({
+  required String id,
+  required String transactionId,
+  required String contentType,
+  required int sizeBytes,
+  Value<String?> localPath,
+  required String status,
+  required DateTime createdAt,
+  Value<DateTime?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$ReceiptsTableUpdateCompanionBuilder = ReceiptsCompanion Function({
+  Value<String> id,
+  Value<String> transactionId,
+  Value<String> contentType,
+  Value<int> sizeBytes,
+  Value<String?> localPath,
+  Value<String> status,
+  Value<DateTime> createdAt,
+  Value<DateTime?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$ReceiptsTableFilterComposer
+    extends Composer<_$AppDatabase, $ReceiptsTable> {
+  $$ReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localPath => $composableBuilder(
+    column: $table.localPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReceiptsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReceiptsTable> {
+  $$ReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localPath => $composableBuilder(
+    column: $table.localPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReceiptsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReceiptsTable> {
+  $$ReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<String> get localPath =>
+      $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$ReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReceiptsTable,
+          Receipt,
+          $$ReceiptsTableFilterComposer,
+          $$ReceiptsTableOrderingComposer,
+          $$ReceiptsTableAnnotationComposer,
+          $$ReceiptsTableCreateCompanionBuilder,
+          $$ReceiptsTableUpdateCompanionBuilder,
+          (Receipt, BaseReferences<_$AppDatabase, $ReceiptsTable, Receipt>),
+          Receipt,
+          PrefetchHooks Function()
+        > {
+  $$ReceiptsTableTableManager(_$AppDatabase db, $ReceiptsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReceiptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReceiptsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> transactionId = const Value.absent(),
+                Value<String> contentType = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<String?> localPath = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReceiptsCompanion(
+                id: id,
+                transactionId: transactionId,
+                contentType: contentType,
+                sizeBytes: sizeBytes,
+                localPath: localPath,
+                status: status,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String transactionId,
+                required String contentType,
+                required int sizeBytes,
+                Value<String?> localPath = const Value.absent(),
+                required String status,
+                required DateTime createdAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReceiptsCompanion.insert(
+                id: id,
+                transactionId: transactionId,
+                contentType: contentType,
+                sizeBytes: sizeBytes,
+                localPath: localPath,
+                status: status,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ReceiptsTable, Receipt>(table),
+                  BaseReferences<_$AppDatabase, $ReceiptsTable, Receipt>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReceiptsTable,
+      Receipt,
+      $$ReceiptsTableFilterComposer,
+      $$ReceiptsTableOrderingComposer,
+      $$ReceiptsTableAnnotationComposer,
+      $$ReceiptsTableCreateCompanionBuilder,
+      $$ReceiptsTableUpdateCompanionBuilder,
+      (Receipt, BaseReferences<_$AppDatabase, $ReceiptsTable, Receipt>),
+      Receipt,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8578,4 +9369,6 @@ class $AppDatabaseManager {
       $$GoalContributionsTableTableManager(_db, _db.goalContributions);
   $$RecurringRulesTableTableManager get recurringRules =>
       $$RecurringRulesTableTableManager(_db, _db.recurringRules);
+  $$ReceiptsTableTableManager get receipts =>
+      $$ReceiptsTableTableManager(_db, _db.receipts);
 }
