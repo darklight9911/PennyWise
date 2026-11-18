@@ -29,6 +29,7 @@ import (
 	"pennywise/backend/internal/platform/redis"
 	"pennywise/backend/internal/ratelimit"
 	"pennywise/backend/internal/receipts"
+	"pennywise/backend/internal/reports"
 	"pennywise/backend/internal/storage"
 )
 
@@ -113,6 +114,7 @@ func run(logger *slog.Logger) error {
 	} else {
 		logger.Warn("R2_BUCKET not set: receipt upload is disabled")
 	}
+	reportsHandler := reports.NewHandler(db, rdb, authHandler.RequireAuth, userIDOf, logger)
 	receiptsHandler := receipts.NewHandler(receiptSvc, ratelimit.New(rdb), authHandler.RequireAuth, userIDOf, logger)
 
 	reg := prometheus.NewRegistry()
@@ -129,7 +131,7 @@ func run(logger *slog.Logger) error {
 					return rdb.Ping(ctx).Err()
 				}),
 			},
-			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes, receiptsHandler.Routes},
+			V1: []func(chi.Router){authHandler.Routes, syncHandler.Routes, devicesHandler.Routes, fxHandler.Routes, receiptsHandler.Routes, reportsHandler.Routes},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
