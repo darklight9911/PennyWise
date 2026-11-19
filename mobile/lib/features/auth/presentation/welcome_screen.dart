@@ -75,6 +75,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
+      canClose: false,
       title: 'Welcome to pennyWise',
       subtitle:
           'Start tracking right away. No account needed: your money stays '

@@ -96,6 +96,7 @@ void main() {
   ) async {
     await pumpApp(tester, h);
     expect(find.text('Welcome to pennyWise'), findsOneWidget);
+    expect(find.byTooltip('Not now'), findsNothing, reason: 'nowhere to go');
     expect(
       find.text('BDT · Bangladeshi Taka'),
       findsOneWidget,
@@ -138,6 +139,7 @@ void main() {
   ) async {
     await pumpApp(tester, h);
     await openLogIn(tester);
+    expect(find.byTooltip('Not now'), findsOneWidget, reason: 'optional');
     // Google is not configured in tests, so its button is hidden.
     expect(find.text('Continue with Google'), findsNothing);
     await tapOn(tester, find.widgetWithText(FilledButton, 'Log in'));

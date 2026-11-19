@@ -21,6 +21,7 @@ class AuthScaffold extends ConsumerWidget {
     required this.children,
     this.showBack = false,
     this.mascotMood = PandaMood.wave,
+    this.canClose = true,
   });
 
   final String title;
@@ -31,11 +32,16 @@ class AuthScaffold extends ConsumerWidget {
   /// Penny greets the user on the first screens (not on back-able ones).
   final PandaMood mascotMood;
 
+  /// Shows "Not now" for people who may skip signing in. Off on the
+  /// welcome screen itself, which has nowhere else to go.
+  final bool canClose;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final auth = ref.watch(authControllerProvider);
     final canLeave =
+        canClose &&
         !showBack &&
         (auth is Guest ||
             auth is SetupNeeded ||
