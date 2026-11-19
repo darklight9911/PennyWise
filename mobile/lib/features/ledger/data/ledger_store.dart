@@ -1170,6 +1170,114 @@ class LedgerStore {
     }
   }
 
+  // ---------------------------------------------- main currency, no account
+
+  /// Without an account the phone works out main-currency amounts itself
+  /// (signed in, the server does). [rates] are today's: 1 [base] buys
+  /// rates[q] of q (GET /v1/fx/rates?base=[base]).
+  ///
+  /// Fills transactions in another currency that have no amount yet
+  /// (e.g. added offline). Typed rates are never touched. Returns how many
+  /// rows changed.
+  Future<int> fillMissingBaseAmounts(
+    String base,
+    Map<String, String> rates,
+  ) async {
+    var changed = 0;
+    await db.transaction(() async {
+      final at = _stamp();
+      final missing =
+          await (db.select(db.transactions)..where(
+                (t) =>
+                    t.amountBaseMinor.isNull() &
+                    t.currency.equals(base).not() &
+                    t.deletedAt.isNull(),
+              ))
+              .get();
+      for (final t in missing) {
+        final r = rates[t.currency];
+        if (r == null || t.fxRateSource == 'manual') continue;
+        final rate = invertRate(r);
+        await (db.update(
+          db.transactions,
+        )..where((x) => x.id.equals(t.id))).write(
+          TransactionsCompanion(
+            amountBaseMinor: Value(
+              convertMinor(t.amountMinor, t.currency, base, rate),
+            ),
+            fxRateToBase: Value(rate),
+            fxRateSource: const Value('auto'),
+            updatedAt: Value(at),
+          ),
+        );
+        await _queue(Entity.transaction, t.id, at);
+        changed++;
+      }
+    });
+    if (changed > 0) onLocalWrite?.call();
+    return changed;
+  }
+
+  /// True if some transaction in another currency has no main-currency
+  /// amount yet (see [fillMissingBaseAmounts]).
+  Future<bool> hasMissingBaseAmounts(String base) async =>
+      (await (db.select(db.transactions)
+                ..where(
+                  (t) =>
+                      t.amountBaseMinor.isNull() &
+                      t.currency.equals(base).not() &
+                      t.deletedAt.isNull(),
+                )
+                ..limit(1))
+              .get())
+          .isNotEmpty;
+
+  /// Converts everything to a new main currency, without an account.
+  /// [rates] are today's for [newBase] (1 [newBase] buys rates[q] of q).
+  /// Typed rates are kept, converted through the old main currency.
+  /// Throws [StateError] if there is no rate for [oldBase].
+  Future<void> rebaseLocally({
+    required String oldBase,
+    required String newBase,
+    required Map<String, String> rates,
+  }) async {
+    if (oldBase == newBase) return;
+    final toNewRaw = rates[oldBase];
+    if (toNewRaw == null) throw StateError('no rate for $oldBase');
+    final oldToNew = invertRate(toNewRaw); // 1 oldBase = oldToNew newBase
+    await db.transaction(() async {
+      final at = _stamp();
+      for (final t in await db.select(db.transactions).get()) {
+        String? rate;
+        String? source;
+        if (t.currency == newBase) {
+          (rate, source) = ('1', 'auto');
+        } else if (t.fxRateSource == 'manual' && t.fxRateToBase != null) {
+          (rate, source) = (multiplyRates(t.fxRateToBase!, oldToNew), 'manual');
+        } else if (rates[t.currency] case final r?) {
+          (rate, source) = (invertRate(r), 'auto');
+        }
+        await (db.update(
+          db.transactions,
+        )..where((x) => x.id.equals(t.id))).write(
+          TransactionsCompanion(
+            amountBaseMinor: Value(
+              rate == null
+                  ? null
+                  : convertMinor(t.amountMinor, t.currency, newBase, rate),
+            ),
+            fxRateToBase: Value(rate),
+            fxRateSource: Value(source),
+            updatedAt: Value(at),
+          ),
+        );
+        await _queue(Entity.transaction, t.id, at);
+      }
+      await _convertGuestMainAmounts(oldBase, newBase, oldToNew);
+    });
+    onLocalWrite?.call();
+  }
+
   // ------------------------------------------------------------------ outbox
 
   /// How many local changes are waiting to sync (rejected ones excluded).

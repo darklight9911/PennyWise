@@ -143,4 +143,98 @@ void main() {
     )..where((x) => x.id.equals(budget.id))).getSingle();
     expect(b.amountMinor, 10000);
   });
+
+  group('main currency without an account', () {
+    // Today's rates for 1 EUR (like GET /v1/fx/rates?base=EUR).
+    const eurRates = {'USD': '1.25', 'JPY': '160'};
+
+    Future<String> account(String currency) async => (await store.createAccount(
+      name: 'A $currency',
+      type: 'cash',
+      currency: currency,
+    )).id;
+
+    test('missing amounts are filled with today\'s rate', () async {
+      final usd = await account('USD');
+      final tx = await store.createTransaction(
+        kind: 'expense',
+        accountId: usd,
+        amountMinor: 1000, // 10.00 USD, no rate known when saved
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 19),
+        baseCurrency: 'EUR',
+      );
+      expect(tx.amountBaseMinor, isNull);
+      expect(await store.hasMissingBaseAmounts('EUR'), isTrue);
+
+      expect(await store.fillMissingBaseAmounts('EUR', eurRates), 1);
+      final filled = await store.getTransaction(tx.id);
+      expect(filled!.amountBaseMinor, 800, reason: '10 USD / 1.25 = 8 EUR');
+      expect(filled.fxRateSource, 'auto');
+      expect(await store.hasMissingBaseAmounts('EUR'), isFalse);
+    });
+
+    test('changing it converts everything, typed rates included', () async {
+      final usd = await account('USD');
+      final jpy = await account('JPY');
+      // In USD (the old main currency): 20.00 USD.
+      final a = await store.createTransaction(
+        kind: 'expense',
+        accountId: usd,
+        amountMinor: 2000,
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 19),
+        baseCurrency: 'USD',
+      );
+      // In JPY with a typed rate: 1 JPY = 0.007 USD.
+      final b = await store.createTransaction(
+        kind: 'expense',
+        accountId: jpy,
+        amountMinor: 1000,
+        currency: 'JPY',
+        occurredAt: DateTime(2026, 11, 19),
+        baseCurrency: 'USD',
+        manualRate: '0.007',
+      );
+      final budget = await store.createBudget(
+        amountMinor: 10000, // 100.00 USD
+        period: 'monthly',
+      );
+
+      await store.rebaseLocally(
+        oldBase: 'USD',
+        newBase: 'EUR',
+        rates: eurRates,
+      );
+
+      final a2 = await store.getTransaction(a.id);
+      expect(a2!.amountBaseMinor, 1600, reason: '20 USD / 1.25');
+      final b2 = await store.getTransaction(b.id);
+      expect(b2!.fxRateSource, 'manual', reason: 'the typed rate is kept');
+      expect(b2.fxRateToBase, '0.0056', reason: '0.007 USD x 0.8 EUR/USD');
+      expect(b2.amountBaseMinor, 560, reason: '1000 JPY = 5.60 EUR');
+      final bud = await (db.select(
+        db.budgets,
+      )..where((x) => x.id.equals(budget.id))).getSingle();
+      expect(bud.amountMinor, 8000);
+    });
+
+    test('no rate for the old currency: nothing changes', () async {
+      final usd = await account('USD');
+      await store.createTransaction(
+        kind: 'expense',
+        accountId: usd,
+        amountMinor: 2000,
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 19),
+        baseCurrency: 'USD',
+      );
+      await expectLater(
+        store.rebaseLocally(oldBase: 'USD', newBase: 'EUR', rates: const {}),
+        throwsStateError,
+      );
+      final rows = await db.select(db.transactions).get();
+      expect(rows.single.amountBaseMinor, 2000);
+    });
+  });
 }

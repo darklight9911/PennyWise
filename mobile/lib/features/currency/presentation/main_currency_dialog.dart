@@ -9,6 +9,7 @@ import '../../../core/utils/currencies.dart';
 import '../../../core/utils/money.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
+import '../application/guest_currency.dart';
 import '../data/fx_rates.dart';
 import 'currency_picker_sheet.dart';
 
@@ -82,10 +83,22 @@ class _MainCurrencySheetState extends ConsumerState<_MainCurrencySheet> {
       _error = null;
     });
     try {
-      await ref
-          .read(authControllerProvider.notifier)
-          .changeBaseCurrency(_picked);
+      if (ref.read(authControllerProvider) is Guest) {
+        await changeGuestMainCurrency(ref, from: widget.current, to: _picked);
+      } else {
+        await ref
+            .read(authControllerProvider.notifier)
+            .changeBaseCurrency(_picked);
+      }
       if (mounted) Navigator.pop(context);
+    } on StateError {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error =
+            'There is no daily rate for ${widget.current} yet, so your '
+            'totals cannot be converted.';
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {

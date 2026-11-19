@@ -150,3 +150,25 @@ String invertRate(String rate) {
   s = s.replaceFirst(RegExp(r'0+$'), '');
   return s.endsWith('.') ? s.substring(0, s.length - 1) : s;
 }
+
+/// [a] × [b] (two exchange rates, decimal strings), rounded to 10
+/// decimals (halves away from zero): "1 GBP = 1.17 EUR" and "1 EUR =
+/// 160.5 JPY" give "1 GBP = 187.785 JPY".
+String multiplyRates(String a, String b) {
+  BigInt digits(String r) => BigInt.parse(r.split('.').join());
+  int decimals(String r) => r.contains('.') ? r.split('.')[1].length : 0;
+  final product = digits(a) * digits(b);
+  final shift = decimals(a) + decimals(b) - 10;
+  var q = product;
+  if (shift > 0) {
+    final den = BigInt.from(10).pow(shift);
+    q = product ~/ den;
+    if ((product % den) * BigInt.two >= den) q += BigInt.one;
+  } else if (shift < 0) {
+    q = product * BigInt.from(10).pow(-shift);
+  }
+  var s = q.toString().padLeft(11, '0');
+  s = '${s.substring(0, s.length - 10)}.${s.substring(s.length - 10)}';
+  s = s.replaceFirst(RegExp(r'0+$'), '');
+  return s.endsWith('.') ? s.substring(0, s.length - 1) : s;
+}

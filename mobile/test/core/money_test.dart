@@ -105,6 +105,14 @@ void main() {
       }
     });
 
+    test('multiplyRates', () {
+      expect(multiplyRates('1.17', '160.5'), '187.785');
+      expect(multiplyRates('2', '3'), '6');
+      expect(multiplyRates('0.0000123', '3'), '0.0000369');
+      // Rounded to 10 decimals, halves away from zero.
+      expect(multiplyRates('1.0989010989', '0.91'), '1');
+    });
+
     test('invertRate', () {
       expect(invertRate('0.91'), '1.0989010989');
       expect(invertRate('1.25'), '0.8');

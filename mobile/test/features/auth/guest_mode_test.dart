@@ -139,6 +139,32 @@ void main() {
     expect(await store.watchPendingCount().first, 0, reason: 'all synced');
   });
 
+  test('a guest gets main-currency amounts when rates arrive', () async {
+    h.backend.fxRates.addAll({'USD': '1.25'});
+    await auth().startAsGuest(baseCurrency: 'EUR');
+    await settle();
+    final store = await c.read(ledgerStoreProvider.future);
+    final usd = await store.createAccount(
+      name: 'Dollars',
+      type: 'cash',
+      currency: 'USD',
+    );
+    final tx = await store.createTransaction(
+      kind: 'expense',
+      accountId: usd.id,
+      amountMinor: 1000,
+      currency: 'USD',
+      occurredAt: DateTime(2026, 11, 19),
+      baseCurrency: 'EUR',
+    );
+    for (var i = 0; i < 10; i++) {
+      await settle();
+    }
+    final filled = await store.getTransaction(tx.id);
+    expect(filled!.amountBaseMinor, 800);
+    expect(h.backend.callCount('/sync/push'), 0, reason: 'still no sync');
+  });
+
   test('erasing guest data starts empty, same currency', () async {
     await auth().startAsGuest(baseCurrency: 'JPY');
     final store = await c.read(ledgerStoreProvider.future);

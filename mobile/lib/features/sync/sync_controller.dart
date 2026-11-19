@@ -59,6 +59,7 @@ class SyncController extends Notifier<SyncStatus> {
   Timer? _debounce;
   AppLifecycleListener? _lifecycle;
   void Function()? _removeCloseHook;
+  LedgerStore? _guestStore;
 
   @override
   SyncStatus build() {
@@ -94,7 +95,10 @@ class SyncController extends Notifier<SyncStatus> {
         : null;
     if (store != null && identical(store.db, _engine?.db)) return;
     _detach();
-    if (store == null) return;
+    if (store == null) {
+      if (auth is Guest) _attachGuest(auth.guestProfile.baseCurrency);
+      return;
+    }
 
     _store = store;
     final engine = _engine = SyncEngine(
@@ -111,6 +115,38 @@ class SyncController extends Notifier<SyncStatus> {
     engine.onMergeGuest = () => _mergeGuest(store, user!.baseCurrency);
     store.onLocalWrite = _scheduleSync;
     unawaited(syncNow());
+  }
+
+  /// Without an account nothing syncs, but transactions in other
+  /// currencies still need main-currency amounts: the phone fills them in
+  /// with today's rates whenever it can reach the rates.
+  void _attachGuest(String base) {
+    final store = switch (ref.read(ledgerStoreProvider)) {
+      AsyncData(:final value) => value,
+      _ => null,
+    };
+    if (store == null) return;
+    _guestStore = store;
+    store.onLocalWrite = () {
+      _debounce?.cancel();
+      _debounce = Timer(
+        ref.read(syncDebounceProvider),
+        () => unawaited(_fillGuest(store, base)),
+      );
+    };
+    unawaited(_fillGuest(store, base));
+  }
+
+  Future<void> _fillGuest(LedgerStore store, String base) async {
+    if (!identical(store, _guestStore)) return; // left guest mode meanwhile
+    try {
+      if (!await store.hasMissingBaseAmounts(base)) return;
+      final rates = await ref.read(fxApiProvider).latest(base);
+      if (!identical(store, _guestStore)) return;
+      await store.fillMissingBaseAmounts(base, rates.rates);
+    } on Object {
+      // Offline or no rates yet: tried again after the next change.
+    }
   }
 
   /// Joins this phone's guest data into the account, converting budgets
@@ -137,6 +173,7 @@ class SyncController extends Notifier<SyncStatus> {
   /// Forgets the current engine (it stops when its database closes).
   void _detach() {
     _debounce?.cancel();
+    _guestStore = null;
     _removeCloseHook?.call();
     _removeCloseHook = null;
     final old = _engine;
