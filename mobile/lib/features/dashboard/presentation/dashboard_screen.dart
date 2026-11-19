@@ -19,6 +19,7 @@ import '../../ledger/data/ledger_store.dart';
 import '../../ledger/presentation/ledger_style.dart';
 import '../../ledger/presentation/transaction_tile.dart';
 import '../../sync/sync_controller.dart';
+import '../../transactions/presentation/empty_transactions_stage.dart';
 import '../domain/penny_greeting.dart';
 
 /// Home screen: total balance, this month's money in and out, accounts
@@ -235,9 +236,13 @@ class DashboardScreen extends ConsumerWidget {
               onAction: () => context.go(Routes.transactions),
             ),
             if (recent.isEmpty)
-              Text(
-                'Nothing yet. Tap + to add income or an expense.',
-                style: muted,
+              EmptyRecentCard(
+                hasAccounts: accounts.isNotEmpty,
+                onAction: () => context.push(
+                  accounts.isEmpty
+                      ? Routes.newAccount
+                      : Routes.newTransaction(TxKind.expense),
+                ),
               )
             else
               Card(

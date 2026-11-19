@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/finance_colors.dart';
@@ -117,6 +118,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       0,
       (a, c) => a + c.totalMinor,
     );
+    final accounts = (ref.watch(accountsProvider).value ?? const <Account>[])
+        .where((a) => !a.archived)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -164,6 +168,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               title: 'Nothing to show yet',
               message:
                   'No income or spending ${range.label}. Charts appear once you add transactions.',
+              action: FilledButton.icon(
+                icon: AppIcon(
+                  accounts.isEmpty
+                      ? HugeIcons.strokeRoundedWallet01
+                      : HugeIcons.strokeRoundedPlusSign,
+                  size: 20,
+                ),
+                label: Text(
+                  accounts.isEmpty
+                      ? 'Add your first account'
+                      : 'Add transaction',
+                ),
+                onPressed: () => context.push(
+                  accounts.isEmpty
+                      ? Routes.newAccount
+                      : Routes.newTransaction(),
+                ),
+              ),
             )
           else ...[
             _Totals(income: earned, spent: spent, currency: base),

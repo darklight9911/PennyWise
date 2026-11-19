@@ -6,12 +6,11 @@ import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/empty_state.dart';
-import '../../../core/widgets/panda_mascot.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/presentation/day_labels.dart';
 import '../../ledger/presentation/transaction_tile.dart';
 import '../../sync/sync_controller.dart';
+import 'empty_transactions_stage.dart';
 
 /// Every transaction, newest first, grouped by day.
 class TransactionsScreen extends ConsumerWidget {
@@ -37,15 +36,7 @@ class TransactionsScreen extends ConsumerWidget {
           data: (list) => list.isEmpty
               ? ListView(
                   // Scrollable, so pull-to-refresh works on the empty state.
-                  children: const [
-                    SizedBox(height: 80),
-                    EmptyState(
-                      mascot: PandaMood.sleeping,
-                      icon: HugeIcons.strokeRoundedInvoice01,
-                      title: 'No transactions yet',
-                      message: 'Tap + to add your first income or expense.',
-                    ),
-                  ],
+                  children: const [EmptyTransactionsStage()],
                 )
               : _GroupedList(transactions: list),
         ),
