@@ -24,6 +24,8 @@ class FxApi {
       final res = await _dio.get<Map<String, dynamic>>(
         '/v1/fx/rates',
         queryParameters: {'base': base},
+        // Public: works without an account.
+        options: Options(extra: {'auth': false}),
       );
       final d = res.data!;
       return FxRates(
