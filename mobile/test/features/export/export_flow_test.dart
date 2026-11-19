@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pennywise/features/ledger/application/ledger_providers.dart';
 
 import '../../support/test_app.dart';
 import '../../widget_test.dart' show finish, logIn, pumpApp, pw, settle, tapOn;
@@ -12,54 +16,87 @@ void main() {
   });
 
   Future<void> openExport(WidgetTester tester) async {
-    await pumpApp(tester, h);
-    await logIn(tester, 'ann@example.com', pw);
     await tapOn(tester, find.text('Reports'));
     await tapOn(tester, find.byTooltip('Export'));
     expect(find.text('Make file'), findsOneWidget);
   }
 
-  Future<void> waitForPolls(WidgetTester tester) async {
-    // The progress bar animates forever: pump by hand.
-    for (var i = 0; i < 5; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    await settle(tester);
+  /// Adds one expense through the store the app uses.
+  Future<void> addExpense(WidgetTester tester, String note) async {
+    final c = ProviderScope.containerOf(
+      tester.element(find.byType(NavigationBar)),
+    );
+    final store = await c.read(ledgerStoreProvider.future);
+    final usd = await store.createAccount(
+      name: 'Wallet',
+      type: 'cash',
+      currency: 'USD',
+    );
+    await store.createTransaction(
+      kind: 'expense',
+      accountId: usd.id,
+      amountMinor: 1234,
+      currency: 'USD',
+      occurredAt: DateTime.now(),
+      note: note,
+      baseCurrency: 'USD',
+    );
   }
 
-  testWidgets('makes a CSV for last year and opens it', (tester) async {
+  /// Taps "Make file" and lets the real work (fonts, PDF) finish. The
+  /// progress bar animates while busy, so time is moved by hand.
+  Future<void> makeFile(WidgetTester tester) async {
+    await tester.tap(find.widgetWithText(FilledButton, 'Make file'));
+    for (var i = 0; i < 60 && h.shared.isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  testWidgets('without an account and offline: a CSV is made on the phone', (
+    tester,
+  ) async {
+    h.backend.offline = true;
+    h.store.guestProfile = {
+      'name': '',
+      'base_currency': 'USD',
+      'timezone': 'UTC',
+      'locale': 'en',
+    };
+    await pumpApp(tester, h);
+    await addExpense(tester, 'Lunch');
+    await settle(tester);
     await openExport(tester);
     await tapOn(tester, find.text('CSV spreadsheet'));
-    await tapOn(tester, find.text('Last year'));
-    await tester.tap(find.widgetWithText(FilledButton, 'Make file'));
-    await tester.pump();
-    expect(find.text('Making your file…'), findsOneWidget);
-    await waitForPolls(tester);
+    await makeFile(tester);
 
-    final year = DateTime.now().year - 1;
-    final name = 'pennywise-$year-01-01-to-$year-12-31.csv';
-    expect(find.text(name), findsOneWidget);
-    final e = h.backend.exports.values.single;
-    expect((e.format, e.from, e.to), ('csv', '$year-01-01', '$year-12-31'));
-
-    await tapOn(tester, find.widgetWithText(FilledButton, 'Open'));
-    expect(h.opened.single.host, 'files.example.com');
+    final now = DateTime.now();
+    final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final file = h.shared.single;
+    expect(file.name, startsWith('pennywise-$month-01-to-$month-'));
+    expect(file.mime, 'text/csv');
+    expect(file.bytes.take(3), [0xEF, 0xBB, 0xBF], reason: 'UTF-8 BOM');
+    final text = utf8.decode(file.bytes); // drops the BOM
+    expect(text, startsWith('date,type,account,category,note,amount'));
+    expect(text, contains(',expense,Wallet,,Lunch,-12.34,USD,-12.34,1,auto,'));
+    expect(find.text(file.name), findsOneWidget);
     await finish(tester);
   });
 
-  testWidgets('says so when the server has no export', (tester) async {
-    h.backend.exportsError = 'exports_unavailable';
+  testWidgets('signed in: a PDF statement is made on the phone too', (
+    tester,
+  ) async {
+    await pumpApp(tester, h);
+    await logIn(tester, 'ann@example.com', pw);
     await openExport(tester);
-    await tapOn(tester, find.widgetWithText(FilledButton, 'Make file'));
-    expect(
-      find.text('Export is not available on this server yet.'),
-      findsOneWidget,
-    );
-    expect(
-      find.widgetWithText(FilledButton, 'Make file'),
-      findsOneWidget,
-      reason: 'can try again',
-    );
+    await makeFile(tester);
+    final file = h.shared.single;
+    expect(file.mime, 'application/pdf');
+    expect(ascii.decode(file.bytes.take(5).toList()), '%PDF-');
+    expect(h.backend.callCount('/v1/exports'), 0, reason: 'no server job');
     await finish(tester);
   });
 }

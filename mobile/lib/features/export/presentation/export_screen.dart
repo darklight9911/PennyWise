@@ -1,20 +1,23 @@
-import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/network/api_exception.dart';
-import '../../../core/platform/link_opener.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../ledger/presentation/day_labels.dart';
 import '../../recurring/domain/recurrence.dart';
-import '../data/export_api.dart';
+import '../../auth/application/auth_controller.dart';
+import '../../ledger/application/ledger_providers.dart';
+import '../data/local_export.dart';
 
 enum _Range { thisMonth, lastMonth, thisYear, lastYear, custom }
 
-/// Makes a CSV or PDF file of the user's transactions on the server and
-/// opens the download link. Needs a connection.
+/// Makes a CSV or PDF file of the user's transactions on the phone and
+/// hands it to the share sheet (save to Files or Drive, email, chat...).
+/// Works offline and without an account.
 class ExportScreen extends ConsumerStatefulWidget {
   const ExportScreen({super.key});
 
@@ -27,21 +30,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   _Range _range = _Range.thisMonth;
   late DateTime _from;
   late DateTime _to;
-  ExportJob? _job;
+  ({Uint8List bytes, String name, String mime})? _file;
   bool _busy = false;
   String? _error;
-  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
     _applyRange();
-  }
-
-  @override
-  void dispose() {
-    _poll?.cancel();
-    super.dispose();
   }
 
   void _applyRange() {
@@ -87,70 +83,52 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   Future<void> _create() async {
-    _poll?.cancel();
     setState(() {
       _busy = true;
       _error = null;
-      _job = null;
+      _file = null;
     });
     try {
-      final job = await ref
-          .read(exportApiProvider)
-          .create(format: _format, from: ymd(_from), to: ymd(_to));
-      if (!mounted) return;
-      setState(() => _job = job);
-      if (job.pending) {
-        _poll = Timer.periodic(ref.read(exportPollProvider), (_) => _check());
+      final from = ymd(_from), to = ymd(_to);
+      final base = ref.read(baseCurrencyProvider);
+      final store = await ref.read(ledgerStoreProvider.future);
+      final rows = await loadExportRows(store.db, from: from, to: to);
+      final Uint8List bytes;
+      if (_format == 'csv') {
+        bytes = utf8.encode(buildCsv(rows, base));
       } else {
-        setState(() => _busy = false);
+        final fonts = await loadPdfFonts();
+        bytes = await buildPdf(
+          rows: rows,
+          base: base,
+          from: from,
+          to: to,
+          regular: fonts.regular,
+          bold: fonts.bold,
+        );
       }
-    } on ApiException catch (e) {
+      final file = (
+        bytes: bytes,
+        name: exportFileName(_format, from, to),
+        mime: _format == 'csv' ? 'text/csv' : 'application/pdf',
+      );
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = switch (e.code) {
-          'exports_unavailable' =>
-            'Export is not available on this server yet.',
-          'too_many' => 'Wait for your other exports to finish.',
-          'rate_limited' => 'Too many exports. Try again later.',
-          _ when e.isNetworkError => 'No connection. Exports are made on our server, so you need to be online.',
-          _ => e.message,
-        };
-      });
+      setState(() => _file = file);
+      await _share();
+    } on Object catch (e, st) {
+      if (mounted) setState(() => _error = userMessage(e, st));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _check() async {
-    final job = _job;
-    if (job == null) return;
+  Future<void> _share() async {
+    final file = _file;
+    if (file == null) return;
     try {
-      final next = await ref.read(exportApiProvider).get(job.id);
-      if (!mounted) return;
-      setState(() => _job = next);
-      if (!next.pending) {
-        _poll?.cancel();
-        setState(() => _busy = false);
-      }
-    } on ApiException {
-      // Offline for a moment: keep checking.
-    }
-  }
-
-  Future<void> _open() async {
-    // Links last 10 minutes: ask for a fresh one first.
-    final job = _job!;
-    try {
-      final fresh = await ref.read(exportApiProvider).get(job.id);
-      if (!mounted) return;
-      setState(() => _job = fresh);
-      final url = fresh.downloadUrl;
-      if (url == null) return;
-      final ok = await ref.read(linkOpenerProvider)(Uri.parse(url));
-      if (!ok && mounted) {
-        setState(() => _error = 'No app could open the file.');
-      }
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      await ref.read(fileSharerProvider)(file.bytes, file.name, file.mime);
+    } on Object catch (e, st) {
+      if (mounted) setState(() => _error = userMessage(e, st));
     }
   }
 
@@ -158,7 +136,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final now = DateTime.now();
-    final job = _job;
+    final file = _file;
     return Scaffold(
       appBar: AppBar(title: const Text('Export')),
       body: ListView(
@@ -254,27 +232,18 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             const SizedBox(height: Spacing.md),
             Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
-          if (job != null && job.status == 'ready') ...[
+          if (file != null) ...[
             const SizedBox(height: Spacing.lg),
             Card(
               child: ListTile(
                 leading: const AppIcon(HugeIcons.strokeRoundedFile02),
-                title: Text(job.fileName),
-                subtitle: const Text('Ready. Kept for 7 days.'),
+                title: Text(file.name),
+                subtitle: const Text('Made on this phone.'),
                 trailing: FilledButton.tonal(
-                  onPressed: _open,
-                  child: const Text('Open'),
+                  onPressed: _share,
+                  child: const Text('Share'),
                 ),
               ),
-            ),
-          ],
-          if (job != null && job.status == 'failed') ...[
-            const SizedBox(height: Spacing.md),
-            Text(
-              job.error.isEmpty
-                  ? 'The file could not be made. Please try again.'
-                  : job.error,
-              style: TextStyle(color: theme.colorScheme.error),
             ),
           ],
         ],

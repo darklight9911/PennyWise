@@ -30,13 +30,6 @@ class FakeBackend implements HttpClientAdapter {
   int callCount(String pathSuffix) =>
       calls.where((c) => c.endsWith(pathSuffix)).length;
 
-  /// Exports: id -> (format, from, to, polls so far). Ready after one poll.
-  final exports =
-      <String, ({String format, String from, String to, int polls})>{};
-
-  /// Code to refuse exports with (e.g. "exports_unavailable"), or null.
-  String? exportsError;
-
   /// Receipts: id -> state; file bytes uploaded to the fake bucket.
   final receipts =
       <
@@ -97,21 +90,6 @@ class FakeBackend implements HttpClientAdapter {
     final r = await _receiptsRoute(options, path, requestStream);
     if (r != null) {
       return r;
-    }
-
-    if (options.method == 'GET' && path.startsWith('/v1/exports/')) {
-      final id = path.substring('/v1/exports/'.length);
-      final e = exports[id];
-      if (e == null) {
-        return _error(404, 'not_found', 'export not found');
-      }
-      exports[id] = (
-        format: e.format,
-        from: e.from,
-        to: e.to,
-        polls: e.polls + 1,
-      );
-      return _json(200, {'export': _exportJson(id)});
     }
 
     switch ('${options.method} $path') {
@@ -247,22 +225,6 @@ class FakeBackend implements HttpClientAdapter {
           },
         });
 
-      case 'POST /v1/exports':
-        if (_emailOf(options) == null) {
-          return _error(401, 'invalid_token', 'invalid');
-        }
-        if (exportsError != null) {
-          return _error(503, exportsError!, 'refused by test');
-        }
-        final id = 'exp-${exports.length + 1}';
-        exports[id] = (
-          format: body['format'] as String,
-          from: body['from'] as String,
-          to: body['to'] as String,
-          polls: 0,
-        );
-        return _json(202, {'export': _exportJson(id)});
-
       case 'DELETE /v1/me':
         final auth = options.headers['Authorization'] as String?;
         final email = auth == null
@@ -373,20 +335,6 @@ class FakeBackend implements HttpClientAdapter {
           return {...result, 'status': 'applied'};
         }(),
     ];
-  }
-
-  Map<String, dynamic> _exportJson(String id) {
-    final e = exports[id]!;
-    final ready = e.polls > 0;
-    return {
-      'id': id,
-      'format': e.format,
-      'from': e.from,
-      'to': e.to,
-      'status': ready ? 'ready' : 'pending',
-      'file_name': 'pennywise-${e.from}-to-${e.to}.${e.format}',
-      if (ready) 'download_url': 'https://files.example.com/$id?sig=${e.polls}',
-    };
   }
 
   Future<ResponseBody?> _receiptsRoute(

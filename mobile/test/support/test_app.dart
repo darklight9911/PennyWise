@@ -11,7 +11,7 @@ import 'package:pennywise/features/receipts/data/receipt_files.dart';
 import 'package:pennywise/features/receipts/data/receipt_picker.dart';
 import 'package:pennywise/features/receipts/data/receipt_sync.dart';
 import 'package:pennywise/core/platform/link_opener.dart';
-import 'package:pennywise/features/export/data/export_api.dart';
+import 'package:pennywise/features/export/data/local_export.dart';
 import 'package:pennywise/features/currency/presentation/recalculating_banner.dart';
 import 'package:pennywise/core/database/local_database.dart';
 import 'package:pennywise/core/device/device_profile.dart';
@@ -93,6 +93,9 @@ class TestHarness {
   /// Links the app asked the phone to open (e.g. export downloads).
   final opened = <Uri>[];
 
+  /// Files handed to the share sheet.
+  final shared = <({List<int> bytes, String name, String mime})>[];
+
   List<Override> get overrides => [
     appConfigProvider.overrideWithValue(config),
     tokenStoreProvider.overrideWithValue(store),
@@ -102,7 +105,9 @@ class TestHarness {
     localDatabaseProvider.overrideWithValue(local),
     syncDebounceProvider.overrideWithValue(Duration.zero),
     recalcPollProvider.overrideWithValue(const Duration(milliseconds: 200)),
-    exportPollProvider.overrideWithValue(const Duration(milliseconds: 100)),
+    fileSharerProvider.overrideWithValue((bytes, name, mime) async {
+      shared.add((bytes: bytes, name: name, mime: mime));
+    }),
     receiptFilesProvider.overrideWithValue(receiptFiles),
     devicePrefsProvider.overrideWithValue(prefs),
     biometricsProvider.overrideWithValue(biometrics),
