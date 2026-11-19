@@ -37,3 +37,32 @@ PennyGreeting pennyGreetingForMonth({
     "You're on track this month. Nice work!",
   );
 }
+
+/// Picks Penny's mood from today's totals (base currency, minor units).
+PennyGreeting pennyGreetingForDay({
+  required int incomeMinor,
+  required int spentMinor,
+}) {
+  if (incomeMinor == 0 && spentMinor == 0) {
+    return const PennyGreeting(
+      PandaMood.wave,
+      "Fresh day! Add today's income or spending and I'll track it for you.",
+    );
+  }
+  if (spentMinor > incomeMinor) {
+    return const PennyGreeting(
+      PandaMood.worried,
+      "You've spent more than you earned today. Tap See all to review.",
+    );
+  }
+  if (spentMinor * 2 <= incomeMinor) {
+    return const PennyGreeting(
+      PandaMood.celebrate,
+      "Great day so far: you're keeping more than half of what you earned today.",
+    );
+  }
+  return const PennyGreeting(
+    PandaMood.happy,
+    "You're on track today. Nice work!",
+  );
+}

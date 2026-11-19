@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show Scrollable;
 import 'package:pennywise/app.dart';
+import 'package:pennywise/core/database/app_database.dart';
 import 'package:pennywise/features/ledger/application/ledger_providers.dart';
 import 'package:pennywise/features/ledger/data/ledger_store.dart';
 
@@ -141,4 +142,107 @@ void main() {
     );
     await finish(tester);
   });
+
+  testWidgets(
+    'dashboard shows only today income, spending and recent; See all opens full list',
+    (tester) async {
+      await pumpApp(tester, h);
+      await logIn(tester, 'ann@example.com', pw);
+      final store = await ProviderScope.containerOf(
+        tester.element(find.byType(PennyWiseApp)),
+      ).read(ledgerStoreProvider.future);
+
+      final now = DateTime.now();
+      final yesterday = now.subtract(const Duration(days: 1));
+      late Account bank;
+      late Category food;
+      await untilDone(tester, () async {
+        bank = await store.createAccount(
+          name: 'Bank',
+          type: 'bank',
+          currency: 'USD',
+          openingBalanceMinor: 10000, // 100.00
+        );
+        food = await store.createCategory(name: 'Food', kind: 'expense');
+        final salary = await store.createCategory(
+          name: 'Salary',
+          kind: 'income',
+        );
+        // Yesterday only first: start-of-day Dashboard shows 0.00 today & No activity today.
+        await store.createTransaction(
+          kind: TxKind.expense,
+          accountId: bank.id,
+          amountMinor: 2000, // 20.00
+          currency: 'USD',
+          occurredAt: yesterday,
+          categoryId: food.id,
+          note: 'yesterday dinner',
+        );
+        await store.createTransaction(
+          kind: TxKind.income,
+          accountId: bank.id,
+          amountMinor: 5000, // 50.00
+          currency: 'USD',
+          occurredAt: yesterday,
+          categoryId: salary.id,
+          note: 'yesterday bonus',
+        );
+      });
+      await settle(tester);
+
+      expect(find.text('Income today'), findsOneWidget);
+      expect(find.text('Spent today'), findsOneWidget);
+      expect(find.text('130.00'), findsWidgets, reason: '100 - 20 + 50');
+      expect(find.text('0.00'), findsNWidgets(2), reason: 'nothing today yet');
+      await tester.scrollUntilVisible(
+        find.text('No activity today'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('No activity today'), findsOneWidget);
+      expect(find.text('Bank · yesterday dinner'), findsNothing);
+
+      // Now add one transaction today.
+      await untilDone(tester, () async {
+        await store.createTransaction(
+          kind: TxKind.expense,
+          accountId: bank.id,
+          amountMinor: 1250, // 12.50
+          currency: 'USD',
+          occurredAt: now,
+          categoryId: food.id,
+          note: 'today lunch',
+        );
+      });
+      await settle(tester);
+
+      await tester.scrollUntilVisible(
+        find.text('Total balance'),
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('117.50'), findsWidgets, reason: '130.00 - 12.50');
+      expect(find.text('−12.50'), findsWidgets, reason: 'Spent today');
+      expect(find.text('0.00'), findsOneWidget, reason: 'Income today');
+      await tester.scrollUntilVisible(
+        find.text('Bank · today lunch'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Bank · today lunch'), findsOneWidget);
+      expect(find.text('Bank · yesterday dinner'), findsNothing);
+
+      // Clicking See all navigates to Transactions with both days visible.
+      await tester.scrollUntilVisible(
+        find.text('See all'),
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tapOn(tester, find.text('See all'));
+      expect(find.text('Bank · today lunch'), findsOneWidget);
+      expect(find.text('Bank · yesterday dinner'), findsOneWidget);
+      expect(find.text('Bank · yesterday bonus'), findsOneWidget);
+      await finish(tester);
+    },
+  );
 }

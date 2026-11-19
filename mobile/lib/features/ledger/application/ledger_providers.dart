@@ -59,6 +59,13 @@ final transactionsProvider =
       yield* store.watchTransactions(limit: limit);
     });
 
+/// Transactions recorded on a single calendar date (YYYY-MM-DD), newest first.
+final dayTransactionsProvider =
+    StreamProvider.family<List<MoneyTransaction>, String>((ref, date) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchTransactions(localDate: date);
+    });
+
 final monthTotalsProvider =
     StreamProvider.family<MonthTotals, ({String month, String currency})>((
       ref,
@@ -66,6 +73,15 @@ final monthTotalsProvider =
     ) async* {
       final store = await ref.watch(ledgerStoreProvider.future);
       yield* store.watchMonthTotals(key.month, key.currency);
+    });
+
+final dayTotalsProvider =
+    StreamProvider.family<MonthTotals, ({String date, String currency})>((
+      ref,
+      key,
+    ) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchDayTotals(key.date, key.currency);
     });
 
 final pendingChangesProvider = StreamProvider<int>((ref) async* {

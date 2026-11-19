@@ -666,11 +666,16 @@ class _EmptyRecentCardState extends State<EmptyRecentCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('No activity yet', style: theme.textTheme.titleSmall),
+                  Text(
+                    widget.hasAccounts
+                        ? 'No activity today'
+                        : 'No activity yet',
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: Spacing.xs),
                   Text(
                     widget.hasAccounts
-                        ? 'Log your first expense or income and it will show up here.'
+                        ? 'Nothing logged today yet. Add an entry or tap See all for earlier days.'
                         : 'Add an account above, then record your first transaction.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,

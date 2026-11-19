@@ -32,17 +32,15 @@ class DashboardScreen extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final user = auth is SignedIn ? auth.user : null;
     final currency = user?.baseCurrency ?? 'USD';
-    final month = localDateOf(DateTime.now()).substring(0, 7);
+    final today = localDateOf(DateTime.now());
     final totals =
-        ref
-            .watch(monthTotalsProvider((month: month, currency: currency)))
-            .value ??
+        ref.watch(dayTotalsProvider((date: today, currency: currency))).value ??
         const MonthTotals();
     final accounts = (ref.watch(accountsProvider).value ?? const <Account>[])
         .where((a) => !a.archived)
         .toList();
     final balances = ref.watch(balancesProvider).value ?? const <String, int>{};
-    final recent = ref.watch(transactionsProvider(5)).value ?? const [];
+    final recent = ref.watch(dayTransactionsProvider(today)).value ?? const [];
     final budgets =
         ref.watch(budgetProgressProvider(currency)).value ?? const [];
 
@@ -68,7 +66,7 @@ class DashboardScreen extends ConsumerWidget {
     }
     final recalculating = user?.recalculating ?? false;
 
-    final greeting = pennyGreetingForMonth(
+    final greeting = pennyGreetingForDay(
       incomeMinor: totals.incomeMinor,
       spentMinor: totals.expenseMinor,
     );
@@ -145,7 +143,7 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _MonthFigure(
-                      label: 'Income this month',
+                      label: 'Income today',
                       minor: totals.incomeMinor,
                       currency: currency,
                       labelStyle: muted,
@@ -154,7 +152,7 @@ class DashboardScreen extends ConsumerWidget {
                   const SizedBox(width: Spacing.md),
                   Expanded(
                     child: _MonthFigure(
-                      label: 'Spent this month',
+                      label: 'Spent today',
                       minor: -totals.expenseMinor,
                       currency: currency,
                       labelStyle: muted,

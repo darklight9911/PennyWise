@@ -31,4 +31,31 @@ void main() {
       expect(g.message, isNotEmpty);
     }
   });
+
+  group('pennyGreetingForDay', () {
+    test('handles zero, overspent, half-saved and on-track days', () {
+      expect(
+        pennyGreetingForDay(incomeMinor: 0, spentMinor: 0).mood,
+        PandaMood.wave,
+      );
+      expect(
+        pennyGreetingForDay(incomeMinor: 0, spentMinor: 500).mood,
+        PandaMood.worried,
+      );
+      expect(
+        pennyGreetingForDay(incomeMinor: 10000, spentMinor: 4000).mood,
+        PandaMood.celebrate,
+      );
+      expect(
+        pennyGreetingForDay(incomeMinor: 10000, spentMinor: 7500).mood,
+        PandaMood.happy,
+      );
+      for (final (income, spent) in [(0, 0), (1, 2), (2, 1), (4, 3)]) {
+        expect(
+          pennyGreetingForDay(incomeMinor: income, spentMinor: spent).message,
+          isNotEmpty,
+        );
+      }
+    });
+  });
 }

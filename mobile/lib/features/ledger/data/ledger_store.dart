@@ -345,9 +345,13 @@ class LedgerStore {
 
   // ------------------------------------------------------------ transactions
 
-  /// Newest first. Optionally only one account (in or out of it).
+  /// Newest first. Optionally filtered by [accountId], exact [localDate],
+  /// inclusive [fromDate]..[toDate] range, or [limit].
   Stream<List<MoneyTransaction>> watchTransactions({
     String? accountId,
+    String? localDate,
+    String? fromDate,
+    String? toDate,
     int? limit,
   }) {
     final q = db.select(db.transactions)
@@ -362,6 +366,13 @@ class LedgerStore {
             t.accountId.equals(accountId) |
             t.transferAccountId.equals(accountId),
       );
+    }
+    if (localDate != null) q.where((t) => t.localDate.equals(localDate));
+    if (fromDate != null) {
+      q.where((t) => t.localDate.isBiggerOrEqualValue(fromDate));
+    }
+    if (toDate != null) {
+      q.where((t) => t.localDate.isSmallerOrEqualValue(toDate));
     }
     if (limit != null) q.limit(limit);
     return q.watch();
@@ -460,7 +471,26 @@ class LedgerStore {
   /// Income and expenses of one month (YYYY-MM) in the main currency, each
   /// transaction converted at its own rate. Transfers are moves between
   /// own accounts, so they are not counted.
-  Stream<MonthTotals> watchMonthTotals(String yearMonth, String baseCurrency) {
+  Stream<MonthTotals> watchMonthTotals(String yearMonth, String baseCurrency) =>
+      _watchTotals(
+        filterSql: 'substr(local_date, 1, 7) = ?2',
+        baseCurrency: baseCurrency,
+        filterValue: yearMonth,
+      );
+
+  /// Income and expenses of one calendar day (YYYY-MM-DD) in the main currency.
+  Stream<MonthTotals> watchDayTotals(String localDate, String baseCurrency) =>
+      _watchTotals(
+        filterSql: 'local_date = ?2',
+        baseCurrency: baseCurrency,
+        filterValue: localDate,
+      );
+
+  Stream<MonthTotals> _watchTotals({
+    required String filterSql,
+    required String baseCurrency,
+    required String filterValue,
+  }) {
     return db
         .customSelect(
           '''
@@ -469,13 +499,13 @@ class LedgerStore {
                      CASE WHEN currency = ?1 THEN amount_minor END)) AS total,
                  SUM(amount_base_minor IS NULL AND currency <> ?1) AS missing
             FROM transactions
-           WHERE deleted_at IS NULL AND substr(local_date, 1, 7) = ?2
+           WHERE deleted_at IS NULL AND $filterSql
              AND kind IN ('income', 'expense')
            GROUP BY kind
           ''',
           variables: [
             Variable.withString(baseCurrency),
-            Variable.withString(yearMonth),
+            Variable.withString(filterValue),
           ],
           readsFrom: {db.transactions},
         )

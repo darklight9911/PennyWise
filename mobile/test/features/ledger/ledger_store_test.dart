@@ -197,6 +197,69 @@ void main() {
   );
 
   test(
+    'watchDayTotals and watchTransactions(localDate) include only that day',
+    () async {
+      final bank = await store.createAccount(
+        name: 'Bank',
+        type: 'bank',
+        currency: 'USD',
+      );
+      final food = await store.createCategory(name: 'Food', kind: 'expense');
+      final salary = await store.createCategory(name: 'Salary', kind: 'income');
+
+      await store.createTransaction(
+        kind: TxKind.expense,
+        accountId: bank.id,
+        amountMinor: 300,
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 14, 15),
+        categoryId: food.id,
+        baseCurrency: 'USD',
+      );
+      await store.createTransaction(
+        kind: TxKind.income,
+        accountId: bank.id,
+        amountMinor: 2000,
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 15, 9),
+        categoryId: salary.id,
+        baseCurrency: 'USD',
+      );
+      await store.createTransaction(
+        kind: TxKind.expense,
+        accountId: bank.id,
+        amountMinor: 450,
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 15, 20),
+        categoryId: food.id,
+        baseCurrency: 'USD',
+      );
+      await store.createTransaction(
+        kind: TxKind.expense,
+        accountId: bank.id,
+        amountMinor: 900,
+        currency: 'USD',
+        occurredAt: DateTime(2026, 11, 16, 8),
+        categoryId: food.id,
+        baseCurrency: 'USD',
+      );
+
+      final dayTotals = await store.watchDayTotals('2026-11-15', 'USD').first;
+      expect(dayTotals.incomeMinor, 2000);
+      expect(dayTotals.expenseMinor, 450);
+
+      final emptyTotals = await store.watchDayTotals('2026-11-17', 'USD').first;
+      expect((emptyTotals.incomeMinor, emptyTotals.expenseMinor), (0, 0));
+
+      final dayRows = await store
+          .watchTransactions(localDate: '2026-11-15')
+          .first;
+      expect(dayRows.length, 2);
+      expect(dayRows.every((t) => t.localDate == '2026-11-15'), isTrue);
+    },
+  );
+
+  test(
     'deleting an account deletes its transactions too, and queues all of them',
     () async {
       final bank = await store.createAccount(
