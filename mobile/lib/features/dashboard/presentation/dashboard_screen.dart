@@ -29,9 +29,8 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
-    final user = auth is SignedIn ? auth.user : null;
-    final currency = user?.baseCurrency ?? 'USD';
+    final profile = ref.watch(profileProvider);
+    final currency = profile?.baseCurrency ?? 'USD';
     final today = localDateOf(DateTime.now());
     final totals =
         ref.watch(dayTotalsProvider((date: today, currency: currency))).value ??
@@ -64,7 +63,7 @@ class DashboardScreen extends ConsumerWidget {
         otherCurrencies++;
       }
     }
-    final recalculating = user?.recalculating ?? false;
+    final recalculating = profile?.recalculating ?? false;
 
     final greeting = pennyGreetingForDay(
       incomeMinor: totals.incomeMinor,
@@ -78,7 +77,11 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(user == null ? 'pennyWise' : 'Hi, ${user.displayName}'),
+        title: Text(
+          profile == null || profile.name.isEmpty
+              ? 'pennyWise'
+              : 'Hi, ${profile.name}',
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {

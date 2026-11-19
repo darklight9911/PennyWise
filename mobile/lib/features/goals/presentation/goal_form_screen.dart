@@ -37,8 +37,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
   bool get _isNew => widget.goalId == null;
 
   String get _currency {
-    final auth = ref.read(authControllerProvider);
-    return auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    return ref.read(baseCurrencyProvider);
   }
 
   @override

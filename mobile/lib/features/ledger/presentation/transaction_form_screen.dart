@@ -94,8 +94,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   String get _baseCurrency {
-    final auth = ref.read(authControllerProvider);
-    return auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    return ref.read(baseCurrencyProvider);
   }
 
   Account? _find(List<Account> accounts, String? id) =>

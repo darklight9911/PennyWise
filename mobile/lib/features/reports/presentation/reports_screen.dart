@@ -82,9 +82,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
-    final user = auth is SignedIn ? auth.user : null;
-    final base = user?.baseCurrency ?? 'USD';
+    final profile = ref.watch(profileProvider);
+    final base = profile?.baseCurrency ?? 'USD';
     final now = DateTime.now();
     final range = periodRange(_period, now);
     final spending = ref.watch(
@@ -154,7 +153,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             onSelectionChanged: (s) => setState(() => _period = s.single),
           ),
           const SizedBox(height: Spacing.lg),
-          if (user != null && user.recalculating)
+          if (profile?.recalculating ?? false)
             const RecalculatingBanner()
           else if (spending.isLoading && !spending.hasValue)
             const Padding(

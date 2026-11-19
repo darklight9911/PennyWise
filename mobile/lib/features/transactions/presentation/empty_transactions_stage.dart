@@ -95,8 +95,7 @@ class _EmptyTransactionsStageState
         .where((a) => !a.archived)
         .toList();
     final hasAccounts = accounts.isNotEmpty;
-    final auth = ref.watch(authControllerProvider);
-    final baseCurrency = auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    final baseCurrency = ref.watch(baseCurrencyProvider);
 
     final mood = pennyEmptyMood(
       hasAccounts: hasAccounts,

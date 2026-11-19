@@ -17,8 +17,8 @@ class BudgetsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
-    final currency = auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    final profile = ref.watch(profileProvider);
+    final currency = profile?.baseCurrency ?? 'USD';
     final budgets = ref.watch(budgetProgressProvider(currency));
 
     return Scaffold(
@@ -29,7 +29,7 @@ class BudgetsScreen extends ConsumerWidget {
         icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: const Text('Add budget'),
       ),
-      body: auth is SignedIn && auth.user.recalculating
+      body: profile?.recalculating ?? false
           ? ListView(
               padding: const EdgeInsets.all(16),
               children: const [RecalculatingBanner()],

@@ -10,10 +10,15 @@ import '../../../core/network/token_store.dart';
 import '../data/auth_api.dart';
 import '../data/google_auth.dart';
 import '../domain/app_user.dart';
+import '../domain/profile.dart';
 
 /// Where the user is in the login flow.
 sealed class AuthState {
   const AuthState();
+
+  /// What the screens show (name, main currency, time zone), or null
+  /// while nothing is known yet.
+  Profile? get profile => null;
 }
 
 /// Reading the saved session at app start.
@@ -28,6 +33,9 @@ class SignedOut extends AuthState {
 class SignedIn extends AuthState {
   const SignedIn(this.user);
   final AppUser user;
+
+  @override
+  Profile get profile => user.profile;
 }
 
 class AuthController extends Notifier<AuthState> {
@@ -218,4 +226,14 @@ class AuthController extends Notifier<AuthState> {
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
+);
+
+/// The current profile, signed in or not (null while starting up).
+final profileProvider = Provider<Profile?>(
+  (ref) => ref.watch(authControllerProvider).profile,
+);
+
+/// The main currency every total is shown in.
+final baseCurrencyProvider = Provider<String>(
+  (ref) => ref.watch(profileProvider)?.baseCurrency ?? 'USD',
 );

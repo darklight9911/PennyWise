@@ -152,8 +152,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   Widget _buildLoadedBody(BuildContext context, List<MoneyTransaction> list) {
     final now = DateTime.now();
-    final auth = ref.watch(authControllerProvider);
-    final baseCurrency = auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    final baseCurrency = ref.watch(baseCurrencyProvider);
     final categories =
         ref.watch(categoryIndexProvider).value ?? const <String, Category>{};
     final accounts = <String, Account>{

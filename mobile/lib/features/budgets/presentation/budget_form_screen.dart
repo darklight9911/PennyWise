@@ -40,8 +40,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   bool get _isNew => widget.budgetId == null;
 
   String get _currency {
-    final auth = ref.read(authControllerProvider);
-    return auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    return ref.read(baseCurrencyProvider);
   }
 
   @override

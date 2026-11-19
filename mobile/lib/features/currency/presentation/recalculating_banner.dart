@@ -55,8 +55,7 @@ class _RecalculatingBannerState extends ConsumerState<RecalculatingBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
-    final currency = auth is SignedIn ? auth.user.baseCurrency : '';
+    final currency = ref.watch(profileProvider)?.baseCurrency ?? '';
     final theme = Theme.of(context);
     return Card(
       color: theme.colorScheme.secondaryContainer,

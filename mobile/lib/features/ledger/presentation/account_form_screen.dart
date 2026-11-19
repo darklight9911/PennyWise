@@ -49,8 +49,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
 
   Future<void> _load() async {
     final store = await ref.read(ledgerStoreProvider.future);
-    final auth = ref.read(authControllerProvider);
-    _currency = auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    _currency = ref.read(baseCurrencyProvider);
     if (!_isNew) {
       _existing = await store.getAccount(widget.accountId!);
       final a = _existing;
@@ -79,9 +78,9 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   }
 
   Future<void> _pickCurrency() async {
-    final auth = ref.read(authControllerProvider);
-    final base = auth is SignedIn ? auth.user.baseCurrency : null;
-    final userTz = auth is SignedIn ? auth.user.timezone : null;
+    final profile = ref.read(profileProvider);
+    final base = profile?.baseCurrency;
+    final userTz = profile?.timezone;
     final device = ref.read(deviceProfileProvider);
     final detected =
         ref.read(detectedCurrencyProvider).value ??

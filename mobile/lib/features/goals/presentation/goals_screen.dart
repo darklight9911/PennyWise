@@ -20,8 +20,7 @@ class GoalsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
-    final currency = auth is SignedIn ? auth.user.baseCurrency : 'USD';
+    final currency = ref.watch(baseCurrencyProvider);
     final goals = ref.watch(goalProgressProvider);
 
     return Scaffold(

@@ -104,8 +104,7 @@ class _MainCurrencySheetState extends ConsumerState<_MainCurrencySheet> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final device = ref.watch(deviceProfileProvider);
-    final auth = ref.watch(authControllerProvider);
-    final userTz = auth is SignedIn ? auth.user.timezone : null;
+    final userTz = ref.watch(profileProvider)?.timezone;
     final detectedCode =
         ref.watch(detectedCurrencyProvider).value ??
         detectCurrency(timezone: userTz, countryCode: device.countryCode);

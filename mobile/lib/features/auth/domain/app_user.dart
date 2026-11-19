@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'profile.dart';
+
 /// The logged-in user, as returned by the API (never contains secrets).
 @immutable
 class AppUser {
@@ -31,6 +33,15 @@ class AppUser {
   final String baseCurrencyStatus;
 
   bool get recalculating => baseCurrencyStatus == 'recalculating';
+
+  /// The parts of the account every screen uses.
+  Profile get profile => Profile(
+    name: displayName,
+    baseCurrency: baseCurrency,
+    timezone: timezone,
+    locale: locale,
+    recalculating: recalculating,
+  );
 
   /// Name if set, otherwise the part of the email before "@".
   String get displayName => name.isNotEmpty ? name : email.split('@').first;
