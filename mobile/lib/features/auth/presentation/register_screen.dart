@@ -6,6 +6,7 @@ import '../../../core/device/device_profile.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../currency/presentation/currency_picker_sheet.dart';
 import '../application/auth_controller.dart';
 import '../domain/validators.dart';
 import '../../../core/widgets/panda_mascot.dart';
@@ -36,6 +37,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickCurrency() async {
+    final picked = await showCurrencyPicker(
+      context,
+      title: 'Main currency',
+      subtitle: 'Totals and budgets use this currency.',
+      selected: _currency,
+      detectedCode: ref.read(deviceProfileProvider).defaultCurrency,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _currency = picked;
+        _fieldErrors.remove('base_currency');
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -75,7 +92,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currencies = {...supportedCurrencies, _currency}.toList();
     return AuthScaffold(
       mascotMood: _error == null ? PandaMood.happy : PandaMood.worried,
       title: 'Create your account',
@@ -124,19 +140,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: Spacing.lg),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _currency,
-                  decoration: InputDecoration(
-                    labelText: 'Main currency',
-                    helperText: 'Totals and budgets use this currency.',
-                    errorText: _fieldErrors['base_currency'],
-                  ),
-                  items: [
-                    for (final c in currencies)
-                      DropdownMenuItem(value: c, child: Text(c)),
-                  ],
-                  onChanged: (v) => setState(() => _currency = v ?? _currency),
+                CurrencyField(
+                  label: 'Main currency',
+                  value: _currency,
+                  helperText: 'Totals and budgets use this currency.',
+                  errorText: _fieldErrors['base_currency'],
+                  enabled: !_loading,
+                  onTap: _pickCurrency,
                 ),
                 const SizedBox(height: Spacing.xl),
                 FormErrorText(_error),

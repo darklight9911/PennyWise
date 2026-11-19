@@ -103,6 +103,8 @@ void main() {
         find.text('Locked: this account already has transactions.'),
         findsOneWidget,
       );
+      await tapOn(tester, find.text('Currency'));
+      expect(find.text('Account currency'), findsNothing);
 
       await tapOn(tester, find.byTooltip('Delete account'));
       expect(
@@ -115,4 +117,27 @@ void main() {
       await finish(tester);
     },
   );
+
+  testWidgets('create account in a currency picked via search', (tester) async {
+    await openAccounts(tester);
+    await tapOn(tester, find.text('Add account'));
+
+    await tester.enterText(field('Name'), 'Tokyo Cash');
+    await tapOn(tester, find.text('Currency'));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search currency, country or symbol'),
+      'yen',
+    );
+    await settle(tester);
+    await tapOn(tester, find.text('JPY'));
+    expect(find.text('JPY · Japanese Yen'), findsOneWidget);
+
+    await tester.enterText(field('Starting balance'), '500');
+    await tapOn(tester, find.widgetWithText(FilledButton, 'Add account'));
+
+    expect(find.text('Tokyo Cash'), findsOneWidget);
+    expect(find.text('Bank account · JPY'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
+    await finish(tester);
+  });
 }

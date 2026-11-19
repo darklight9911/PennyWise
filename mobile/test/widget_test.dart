@@ -121,6 +121,30 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('sign up lets the user search and pick a main currency', (
+    tester,
+  ) async {
+    await pumpApp(tester, h);
+    await tapOn(tester, find.text('Create an account'));
+
+    await tester.enterText(field('Email'), 'taka@example.com');
+    await tester.enterText(field('Password'), pw);
+
+    await tapOn(tester, find.text('Main currency'));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search currency, country or symbol'),
+      'taka',
+    );
+    await settle(tester);
+    await tapOn(tester, find.text('BDT'));
+    expect(find.text('BDT · Bangladeshi Taka'), findsOneWidget);
+
+    await tapOn(tester, find.widgetWithText(FilledButton, 'Create account'));
+    expect(find.text('Hi, taka'), findsOneWidget);
+    expect(h.backend.users['taka@example.com']!['base_currency'], 'BDT');
+    await finish(tester);
+  });
+
   testWidgets('an unexpected error still shows a message (no silent failure)', (
     tester,
   ) async {

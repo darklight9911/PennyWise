@@ -9,6 +9,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../currency/presentation/currency_picker_sheet.dart';
 import '../application/ledger_providers.dart';
 import 'accounts_screen.dart';
 import 'ledger_style.dart';
@@ -75,6 +76,28 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     if (v == null || v.trim().isEmpty) return null; // empty = 0
     final r = parseAmount(v, _currency, allowNegative: true);
     return r.error == null ? null : amountErrorText(r.error!, _currency);
+  }
+
+  Future<void> _pickCurrency() async {
+    final auth = ref.read(authControllerProvider);
+    final base = auth is SignedIn ? auth.user.baseCurrency : null;
+    final detected = ref.read(deviceProfileProvider).defaultCurrency;
+    final accounts = ref.read(accountsProvider).value ?? const <Account>[];
+    final accountCodes = [
+      ?base,
+      for (final a in accounts)
+        if (!a.archived) a.currency,
+    ];
+    final picked = await showCurrencyPicker(
+      context,
+      title: 'Account currency',
+      selected: _currency,
+      detectedCode: detected,
+      accountCodes: accountCodes,
+    );
+    if (picked != null && mounted) {
+      setState(() => _currency = picked);
+    }
   }
 
   Future<void> _save() async {
@@ -147,7 +170,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currencies = {...supportedCurrencies, _currency}.toList();
     return Scaffold(
       appBar: AppBar(
         title: Text(_isNew ? 'New account' : 'Edit account'),
@@ -202,23 +224,14 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                     onChanged: (v) => setState(() => _type = v ?? _type),
                   ),
                   const SizedBox(height: Spacing.lg),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _currency,
-                    decoration: InputDecoration(
-                      labelText: 'Currency',
-                      helperText: _currencyLocked
-                          ? 'Locked: this account already has transactions.'
-                          : 'Cannot be changed once you add transactions.',
-                      helperMaxLines: 2,
-                    ),
-                    items: [
-                      for (final c in currencies)
-                        DropdownMenuItem(value: c, child: Text(c)),
-                    ],
-                    onChanged: _currencyLocked
-                        ? null
-                        : (v) => setState(() => _currency = v ?? _currency),
+                  CurrencyField(
+                    label: 'Currency',
+                    value: _currency,
+                    helperText: _currencyLocked
+                        ? 'Locked: this account already has transactions.'
+                        : 'Cannot be changed once you add transactions.',
+                    enabled: !_currencyLocked && !_saving,
+                    onTap: _pickCurrency,
                   ),
                   const SizedBox(height: Spacing.lg),
                   TextFormField(
