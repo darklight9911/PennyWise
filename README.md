@@ -59,6 +59,10 @@ printed to the API log, so you can copy the link from there.
 | POST | `/v1/auth/forgot-password` | – |
 | POST | `/v1/auth/reset-password` | – |
 | GET | `/v1/me` | Bearer |
+| GET | `/v1/fx/rates?base=` | – (public, 120/min per IP) |
+
+The sync, receipts, reports and account routes need a Bearer token; see
+PLAN.md section 5 for the full list.
 
 ## Run the mobile app
 
@@ -67,6 +71,10 @@ cd mobile
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080   # Android emulator -> your machine
 ```
+
+The app works without an account: the first launch asks only for the main
+currency, and everything stays on the phone (offline too) until the user logs
+in or signs up from Settings. Their data is then merged into the account.
 
 Build-time settings (`--dart-define`):
 

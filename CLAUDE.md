@@ -43,6 +43,13 @@ Before suggesting new work, read PLAN.md section 8 and the latest
 - Mascot **Penny** the panda: Rive file `assets/rive/penny.riv`, built
   from `mobile/rive/` (see its README for the artboard contract).
 - The confirm-email reminder lives in Settings, not on the dashboard.
+- **No account needed** (decided 2026-11-20): every feature works without
+  an account and offline (`Guest` state, data owner `guest`). First launch
+  asks only for the main currency. Signing in merges the phone's data into
+  the account (same-name categories joined, budgets/goals converted).
+  Log out wipes the phone and continues as an empty guest. An expired
+  session keeps the data and only pauses sync. Export (CSV/PDF) is built
+  on the phone for everyone. `GET /v1/fx/rates` is public.
 
 ## Rules that must not break (details in PLAN.md section 3)
 
@@ -53,6 +60,9 @@ Before suggesting new work, read PLAN.md section 8 and the latest
   outbox. Row IDs are client UUIDv7, deletes are soft, sync versions are
   per user (`users.sync_version`), push is idempotent, last write wins.
 - Recurring occurrences use `UUIDv5(rule_id:date)` on phone and server.
+- Never wipe guest data on sign-in (`LocalDatabase.claimFor` hands it to
+  the account); keep the phone's default categories in step with
+  `backend/internal/datasync/defaults.go`.
 - Months, budgets and reports use `local_date`, never the UTC date.
 - Receipts never pass through the API: presigned R2 PUT, then a HEAD check.
 - No user enumeration on auth routes; rate limits on every route.

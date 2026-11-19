@@ -17,9 +17,9 @@ Target: publish on the Google Play Store (App Store later).
 | **Goals** | Savings goals with a target amount, a deadline and contributions. Progress bar. |
 | **Recurring** | Recurring bills, subscriptions and salary (daily, weekly, monthly, yearly). Reminders before the due date. |
 | **Reports** | Spending by category (pie), income vs expense (bar), trend over time (line), cash flow per month. |
-| **Export** | CSV and PDF export for a date range. |
+| **Export** | CSV and PDF export for a date range, made on the phone (offline, no account needed) and shared through the system share sheet. |
 | **Multi-currency** | Base currency per user. Daily exchange rates from Frankfurter (ECB data, about 30 currencies). For a currency Frankfurter does not cover, the user types the rate by hand on the transaction. Totals converted to the base currency. |
-| **Auth** | Email + password (with verification and reset) and Google Sign-In. |
+| **Auth** | **Optional.** The whole app works without an account and offline (guest mode). Email + password (with verification and reset) and Google Sign-In back the data up and sync it; on sign-in the phone's data is merged into the account. |
 | **Security** | Optional app lock (PIN or biometric). HTTPS for all traffic. **Encrypted local database** on the phone. Delete-account option (required by Play). |
 
 **Not in v1** (later versions): bank or SMS auto-import, shared/family budgets, AI insights, web dashboard, iOS release.
@@ -216,7 +216,7 @@ GET    /v1/reports/trend?interval=month
 POST   /v1/exports  (csv|pdf)  →  GET /v1/exports/{id}
 POST   /v1/receipts/upload-url       POST /v1/receipts/{id}/confirm
 GET    /v1/receipts/{id}/url         DELETE /v1/receipts/{id}
-GET    /v1/fx/rates?base=
+GET    /v1/fx/rates?base=             (public: works without an account)
 GET    /healthz   /readyz   /metrics
 ```
 
@@ -346,6 +346,17 @@ Total: about 12–13 weeks for one developer (sum of the rows above, 5 working d
 | 4 | FX provider | **Frankfurter** (free, ECB) | Manual rate entry for currencies it does not cover |
 | 5 | Receipts | **Yes in v1, Cloudflare R2** | Presigned uploads, new `receipts` table, Milestone 2b (+4 days) |
 | 6 | Pricing | **Completely free** | No `plan` field, no Play Billing, no ads |
+
+### Decisions 2026-11-20: use without an account
+
+| # | Question | Decision | Effect |
+|---|---|---|---|
+| 7 | Account required? | **No.** Every feature works without an account and offline; signing in backs up and syncs | First launch asks only for the main currency. Guest data lives in the encrypted local DB with owner `guest` and waits in the outbox |
+| 8 | Guest signs in to an account that has data | **Merge both** | First sync after sign-in: pull, join categories with the same kind/parent/name (no doubled defaults), convert guest budgets and goals if the main currency differs, then push |
+| 9 | Log out | **Wipe and start fresh** as an empty guest (same main currency) | Guests get "Erase data on this phone" instead of log out / delete account |
+| 10 | Export without an account | **Built on the phone** (CSV + PDF, `pdf` + `share_plus`) for everyone | Server export endpoints stay but the app no longer calls them |
+
+Also: an expired session keeps the data on the phone and only pauses syncing ("Log in again to sync" in Settings). Without an account the phone works out main-currency amounts itself with today's rates (`GET /v1/fx/rates` is public, 120/min per IP); signed in, the server does it as before.
 
 ### Still open (small, can be decided later)
 - Domain name for the API and privacy policy (e.g. `api.pennywise.app`, if it is free).
