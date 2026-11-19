@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/currencies.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../currency/presentation/main_currency_dialog.dart';
 import '../../app_lock/application/app_lock.dart';
@@ -99,7 +100,7 @@ class SettingsScreen extends ConsumerWidget {
                   ? '—'
                   : user.recalculating
                   ? '${user.baseCurrency} · converting totals…'
-                  : user.baseCurrency,
+                  : currencyLabel(user.baseCurrency),
             ),
             trailing: user == null
                 ? null
