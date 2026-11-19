@@ -40,6 +40,9 @@ import (
 var (
 	ruleIP   = ratelimit.Rule{Name: "ip", Limit: 3000, Window: time.Minute}
 	ruleUser = ratelimit.Rule{Name: "user", Limit: 600, Window: time.Minute}
+	// Exchange rates are public (the app works without an account), so
+	// they get their own, tighter per-IP limit.
+	ruleFxIP = ratelimit.Rule{Name: "fx-ip", Limit: 120, Window: time.Minute}
 )
 
 func main() {
@@ -118,7 +121,7 @@ func run(logger *slog.Logger) error {
 	syncSvc.OnApplied = enqueuer.EnqueueBudgetCheck
 	syncHandler := datasync.NewHandler(syncSvc, requireAuth, userIDOf, logger)
 	devicesHandler := notify.NewDevicesHandler(db, requireAuth, userIDOf, logger)
-	fxHandler := fx.NewHandler(db, requireAuth, logger)
+	fxHandler := fx.NewHandler(db, ratelimit.Middleware(limiter, ruleFxIP, ratelimit.ClientIP, logger), logger)
 
 	store, err := storage.Open(storage.R2Config(cfg.R2))
 	if err != nil {

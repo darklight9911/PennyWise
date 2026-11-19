@@ -16,20 +16,24 @@ import (
 )
 
 // Handler serves GET /v1/fx/rates.
+//
+// The route is public: the rates are public ECB data, and the app needs
+// them before anyone has an account (it works fully without one).
+// [guard] is the rate limit put in front of it.
 type Handler struct {
-	db          *pgxpool.Pool
-	requireAuth func(http.Handler) http.Handler
-	log         *slog.Logger
+	db    *pgxpool.Pool
+	guard func(http.Handler) http.Handler
+	log   *slog.Logger
 }
 
 // NewHandler creates the handler.
-func NewHandler(db *pgxpool.Pool, requireAuth func(http.Handler) http.Handler, log *slog.Logger) *Handler {
-	return &Handler{db: db, requireAuth: requireAuth, log: log}
+func NewHandler(db *pgxpool.Pool, guard func(http.Handler) http.Handler, log *slog.Logger) *Handler {
+	return &Handler{db: db, guard: guard, log: log}
 }
 
 // Routes mounts the routes.
 func (h *Handler) Routes(r chi.Router) {
-	r.With(h.requireAuth).Get("/fx/rates", h.rates)
+	r.With(h.guard).Get("/fx/rates", h.rates)
 }
 
 // RatesResponse lists what one unit of Base buys, on the latest day known.
