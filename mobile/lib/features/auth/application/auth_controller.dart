@@ -271,7 +271,11 @@ class AuthController extends Notifier<AuthState> {
     await _store.writeUser(result.user.toJson());
     // Guest data on this phone now belongs to this account and is merged
     // into it with the next sync.
-    await _claimLocalData(result.user.id);
+    final was = state;
+    await _claimLocalData(
+      result.user.id,
+      guestCurrency: was is Guest ? was.guestProfile.baseCurrency : null,
+    );
     _set(SignedIn(result.user));
   }
 
@@ -279,9 +283,13 @@ class AuthController extends Notifier<AuthState> {
   /// account is kept (and merged into the account); another user's data is
   /// wiped first. A failure is reported but does not block login: the
   /// screens that need local data show their own error.
-  Future<void> _claimLocalData(String userId) async {
+  Future<void> _claimLocalData(String userId, {String? guestCurrency}) async {
     try {
-      await _local.claimFor(userId);
+      final db = await _local.claimFor(userId);
+      if (guestCurrency != null &&
+          await db.readMeta(LocalDatabase.mergePendingKey) != null) {
+        await db.writeMeta(LocalDatabase.mergeFromCurrencyKey, guestCurrency);
+      }
     } on Object catch (e, st) {
       userMessage(e, st);
     }

@@ -7,6 +7,7 @@ import '../../core/database/local_database.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../auth/application/auth_controller.dart';
+import '../currency/data/fx_rates.dart';
 import '../ledger/application/ledger_providers.dart';
 import '../ledger/data/ledger_store.dart';
 import '../receipts/data/receipt_files.dart';
@@ -81,11 +82,11 @@ class SyncController extends Notifier<SyncStatus> {
 
   void _reconcile() {
     final auth = ref.read(authControllerProvider);
-    final canSync = auth is SignedIn && !auth.sessionExpired;
+    final user = auth is SignedIn && !auth.sessionExpired ? auth.user : null;
     // Only fresh data counts. In Riverpod 3 an error or loading state
     // still carries the PREVIOUS value, which after logout is a store on
     // the deleted database.
-    final store = canSync
+    final store = user != null
         ? switch (ref.read(ledgerStoreProvider)) {
             AsyncData(:final value) => value,
             _ => null,
@@ -107,8 +108,30 @@ class SyncController extends Notifier<SyncStatus> {
       _debounce?.cancel();
       await engine.stop();
     });
+    engine.onMergeGuest = () => _mergeGuest(store, user!.baseCurrency);
     store.onLocalWrite = _scheduleSync;
     unawaited(syncNow());
+  }
+
+  /// Joins this phone's guest data into the account, converting budgets
+  /// and goals when the main currencies differ (at today's rate, if known).
+  Future<void> _mergeGuest(LedgerStore store, String accountCurrency) async {
+    final from = await store.db.readMeta(LocalDatabase.mergeFromCurrencyKey);
+    String? rate;
+    if (from != null && from != accountCurrency) {
+      try {
+        rate = (await ref.read(fxApiProvider).latest(from))
+            .rates[accountCurrency];
+      } on ApiException {
+        rate = null; // no rate known: amounts are kept as they are
+      }
+    }
+    await store.mergeGuestData(
+      fromCurrency: from,
+      toCurrency: accountCurrency,
+      rate: rate,
+    );
+    await store.db.deleteMeta(LocalDatabase.mergeFromCurrencyKey);
   }
 
   /// Forgets the current engine (it stops when its database closes).

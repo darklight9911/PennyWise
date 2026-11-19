@@ -89,6 +89,56 @@ void main() {
     expect(accounts.map((a) => a.name), contains('Wallet'));
   });
 
+  test('signing in uploads guest data, joining default categories', () async {
+    // The account already has its own "Groceries" (server defaults).
+    h.backend.serverWrite(email, 'category', 'acct-groceries', {
+      'parent_id': null,
+      'name': 'Groceries',
+      'kind': 'expense',
+      'icon': 'local_grocery_store',
+      'color': '#81B29A',
+      'sort_order': 1,
+    }, updatedAt: DateTime.utc(2026, 11, 1));
+
+    await auth().startAsGuest(baseCurrency: 'USD');
+    final guest = await c.read(ledgerStoreProvider.future);
+    final groceries = (await guest.watchCategories(kind: 'expense').first)
+        .firstWhere((x) => x.name == 'Groceries');
+    final wallet = await guest.createAccount(
+      name: 'Wallet',
+      type: 'cash',
+      currency: 'USD',
+    );
+    final tx = await guest.createTransaction(
+      kind: 'expense',
+      accountId: wallet.id,
+      amountMinor: 1250,
+      currency: 'USD',
+      occurredAt: DateTime(2026, 11, 19, 18),
+      categoryId: groceries.id,
+    );
+
+    await auth().login(email, password);
+    for (var i = 0; i < 5; i++) {
+      await settle();
+    }
+
+    final server = h.backend.serverRows;
+    expect(server[('account', wallet.id)], isNotNull, reason: 'uploaded');
+    expect(
+      server[('transaction', tx.id)]?.data['category_id'],
+      'acct-groceries',
+      reason: "joined into the account's Groceries",
+    );
+    final groceriesOnServer = server.values.where(
+      (r) => r.entity == 'category' && r.data['name'] == 'Groceries',
+    );
+    expect(groceriesOnServer, hasLength(1), reason: 'no duplicate category');
+
+    final store = await c.read(ledgerStoreProvider.future);
+    expect(await store.watchPendingCount().first, 0, reason: 'all synced');
+  });
+
   test('erasing guest data starts empty, same currency', () async {
     await auth().startAsGuest(baseCurrency: 'JPY');
     final store = await c.read(ledgerStoreProvider.future);

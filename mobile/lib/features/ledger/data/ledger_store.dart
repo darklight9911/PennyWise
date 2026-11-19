@@ -1026,6 +1026,150 @@ class LedgerStore {
     return created;
   }
 
+  // ------------------------------------------------------------- guest merge
+
+  /// Joins data made without an account into the account it now belongs
+  /// to. Runs once, after the account's own rows were pulled and before
+  /// the guest rows are pushed.
+  ///
+  /// - A guest category with the same kind, parent and name (ignoring case)
+  ///   as one of the account's is joined into it: its transactions,
+  ///   budgets, recurring rules and sub-categories move over and the guest
+  ///   copy is dropped (it never reached the server). This also joins the
+  ///   default categories both sides started with.
+  /// - Budgets and goals are in the main currency. If the guest used a
+  ///   different one, their amounts are converted with [rate]
+  ///   (1 [fromCurrency] = [rate] [toCurrency]); without a rate they are
+  ///   kept as they are.
+  Future<void> mergeGuestData({
+    String? fromCurrency,
+    required String toCurrency,
+    String? rate,
+  }) async {
+    await db.transaction(() async {
+      await _joinDuplicateCategories();
+      if (fromCurrency != null && fromCurrency != toCurrency && rate != null) {
+        await _convertGuestMainAmounts(fromCurrency, toCurrency, rate);
+      }
+    });
+    onLocalWrite?.call();
+  }
+
+  Future<void> _joinDuplicateCategories() async {
+    final all = await (db.select(
+      db.categories,
+    )..where((c) => c.deletedAt.isNull())).get();
+    String key(String kind, String? parentId, String name) =>
+        '$kind|${parentId ?? ''}|${name.trim().toLowerCase()}';
+    final accountCats = {
+      for (final c in all.where((c) => c.serverVersion != null))
+        key(c.kind, c.parentId, c.name): c.id,
+    };
+    // Parents first, so sub-categories can follow their parent.
+    final guestCats = all.where((c) => c.serverVersion == null).toList()
+      ..sort(
+        (a, b) => (a.parentId == null ? 0 : 1) - (b.parentId == null ? 0 : 1),
+      );
+
+    final at = _stamp();
+    final joined = <String, String>{};
+    for (final g in guestCats) {
+      final parent = g.parentId == null
+          ? null
+          : (joined[g.parentId] ?? g.parentId);
+      final target = accountCats[key(g.kind, parent, g.name)];
+      if (target != null) {
+        joined[g.id] = target;
+      } else if (parent != g.parentId) {
+        await (db.update(db.categories)..where((c) => c.id.equals(g.id))).write(
+          CategoriesCompanion(parentId: Value(parent), updatedAt: Value(at)),
+        );
+        await _queue(Entity.category, g.id, at);
+      }
+    }
+
+    for (final MapEntry(key: from, value: to) in joined.entries) {
+      for (final t in await (db.select(
+        db.transactions,
+      )..where((t) => t.categoryId.equals(from))).get()) {
+        await (db.update(
+          db.transactions,
+        )..where((x) => x.id.equals(t.id))).write(
+          TransactionsCompanion(categoryId: Value(to), updatedAt: Value(at)),
+        );
+        await _queue(Entity.transaction, t.id, at);
+      }
+      for (final b in await (db.select(
+        db.budgets,
+      )..where((b) => b.categoryId.equals(from))).get()) {
+        await (db.update(db.budgets)..where((x) => x.id.equals(b.id))).write(
+          BudgetsCompanion(categoryId: Value(to), updatedAt: Value(at)),
+        );
+        await _queue(Entity.budget, b.id, at);
+      }
+      for (final r in await (db.select(
+        db.recurringRules,
+      )..where((r) => r.categoryId.equals(from))).get()) {
+        await (db.update(
+          db.recurringRules,
+        )..where((x) => x.id.equals(r.id))).write(
+          RecurringRulesCompanion(categoryId: Value(to), updatedAt: Value(at)),
+        );
+        await _queue(Entity.recurringRule, r.id, at);
+      }
+      // The guest copy never reached the server: remove it for good.
+      await (db.delete(db.categories)..where((c) => c.id.equals(from))).go();
+      await (db.delete(db.outbox)..where(
+            (o) => o.entity.equals(Entity.category) & o.rowId.equals(from),
+          ))
+          .go();
+    }
+  }
+
+  Future<void> _convertGuestMainAmounts(
+    String from,
+    String to,
+    String rate,
+  ) async {
+    final at = _stamp();
+    int conv(int minor) => convertMinor(minor, from, to, rate);
+    for (final b in await (db.select(
+      db.budgets,
+    )..where((b) => b.serverVersion.isNull())).get()) {
+      await (db.update(db.budgets)..where((x) => x.id.equals(b.id))).write(
+        BudgetsCompanion(
+          amountMinor: Value(conv(b.amountMinor)),
+          updatedAt: Value(at),
+        ),
+      );
+      await _queue(Entity.budget, b.id, at);
+    }
+    for (final g in await (db.select(
+      db.goals,
+    )..where((g) => g.serverVersion.isNull())).get()) {
+      await (db.update(db.goals)..where((x) => x.id.equals(g.id))).write(
+        GoalsCompanion(
+          targetMinor: Value(conv(g.targetMinor)),
+          updatedAt: Value(at),
+        ),
+      );
+      await _queue(Entity.goal, g.id, at);
+    }
+    for (final c in await (db.select(
+      db.goalContributions,
+    )..where((c) => c.serverVersion.isNull())).get()) {
+      await (db.update(
+        db.goalContributions,
+      )..where((x) => x.id.equals(c.id))).write(
+        GoalContributionsCompanion(
+          amountMinor: Value(conv(c.amountMinor)),
+          updatedAt: Value(at),
+        ),
+      );
+      await _queue(Entity.goalContribution, c.id, at);
+    }
+  }
+
   // ------------------------------------------------------------------ outbox
 
   /// How many local changes are waiting to sync (rejected ones excluded).

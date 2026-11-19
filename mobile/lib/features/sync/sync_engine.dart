@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 
+import '../../core/database/local_database.dart';
 import '../../core/database/app_database.dart';
 import '../../core/network/api_exception.dart';
 import '../ledger/data/ledger_store.dart';
@@ -39,6 +40,10 @@ class SyncEngine {
   bool _again = false;
   bool _stopped = false;
   CancelToken? _cancel;
+
+  /// Joins guest data into the account (see [LedgerStore.mergeGuestData]).
+  /// Called once, between pulling the account's rows and pushing.
+  Future<void> Function()? onMergeGuest;
 
   /// True once [stop] was called (logout or user switch).
   bool get isStopped => _stopped;
@@ -82,10 +87,23 @@ class SyncEngine {
 
   Future<SyncReport> _once() async {
     _cancel = CancelToken();
+    var pulledFirst = 0;
+    if (await db.readMeta(LocalDatabase.mergePendingKey) != null) {
+      // Data made without an account just joined this account: fetch the
+      // account's rows first, join duplicates, then upload the rest.
+      pulledFirst = await _pullAll();
+      _checkStopped();
+      await onMergeGuest?.call();
+      await db.deleteMeta(LocalDatabase.mergePendingKey);
+    }
     final (pushed, rejected) = await _pushAll();
     _checkStopped();
     final pulled = await _pullAll();
-    return SyncReport(pushed: pushed, rejected: rejected, pulled: pulled);
+    return SyncReport(
+      pushed: pushed,
+      rejected: rejected,
+      pulled: pulledFirst + pulled,
+    );
   }
 
   // -------------------------------------------------------------------- push

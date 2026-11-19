@@ -95,6 +95,10 @@ class LocalDatabase {
   /// merged into it (see the sync merge step).
   static const mergePendingKey = 'merge_pending';
 
+  /// The main currency the guest used, for converting budgets and goals
+  /// when the account's main currency differs.
+  static const mergeFromCurrencyKey = 'merge_from_currency';
+
   /// Makes sure the local data belongs to [userId] ([guestOwner] without an
   /// account).
   ///
