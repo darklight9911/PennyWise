@@ -65,4 +65,39 @@ void main() {
     );
     expect(find.text('No transactions yet'), findsOneWidget);
   });
+
+  testWidgets('PandaMascot accepts giggleTrigger updates cleanly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(const PandaMascot(mood: PandaMood.sleeping, giggleTrigger: 0)),
+    );
+    await tester.pumpWidget(
+      _host(const PandaMascot(mood: PandaMood.wave, giggleTrigger: 1)),
+    );
+    expect(
+      tester.widget<PandaMascot>(find.byType(PandaMascot)).giggleTrigger,
+      1,
+    );
+  });
+
+  testWidgets('empty state renders optional action widget', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(
+      _host(
+        EmptyState(
+          mascot: PandaMood.thinking,
+          icon: HugeIcons.strokeRoundedPieChart,
+          title: 'Nothing to show yet',
+          message: 'Add an entry.',
+          action: FilledButton(
+            onPressed: () => tapped = true,
+            child: const Text('Add transaction'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Add transaction'));
+    expect(tapped, isTrue);
+  });
 }

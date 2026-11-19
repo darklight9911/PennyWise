@@ -12,6 +12,7 @@ class EmptyState extends StatelessWidget {
     required this.title,
     required this.message,
     this.mascot,
+    this.action,
   });
 
   final AppIconData icon;
@@ -20,6 +21,9 @@ class EmptyState extends StatelessWidget {
 
   /// Penny in this mood replaces [icon] when animations are on.
   final PandaMood? mascot;
+
+  /// Optional call-to-action displayed below [message].
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,10 @@ class EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (action != null) ...[
+              const SizedBox(height: Spacing.xl),
+              action!,
+            ],
           ],
         ),
       ),

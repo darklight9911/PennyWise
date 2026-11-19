@@ -47,12 +47,16 @@ class PandaMascot extends ConsumerStatefulWidget {
     super.key,
     required this.mood,
     this.size = 120,
+    this.giggleTrigger = 0,
     this.semanticLabel,
     this.fallback,
   });
 
   final PandaMood mood;
   final double size;
+
+  /// Incrementing this fires Penny's Rive giggle trigger.
+  final int giggleTrigger;
 
   /// Read by screen readers. Null means Penny is decoration only.
   final String? semanticLabel;
@@ -71,6 +75,9 @@ class _PandaMascotState extends ConsumerState<PandaMascot> {
   void didUpdateWidget(PandaMascot oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.mood != widget.mood) _applyMood();
+    if (oldWidget.giggleTrigger != widget.giggleTrigger) {
+      _vmi?.trigger('tap')?.trigger();
+    }
   }
 
   @override
