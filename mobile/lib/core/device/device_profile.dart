@@ -5,6 +5,15 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 
+import 'timezone_currencies.dart';
+
+export 'timezone_currencies.dart'
+    show
+        countryForTimezone,
+        currencyForRegion,
+        currencyForTimezone,
+        detectCurrency;
+
 /// Facts about this phone that the server wants at sign-up.
 class DeviceProfile {
   const DeviceProfile();
@@ -15,6 +24,9 @@ class DeviceProfile {
   /// BCP 47 language tag, e.g. "en-BD".
   String get locale => PlatformDispatcher.instance.locale.toLanguageTag();
 
+  /// ISO 3166 region code from the system locale, or null when unset.
+  String? get countryCode => PlatformDispatcher.instance.locale.countryCode;
+
   /// IANA time zone such as "Asia/Dhaka". Falls back to UTC if unknown.
   Future<String> timezone() async {
     try {
@@ -24,55 +36,19 @@ class DeviceProfile {
     }
   }
 
-  /// A sensible starting currency from the phone's region. The user can change it.
-  String get defaultCurrency =>
-      currencyForRegion(PlatformDispatcher.instance.locale.countryCode);
-}
+  /// Synchronous currency fallback from the phone's locale region.
+  String get defaultCurrency => currencyForRegion(countryCode);
 
-/// Currency used in a country (ISO 3166 code -> ISO 4217 code).
-/// Covers the currencies offered in the sign-up picker; anything else -> USD.
-String currencyForRegion(String? country) {
-  const euro = {
-    'AT', 'BE', 'CY', 'DE', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', //
-    'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK',
-  };
-  if (country == null) return 'USD';
-  if (euro.contains(country)) return 'EUR';
-  return const {
-        'US': 'USD',
-        'GB': 'GBP',
-        'BD': 'BDT',
-        'IN': 'INR',
-        'PK': 'PKR',
-        'NP': 'NPR',
-        'LK': 'LKR',
-        'JP': 'JPY',
-        'CN': 'CNY',
-        'KR': 'KRW',
-        'CA': 'CAD',
-        'AU': 'AUD',
-        'NZ': 'NZD',
-        'SG': 'SGD',
-        'MY': 'MYR',
-        'ID': 'IDR',
-        'TH': 'THB',
-        'PH': 'PHP',
-        'AE': 'AED',
-        'SA': 'SAR',
-        'TR': 'TRY',
-        'CH': 'CHF',
-        'SE': 'SEK',
-        'NO': 'NOK',
-        'DK': 'DKK',
-        'PL': 'PLN',
-        'BR': 'BRL',
-        'MX': 'MXN',
-        'ZA': 'ZAR',
-        'NG': 'NGN',
-        'EG': 'EGP',
-        'KE': 'KES',
-      }[country] ??
-      'USD';
+  /// Starting currency from the device's time zone (accurate even on en-US
+  /// devices), falling back to [countryCode] and finally USD.
+  Future<String> detectDefaultCurrency() async {
+    try {
+      final tz = await timezone();
+      return detectCurrency(timezone: tz, countryCode: countryCode);
+    } on Object {
+      return defaultCurrency;
+    }
+  }
 }
 
 /// Currencies offered in the sign-up picker (most common first).
@@ -85,4 +61,8 @@ const supportedCurrencies = [
 
 final deviceProfileProvider = Provider<DeviceProfile>(
   (ref) => const DeviceProfile(),
+);
+
+final detectedCurrencyProvider = FutureProvider<String>(
+  (ref) => ref.watch(deviceProfileProvider).detectDefaultCurrency(),
 );

@@ -103,7 +103,12 @@ class _MainCurrencySheetState extends ConsumerState<_MainCurrencySheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final detectedCode = ref.watch(deviceProfileProvider).defaultCurrency;
+    final device = ref.watch(deviceProfileProvider);
+    final auth = ref.watch(authControllerProvider);
+    final userTz = auth is SignedIn ? auth.user.timezone : null;
+    final detectedCode =
+        ref.watch(detectedCurrencyProvider).value ??
+        detectCurrency(timezone: userTz, countryCode: device.countryCode);
     final accounts = (ref.watch(accountsProvider).value ?? const <Account>[])
         .where((a) => !a.archived)
         .toList();

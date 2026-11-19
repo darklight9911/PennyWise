@@ -81,7 +81,11 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   Future<void> _pickCurrency() async {
     final auth = ref.read(authControllerProvider);
     final base = auth is SignedIn ? auth.user.baseCurrency : null;
-    final detected = ref.read(deviceProfileProvider).defaultCurrency;
+    final userTz = auth is SignedIn ? auth.user.timezone : null;
+    final device = ref.read(deviceProfileProvider);
+    final detected =
+        ref.read(detectedCurrencyProvider).value ??
+        detectCurrency(timezone: userTz, countryCode: device.countryCode);
     final accounts = ref.read(accountsProvider).value ?? const <Account>[];
     final accountCodes = [
       ?base,

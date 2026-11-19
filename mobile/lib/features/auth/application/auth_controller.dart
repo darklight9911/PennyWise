@@ -105,10 +105,19 @@ class AuthController extends Notifier<AuthState> {
   Future<bool> loginWithGoogle() async {
     final idToken = await ref.read(googleAuthProvider).signIn();
     if (idToken == null) return false;
+    final tz = await _device.timezone();
     final result = await _api.loginWithGoogle(
       idToken: idToken,
       deviceName: _device.deviceName,
-      profile: await _profile(baseCurrency: _device.defaultCurrency),
+      profile: SignUpProfile(
+        name: '',
+        baseCurrency: detectCurrency(
+          timezone: tz,
+          countryCode: _device.countryCode,
+        ),
+        timezone: tz,
+        locale: _device.locale,
+      ),
     );
     await _establish(result);
     return true;

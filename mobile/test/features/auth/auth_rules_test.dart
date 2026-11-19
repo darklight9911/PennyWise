@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pennywise/core/device/device_profile.dart';
+import 'package:pennywise/core/device/timezone_currencies.dart';
 import 'package:pennywise/core/router/routes.dart';
+import 'package:pennywise/core/utils/currencies.dart';
 import 'package:pennywise/features/auth/application/auth_controller.dart';
 import 'package:pennywise/features/auth/domain/app_user.dart';
 import 'package:pennywise/features/auth/domain/validators.dart';
@@ -76,6 +78,31 @@ void main() {
     expect(currencyForRegion(null), 'USD');
     for (final c in ['BDT', 'EUR', 'JPY', 'GBP', 'INR']) {
       expect(supportedCurrencies, contains(c));
+    }
+  });
+
+  test('detectCurrency prefers timezone over locale region', () {
+    expect(detectCurrency(timezone: 'Asia/Dhaka', countryCode: 'US'), 'BDT');
+    expect(detectCurrency(timezone: 'Asia/Dacca', countryCode: 'US'), 'BDT');
+    expect(detectCurrency(timezone: 'Asia/Kolkata', countryCode: 'US'), 'INR');
+    expect(detectCurrency(timezone: 'Europe/London', countryCode: 'US'), 'GBP');
+    expect(detectCurrency(timezone: 'Europe/Berlin', countryCode: 'US'), 'EUR');
+    expect(
+      detectCurrency(timezone: 'Europe/Stockholm', countryCode: 'US'),
+      'SEK',
+    );
+    expect(detectCurrency(timezone: 'Asia/Tokyo', countryCode: 'US'), 'JPY');
+    expect(detectCurrency(timezone: 'UTC', countryCode: 'GB'), 'GBP');
+    expect(detectCurrency(timezone: 'UTC', countryCode: null), 'USD');
+  });
+
+  test('regionCurrencies and timezoneCountries are consistent', () {
+    final catalogCodes = {for (final c in allCurrencies) c.code};
+    for (final entry in regionCurrencies.entries) {
+      expect(catalogCodes, contains(entry.value), reason: entry.key);
+    }
+    for (final entry in timezoneCountries.entries) {
+      expect(regionCurrencies.keys, contains(entry.value), reason: entry.key);
     }
   });
 }

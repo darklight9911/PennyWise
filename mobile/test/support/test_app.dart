@@ -32,6 +32,8 @@ class FakeDeviceProfile extends DeviceProfile {
   @override
   String get locale => 'en-US';
   @override
+  String? get countryCode => 'US';
+  @override
   Future<String> timezone() async => 'Asia/Dhaka';
   @override
   String get defaultCurrency => 'USD';

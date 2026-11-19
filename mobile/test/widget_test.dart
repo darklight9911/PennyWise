@@ -127,21 +127,27 @@ void main() {
     await pumpApp(tester, h);
     await tapOn(tester, find.text('Create an account'));
 
+    expect(
+      find.text('BDT · Bangladeshi Taka'),
+      findsOneWidget,
+      reason: 'Asia/Dhaka timezone auto-detects BDT even on en-US locale',
+    );
+
     await tester.enterText(field('Email'), 'taka@example.com');
     await tester.enterText(field('Password'), pw);
 
     await tapOn(tester, find.text('Main currency'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Search currency, country or symbol'),
-      'taka',
+      'yen',
     );
     await settle(tester);
-    await tapOn(tester, find.text('BDT'));
-    expect(find.text('BDT · Bangladeshi Taka'), findsOneWidget);
+    await tapOn(tester, find.text('JPY'));
+    expect(find.text('JPY · Japanese Yen'), findsOneWidget);
 
     await tapOn(tester, find.widgetWithText(FilledButton, 'Create account'));
     expect(find.text('Hi, taka'), findsOneWidget);
-    expect(h.backend.users['taka@example.com']!['base_currency'], 'BDT');
+    expect(h.backend.users['taka@example.com']!['base_currency'], 'JPY');
     await finish(tester);
   });
 

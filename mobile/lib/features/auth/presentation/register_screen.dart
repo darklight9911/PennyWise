@@ -25,11 +25,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   late String _currency = ref.read(deviceProfileProvider).defaultCurrency;
+  bool _currencyPickedByUser = false;
   bool _loading = false;
   String? _error;
 
   /// Errors the server returned for one field (e.g. email already taken).
   final Map<String, String> _fieldErrors = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _detectCurrency();
+  }
+
+  Future<void> _detectCurrency() async {
+    final detected = await ref.read(detectedCurrencyProvider.future);
+    if (mounted && !_currencyPickedByUser) {
+      setState(() => _currency = detected);
+    }
+  }
 
   @override
   void dispose() {
@@ -40,16 +54,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _pickCurrency() async {
+    final detected =
+        ref.read(detectedCurrencyProvider).value ??
+        ref.read(deviceProfileProvider).defaultCurrency;
     final picked = await showCurrencyPicker(
       context,
       title: 'Main currency',
       subtitle: 'Totals and budgets use this currency.',
       selected: _currency,
-      detectedCode: ref.read(deviceProfileProvider).defaultCurrency,
+      detectedCode: detected,
     );
     if (picked != null && mounted) {
       setState(() {
         _currency = picked;
+        _currencyPickedByUser = true;
         _fieldErrors.remove('base_currency');
       });
     }

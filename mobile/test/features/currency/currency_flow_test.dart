@@ -195,6 +195,7 @@ void main() {
 
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Current · US Dollar'), findsOneWidget);
+      expect(find.text('Detected on phone · Bangladeshi Taka'), findsOneWidget);
       expect(find.text('In your accounts · British Pound'), findsOneWidget);
 
       await tapOn(tester, find.text('EUR'));
