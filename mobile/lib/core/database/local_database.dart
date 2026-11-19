@@ -58,7 +58,11 @@ class LocalDatabase {
   }
 
   /// The open database (opened on first use).
-  Future<AppDatabase> get database => _opening ??= _open();
+  Future<AppDatabase> get database =>
+      _opening ??= _open().catchError((Object e, StackTrace st) {
+        _opening = null;
+        Error.throwWithStackTrace(e, st);
+      });
 
   Future<AppDatabase> _open() async {
     final file = await _file();

@@ -160,4 +160,26 @@ void main() {
     await a.wipe();
     expect(events, ['hook', 'wiped'], reason: 'removed hooks do not run');
   });
+
+  test(
+    'a failed database open clears the cached future so retries work',
+    () async {
+      var failFirst = true;
+      final a = LocalDatabase(
+        file: () async {
+          if (failFirst) {
+            failFirst = false;
+            throw StateError('transient storage failure');
+          }
+          return file;
+        },
+        keys: keys,
+      );
+
+      await expectLater(a.database, throwsStateError);
+      await (await a.database).writeMeta('retry', 'ok');
+      expect(await (await a.database).readMeta('retry'), 'ok');
+      await a.close();
+    },
+  );
 }
