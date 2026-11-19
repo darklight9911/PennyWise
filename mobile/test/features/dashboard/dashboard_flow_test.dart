@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart' show Scrollable;
+import 'package:material_ui/material_ui.dart' show ListView, Scrollable;
 import 'package:pennywise/app.dart';
 import 'package:pennywise/core/database/app_database.dart';
 import 'package:pennywise/features/ledger/application/ledger_providers.dart';
@@ -136,7 +136,7 @@ void main() {
 
     await tapOn(tester, find.text('See all'));
     expect(
-      find.text('Today'),
+      find.descendant(of: find.byType(ListView), matching: find.text('Today')),
       findsOneWidget,
       reason: 'on the Transactions tab',
     );

@@ -6,6 +6,7 @@ import 'package:pennywise/core/database/app_database.dart';
 import 'package:pennywise/features/ledger/application/ledger_providers.dart';
 import 'package:pennywise/features/ledger/data/ledger_store.dart';
 import 'package:pennywise/features/ledger/presentation/day_labels.dart';
+import 'package:pennywise/features/transactions/domain/transaction_search.dart';
 
 import '../../support/test_app.dart';
 import '../../widget_test.dart'
@@ -98,7 +99,10 @@ void main() {
     await tester.enterText(field('Note (optional)'), 'lunch');
     await tapOn(tester, find.widgetWithText(FilledButton, 'Save'));
 
-    expect(find.text('Today'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ListView), matching: find.text('Today')),
+      findsOneWidget,
+    );
     expect(find.text('Food'), findsOneWidget);
     expect(find.text('Bank · lunch'), findsOneWidget);
     expect(find.text('−12.50'), findsOneWidget);
@@ -210,6 +214,119 @@ void main() {
     expect(find.text('New account'), findsOneWidget);
     await finish(tester);
   });
+
+  testWidgets(
+    'date-wise chips, typed date search, text search and reset work',
+    (tester) async {
+      await pumpApp(tester, h);
+      await logIn(tester, 'ann@example.com', pw);
+      final store = await storeOf(tester);
+      final now = DateTime.now();
+      final yesterday = DateTime(now.year, now.month, now.day - 1, 12);
+      final oldDay = DateTime(now.year, now.month, now.day - 45, 12);
+
+      var done = false;
+      Object? err;
+      () async {
+        final bank = await store.createAccount(
+          name: 'Bank',
+          type: 'bank',
+          currency: 'USD',
+          openingBalanceMinor: 10000,
+        );
+        final food = await store.createCategory(
+          name: 'Food',
+          kind: 'expense',
+          icon: 'restaurant',
+        );
+        final salary = await store.createCategory(
+          name: 'Salary',
+          kind: 'income',
+          icon: 'payments',
+        );
+        await store.createTransaction(
+          kind: TxKind.expense,
+          accountId: bank.id,
+          amountMinor: 1250,
+          currency: 'USD',
+          occurredAt: now,
+          categoryId: food.id,
+          note: 'coffee',
+        );
+        await store.createTransaction(
+          kind: TxKind.income,
+          accountId: bank.id,
+          amountMinor: 5000,
+          currency: 'USD',
+          occurredAt: yesterday,
+          categoryId: salary.id,
+          note: 'bonus',
+        );
+        await store.createTransaction(
+          kind: TxKind.expense,
+          accountId: bank.id,
+          amountMinor: 3000,
+          currency: 'USD',
+          occurredAt: oldDay,
+          categoryId: food.id,
+          note: 'groceries',
+        );
+      }().then(
+        (_) => done = true,
+        onError: (Object e, StackTrace st) {
+          err = Error.throwWithStackTrace(e, st);
+        },
+      );
+      for (var i = 0; i < 60 && !done && err == null; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      if (err != null) throw err!;
+      expect(done, isTrue);
+      await settle(tester);
+
+      await tapOn(tester, find.text('Transactions'));
+      expect(find.widgetWithText(ChoiceChip, 'All'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Pick date'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Date range'), findsOneWidget);
+      expect(find.text('Bank · coffee'), findsOneWidget);
+      expect(find.text('Bank · bonus'), findsOneWidget);
+      expect(find.text('Bank · groceries'), findsOneWidget);
+
+      await tapOn(tester, find.widgetWithText(ChoiceChip, 'Today'));
+      expect(find.text('Today · 1 transaction'), findsOneWidget);
+      expect(find.text('Bank · coffee'), findsOneWidget);
+      expect(find.text('Bank · bonus'), findsNothing);
+      expect(find.text('Bank · groceries'), findsNothing);
+
+      await tapOn(tester, find.widgetWithText(ChoiceChip, 'Yesterday'));
+      expect(find.text('Yesterday · 1 transaction'), findsOneWidget);
+      expect(find.text('Bank · bonus'), findsOneWidget);
+      expect(find.text('Bank · coffee'), findsNothing);
+
+      await tapOn(tester, find.widgetWithText(ChoiceChip, 'All'));
+      await tester.enterText(find.byType(TextField), formatYmd(oldDay));
+      await settle(tester);
+      expect(find.text('Bank · groceries'), findsOneWidget);
+      expect(find.text('Bank · coffee'), findsNothing);
+      expect(find.text('Bank · bonus'), findsNothing);
+
+      await tapOn(tester, find.byTooltip('Clear search'));
+      await tester.enterText(find.byType(TextField), 'coffee');
+      await settle(tester);
+      expect(find.text('Bank · coffee'), findsOneWidget);
+      expect(find.text('Bank · groceries'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'nonexistent');
+      await settle(tester);
+      expect(find.text('No matching transactions'), findsOneWidget);
+
+      await tapOn(tester, find.widgetWithText(OutlinedButton, 'Reset filters'));
+      expect(find.text('Bank · coffee'), findsOneWidget);
+      expect(find.text('Bank · bonus'), findsOneWidget);
+      expect(find.text('Bank · groceries'), findsOneWidget);
+      await finish(tester);
+    },
+  );
 
   group('day labels', () {
     final now = DateTime(2026, 11, 16, 9);
