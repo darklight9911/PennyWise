@@ -60,7 +60,7 @@ void main() {
       const password = 'e2e-strong-password';
       final auth = c.read(authControllerProvider.notifier);
       await untilSettled();
-      expect(c.read(authControllerProvider), isA<SignedOut>());
+      expect(c.read(authControllerProvider), isA<SetupNeeded>());
 
       // Register: server returns user + tokens, the app stores them.
       await auth.register(
@@ -106,14 +106,14 @@ void main() {
       // ...so the app's current token is dead too, and the next refresh logs out.
       expect(await c.read(sessionManagerProvider).refresh(), isNull);
       await Future<void>.delayed(Duration.zero);
-      expect(c.read(authControllerProvider), isA<SignedOut>());
+      expect(c.read(authControllerProvider), isA<Guest>());
 
       // Log in again, then log out cleanly.
       await auth.login(email, password);
       expect(c.read(authControllerProvider), isA<SignedIn>());
       final session = store.tokens!;
       await auth.logout();
-      expect(c.read(authControllerProvider), isA<SignedOut>());
+      expect(c.read(authControllerProvider), isA<Guest>());
       expect(store.tokens, isNull);
       await expectLater(
         raw.post<dynamic>(

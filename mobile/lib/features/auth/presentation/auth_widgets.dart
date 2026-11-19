@@ -1,12 +1,19 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/router/routes.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../application/auth_controller.dart';
 
 /// Common layout for the logged-out screens: brand header, centred
 /// content with a max width, scrolls when the keyboard is open.
-class AuthScaffold extends StatelessWidget {
+///
+/// Signing in is optional, so a guest can always leave these screens
+/// ("Not now"), back to where they came from.
+class AuthScaffold extends ConsumerWidget {
   const AuthScaffold({
     super.key,
     required this.title,
@@ -25,10 +32,30 @@ class AuthScaffold extends StatelessWidget {
   final PandaMood mascotMood;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final auth = ref.watch(authControllerProvider);
+    final canLeave =
+        !showBack &&
+        (auth is Guest ||
+            auth is SetupNeeded ||
+            (auth is SignedIn && auth.sessionExpired));
     return Scaffold(
-      appBar: showBack ? AppBar() : null,
+      appBar: showBack
+          ? AppBar()
+          : canLeave
+          ? AppBar(
+              leading: IconButton(
+                tooltip: 'Not now',
+                icon: const AppIcon(HugeIcons.strokeRoundedCancel01),
+                onPressed: () => context.canPop()
+                    ? context.pop()
+                    : context.go(
+                        auth is SetupNeeded ? Routes.welcome : Routes.settings,
+                      ),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

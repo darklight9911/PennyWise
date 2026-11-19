@@ -127,7 +127,7 @@ void main() {
       h.backend.onPush = () => c.read(authControllerProvider.notifier).logout();
       await store.createAccount(name: 'Wallet', type: 'cash', currency: 'USD');
       await settle();
-      expect(c.read(authControllerProvider), isA<SignedOut>());
+      expect(c.read(authControllerProvider), isA<Guest>());
 
       // ...and right after a change, before its sync starts.
       h.backend.onPush = null;

@@ -47,7 +47,38 @@ Future<void> tapOn(WidgetTester tester, Finder finder) async {
 
 Finder field(String label) => find.widgetWithText(TextFormField, label);
 
+/// Opens the log-in screen from wherever the app is: the first-launch
+/// welcome screen, or Settings when using the app without an account.
+Future<void> openLogIn(WidgetTester tester) async {
+  if (find.text('Welcome back').evaluate().isNotEmpty) return;
+  if (find.text('Welcome to pennyWise').evaluate().isNotEmpty) {
+    await tapOn(tester, find.widgetWithText(TextButton, 'Log in'));
+    return;
+  }
+  await tapOn(
+    tester,
+    find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('Settings'),
+    ),
+  );
+  // Settings may still be scrolled down from before: the card is on top.
+  final button = find.widgetWithText(FilledButton, 'Log in');
+  await tester.scrollUntilVisible(
+    button,
+    -300,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tapOn(tester, button);
+}
+
+/// Starts without an account (first launch: keep the suggested currency).
+Future<void> startAsGuest(WidgetTester tester) async {
+  await tapOn(tester, find.widgetWithText(FilledButton, 'Start'));
+}
+
 Future<void> logIn(WidgetTester tester, String email, String password) async {
+  await openLogIn(tester);
   await tester.enterText(field('Email'), email);
   await tester.enterText(field('Password'), password);
   await tapOn(tester, find.widgetWithText(FilledButton, 'Log in'));
@@ -60,19 +91,55 @@ void main() {
     h.backend.seedUser('ann@example.com', pw);
   });
 
-  testWidgets('without a saved session the app opens on log in', (
+  testWidgets('first launch asks only for the main currency, no account', (
     tester,
   ) async {
     await pumpApp(tester, h);
-    expect(find.text('Welcome back'), findsOneWidget);
-    // Google is not configured in tests, so its button is hidden.
-    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Welcome to pennyWise'), findsOneWidget);
+    expect(
+      find.text('BDT · Bangladeshi Taka'),
+      findsOneWidget,
+      reason: 'suggested from the Asia/Dhaka time zone',
+    );
+    await startAsGuest(tester);
+
+    expect(find.text('Total balance'), findsOneWidget);
+    expect(h.store.tokens, isNull, reason: 'no account was created');
+    expect(h.store.guestProfile?['base_currency'], 'BDT');
+    expect(h.backend.callCount('/register'), 0);
+
+    // The default categories exist on the phone right away.
+    await tapOn(tester, find.text('Settings'));
+    expect(find.text('Back up and sync'), findsOneWidget);
+    await tapOn(tester, find.text('Categories'));
+    expect(find.text('Groceries'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('the guest profile is remembered on the next start', (
+    tester,
+  ) async {
+    h.store.guestProfile = {
+      'name': '',
+      'base_currency': 'EUR',
+      'timezone': 'UTC',
+      'locale': 'en',
+    };
+    await pumpApp(tester, h);
+    expect(find.text('Welcome to pennyWise'), findsNothing);
+    expect(find.text('Total balance'), findsOneWidget);
+    await tapOn(tester, find.text('Settings'));
+    expect(find.textContaining('EUR'), findsWidgets);
+    await finish(tester);
   });
 
   testWidgets('log in form checks fields before calling the server', (
     tester,
   ) async {
     await pumpApp(tester, h);
+    await openLogIn(tester);
+    // Google is not configured in tests, so its button is hidden.
+    expect(find.text('Continue with Google'), findsNothing);
     await tapOn(tester, find.widgetWithText(FilledButton, 'Log in'));
     expect(find.text('Enter your email'), findsOneWidget);
     expect(find.text('Enter your password'), findsOneWidget);
@@ -106,6 +173,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester, h);
+    await openLogIn(tester);
     await tapOn(tester, find.text('Create an account'));
 
     await tester.enterText(field('Name (optional)'), 'Bo');
@@ -125,6 +193,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester, h);
+    await openLogIn(tester);
     await tapOn(tester, find.text('Create an account'));
 
     expect(
@@ -156,6 +225,7 @@ void main() {
   ) async {
     h = TestHarness(device: const BrokenDeviceProfile());
     await pumpApp(tester, h);
+    await openLogIn(tester);
     await tapOn(tester, find.text('Create an account'));
     await tester.enterText(field('Email'), 'dee@example.com');
     await tester.enterText(field('Password'), pw);
@@ -180,6 +250,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester, h);
+    await openLogIn(tester);
     await tapOn(tester, find.text('Create an account'));
     await tester.enterText(field('Email'), 'ann@example.com');
     await tester.enterText(field('Password'), pw);
@@ -216,7 +287,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('log out from settings returns to log in', (tester) async {
+  testWidgets('log out empties the phone and goes on without an account', (
+    tester,
+  ) async {
     await pumpApp(tester, h);
     await logIn(tester, 'ann@example.com', pw);
 
@@ -231,9 +304,14 @@ void main() {
     await tapOn(tester, find.text('Log out').first);
     await tapOn(tester, find.widgetWithText(FilledButton, 'Log out'));
 
-    expect(find.text('Welcome back'), findsOneWidget);
+    // Still in Settings, now without an account.
+    expect(find.text('Erase data on this phone'), findsOneWidget);
+    expect(find.text('Log out'), findsNothing);
     expect(h.store.tokens, isNull);
+    expect(h.store.guestProfile, isNotNull);
+    expect(h.local.wipeCount, 1, reason: "the account's data left the phone");
     expect(h.backend.callCount('/logout'), 1);
+    await finish(tester);
   });
 
   testWidgets('verify-email link confirms the address', (tester) async {

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/local_database.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
+import '../auth/application/auth_controller.dart';
 import '../ledger/application/ledger_providers.dart';
 import '../ledger/data/ledger_store.dart';
 import '../receipts/data/receipt_files.dart';
@@ -65,36 +66,49 @@ class SyncController extends Notifier<SyncStatus> {
       _lifecycle?.dispose();
       _detach();
     });
-    ref.listen(ledgerStoreProvider, (_, next) {
-      // Only fresh data counts. In Riverpod 3 an error or loading state
-      // still carries the PREVIOUS value, which after logout is a store on
-      // the deleted database.
-      final store = switch (next) {
-        AsyncData(:final value) => value,
-        _ => null,
-      };
-      if (store != null && identical(store.db, _engine?.db)) return;
-      _detach();
-      if (store == null) return;
-
-      _store = store;
-      final engine = _engine = SyncEngine(
-        db: store.db,
-        dio: ref.read(dioProvider),
-        receiptFiles: ref.read(receiptFilesProvider),
-      );
-      // Before the database closes (logout, other user), stop syncing:
-      // the request in flight is cancelled and the run ends first.
-      _removeCloseHook = ref.read(localDatabaseProvider).addCloseHook(() async {
-        _debounce?.cancel();
-        await engine.stop();
-      });
-      store.onLocalWrite = _scheduleSync;
-      unawaited(syncNow());
-    }, fireImmediately: true);
+    ref.listen(
+      ledgerStoreProvider,
+      (_, _) => _reconcile(),
+      fireImmediately: true,
+    );
+    // Without an account, or with an expired session, nothing is synced:
+    // the data waits in the outbox until the user (re)signs in.
+    ref.listen(authControllerProvider, (_, _) => _reconcile());
 
     _lifecycle = AppLifecycleListener(onResume: () => unawaited(syncNow()));
     return const SyncStatus();
+  }
+
+  void _reconcile() {
+    final auth = ref.read(authControllerProvider);
+    final canSync = auth is SignedIn && !auth.sessionExpired;
+    // Only fresh data counts. In Riverpod 3 an error or loading state
+    // still carries the PREVIOUS value, which after logout is a store on
+    // the deleted database.
+    final store = canSync
+        ? switch (ref.read(ledgerStoreProvider)) {
+            AsyncData(:final value) => value,
+            _ => null,
+          }
+        : null;
+    if (store != null && identical(store.db, _engine?.db)) return;
+    _detach();
+    if (store == null) return;
+
+    _store = store;
+    final engine = _engine = SyncEngine(
+      db: store.db,
+      dio: ref.read(dioProvider),
+      receiptFiles: ref.read(receiptFilesProvider),
+    );
+    // Before the database closes (logout, other user), stop syncing:
+    // the request in flight is cancelled and the run ends first.
+    _removeCloseHook = ref.read(localDatabaseProvider).addCloseHook(() async {
+      _debounce?.cancel();
+      await engine.stop();
+    });
+    store.onLocalWrite = _scheduleSync;
+    unawaited(syncNow());
   }
 
   /// Forgets the current engine (it stops when its database closes).

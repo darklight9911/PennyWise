@@ -7,19 +7,26 @@ import '../../receipts/data/receipt_files.dart';
 import '../../receipts/data/receipt_store.dart';
 import '../data/ledger_store.dart';
 
-/// The signed-in user's id, or null.
-final signedInUserIdProvider = Provider<String?>((ref) {
-  final auth = ref.watch(authControllerProvider);
-  return auth is SignedIn ? auth.user.id : null;
+/// Whose data the phone shows: the signed-in user's id, [LocalDatabase.guestOwner]
+/// without an account, or null while starting up.
+final dataOwnerProvider = Provider<String?>((ref) {
+  return switch (ref.watch(authControllerProvider)) {
+    SignedIn(:final user) => user.id,
+    Guest() => LocalDatabase.guestOwner,
+    _ => null,
+  };
 });
 
-/// The ledger of the signed-in user. Rebuilt when another user signs in,
-/// so a screen can never read the previous user's database.
+/// The ledger on this phone. Rebuilt when the owner changes, so a screen
+/// can never read the previous user's database.
 final ledgerStoreProvider = FutureProvider<LedgerStore>((ref) async {
-  final userId = ref.watch(signedInUserIdProvider);
-  if (userId == null) throw StateError('not signed in');
-  final db = await ref.watch(localDatabaseProvider).claimFor(userId);
-  return LedgerStore(db);
+  final owner = ref.watch(dataOwnerProvider);
+  ref.watch(localDataEpochProvider);
+  if (owner == null) throw StateError('starting up');
+  final db = await ref.watch(localDatabaseProvider).claimFor(owner);
+  final store = LedgerStore(db);
+  if (owner == LocalDatabase.guestOwner) await store.seedDefaultCategories();
+  return store;
 });
 
 // Live views of the local data. They update by themselves whenever the

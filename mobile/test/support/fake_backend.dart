@@ -69,6 +69,13 @@ class FakeBackend implements HttpClientAdapter {
   /// Makes every issued access token invalid, as after a server-side expiry.
   void revokeAllAccessTokens() => _access.clear();
 
+  /// Ends every session (access and refresh tokens), e.g. after a
+  /// password change on another phone.
+  void revokeAllSessions() {
+    _access.clear();
+    _refresh.clear();
+  }
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,

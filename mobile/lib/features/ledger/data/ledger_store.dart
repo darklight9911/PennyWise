@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/utils/money.dart';
 import '../../recurring/domain/recurrence.dart';
+import '../domain/default_categories.dart';
 
 /// Entity names, as the sync API uses them.
 abstract final class Entity {
@@ -290,6 +291,28 @@ class LedgerStore {
       .select(db.categories)
       .watch()
       .map((all) => {for (final c in all) c.id: c});
+
+  static const _seededKey = 'default_categories_seeded';
+
+  /// Gives a brand-new guest database the default categories (signed-in
+  /// users get them from the server). Runs once per database.
+  Future<void> seedDefaultCategories() async {
+    if (await db.readMeta(_seededKey) != null) return;
+    final existing = await (db.select(db.categories)..limit(1)).get();
+    if (existing.isEmpty) {
+      var order = 0;
+      for (final c in defaultCategories) {
+        await createCategory(
+          name: c.name,
+          kind: c.kind,
+          icon: c.icon,
+          color: c.color,
+          sortOrder: order++,
+        );
+      }
+    }
+    await db.writeMeta(_seededKey, '1');
+  }
 
   Future<Category> createCategory({
     required String name,

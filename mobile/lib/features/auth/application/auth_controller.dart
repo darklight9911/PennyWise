@@ -21,18 +21,35 @@ sealed class AuthState {
   Profile? get profile => null;
 }
 
-/// Reading the saved session at app start.
+/// Reading the saved session at app start (or switching users).
 class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
-class SignedOut extends AuthState {
-  const SignedOut();
+/// First launch: no account and no guest profile yet. The app asks for the
+/// main currency, then opens as a [Guest].
+class SetupNeeded extends AuthState {
+  const SetupNeeded();
+}
+
+/// Using the app without an account. Everything works on the phone; data
+/// is kept locally and uploaded once the user signs in.
+class Guest extends AuthState {
+  const Guest(this.guestProfile);
+  final Profile guestProfile;
+
+  @override
+  Profile get profile => guestProfile;
 }
 
 class SignedIn extends AuthState {
-  const SignedIn(this.user);
+  const SignedIn(this.user, {this.sessionExpired = false});
   final AppUser user;
+
+  /// The server no longer accepts this session (e.g. the password changed
+  /// on another phone). The data stays usable offline; logging in again
+  /// resumes syncing.
+  final bool sessionExpired;
 
   @override
   Profile get profile => user.profile;
@@ -47,10 +64,11 @@ class AuthController extends Notifier<AuthState> {
 
   @override
   AuthState build() {
-    final sub = ref
-        .watch(sessionManagerProvider)
-        .onSessionExpired
-        .listen((_) => state = const SignedOut());
+    final sub = ref.watch(sessionManagerProvider).onSessionExpired.listen((_) {
+      // Keep the user's data on the phone: only syncing stops.
+      final now = state;
+      if (now is SignedIn) _set(SignedIn(now.user, sessionExpired: true));
+    });
     ref.onDispose(sub.cancel);
     unawaited(_restore());
     return const AuthLoading();
@@ -60,7 +78,7 @@ class AuthController extends Notifier<AuthState> {
   /// cannot be reached, the last known profile is used.
   Future<void> _restore() async {
     final tokens = await _session.current();
-    if (tokens == null) return _set(const SignedOut());
+    if (tokens == null) return _openWithoutAccount();
 
     final cached = await _store.readUser();
     if (cached != null) {
@@ -75,14 +93,38 @@ class AuthController extends Notifier<AuthState> {
       if (cached == null && now is SignedIn) await _claimLocalData(now.user.id);
     } on ApiException catch (e) {
       if (e.isNetworkError) {
-        if (cached == null) _set(const SignedOut());
+        if (cached == null) await _openWithoutAccount();
         return;
       }
       if (e.statusCode == 401) {
-        await _session.clear();
-        _set(const SignedOut());
+        final now = state;
+        if (now is SignedIn) {
+          // Keep the data; ask to log in again to sync.
+          _set(SignedIn(now.user, sessionExpired: true));
+        } else {
+          await _session.clear();
+          await _openWithoutAccount();
+        }
       }
     }
+  }
+
+  /// No session: continue as a guest, or ask for the main currency first.
+  Future<void> _openWithoutAccount() async {
+    final saved = await _store.readGuestProfile();
+    _set(saved == null ? const SetupNeeded() : Guest(Profile.fromJson(saved)));
+  }
+
+  /// Finishes the first launch: the app opens without an account.
+  Future<void> startAsGuest({required String baseCurrency}) async {
+    final profile = Profile(
+      name: '',
+      baseCurrency: baseCurrency,
+      timezone: await _device.timezone(),
+      locale: _device.locale,
+    );
+    await _store.writeGuestProfile(profile.toJson());
+    _set(Guest(profile));
   }
 
   Future<void> login(String email, String password) async {
@@ -144,6 +186,20 @@ class AuthController extends Notifier<AuthState> {
     await _endLocally();
   }
 
+  /// Without an account: deletes everything on this phone and starts
+  /// empty again (same main currency).
+  Future<void> eraseGuestData() async {
+    final now = state;
+    if (now is! Guest) return;
+    _set(const AuthLoading()); // screens drop the database first
+    try {
+      await _local.wipe();
+    } finally {
+      ref.read(localDataEpochProvider.notifier).bump();
+      _set(Guest(now.guestProfile));
+    }
+  }
+
   /// Deletes the account on the server, then everything on the phone.
   /// Throws (and changes nothing) if the server refuses, e.g. a wrong
   /// password or no connection.
@@ -153,36 +209,55 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _endLocally() async {
+    final was = state;
     try {
       await ref.read(googleAuthProvider).signOut();
     } on Object {
       // Not signed in with Google, or the plugin is unavailable.
     }
     await _session.clear();
-    // Signed out FIRST: screens and sync drop the local database, so nothing
-    // uses it while it is being deleted.
-    _set(const SignedOut());
+    // Leave the account FIRST: screens and sync drop the local database,
+    // so nothing uses it while it is being deleted.
+    _set(const AuthLoading());
     // Logging out removes this user's data from the phone, with its key.
     try {
       await _local.wipe();
     } on Object catch (e, st) {
       userMessage(e, st); // report; the user is logged out regardless
     }
+    ref.read(localDataEpochProvider.notifier).bump();
+    // Then the app goes on without an account, empty, in the same currency.
+    final guest = Profile(
+      name: '',
+      baseCurrency: was.profile?.baseCurrency ?? _device.defaultCurrency,
+      timezone: was.profile?.timezone ?? await _device.timezone(),
+      locale: was.profile?.locale ?? _device.locale,
+    );
+    await _store.writeGuestProfile(guest.toJson());
+    _set(Guest(guest));
   }
 
   /// Reloads the profile from the server.
   Future<void> refreshUser() async {
     final user = await _api.me();
     await _store.writeUser(user.toJson());
-    if (state is! SignedOut) _set(SignedIn(user));
+    if (state is SignedIn || state is AuthLoading) _set(SignedIn(user));
   }
 
-  /// Switches the main currency. The server converts all amounts in the
-  /// background; until then the user is "recalculating".
+  /// Switches the main currency. Signed in, the server converts all amounts
+  /// in the background; until then the user is "recalculating". Without an
+  /// account only the profile on the phone changes.
   Future<void> changeBaseCurrency(String currency) async {
+    final now = state;
+    if (now is Guest) {
+      final profile = now.guestProfile.copyWith(baseCurrency: currency);
+      await _store.writeGuestProfile(profile.toJson());
+      _set(Guest(profile));
+      return;
+    }
     final user = await _api.updateProfile(baseCurrency: currency);
     await _store.writeUser(user.toJson());
-    if (state is! SignedOut) _set(SignedIn(user));
+    if (state is SignedIn) _set(SignedIn(user));
   }
 
   /// Confirms an email address from a link. Works logged in or out.
@@ -194,13 +269,16 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _establish(AuthResult result) async {
     await _session.save(result.tokens);
     await _store.writeUser(result.user.toJson());
+    // Guest data on this phone now belongs to this account and is merged
+    // into it with the next sync.
     await _claimLocalData(result.user.id);
     _set(SignedIn(result.user));
   }
 
-  /// Opens the encrypted local database for [userId], wiping another
-  /// user's data first. A failure is reported but does not block login:
-  /// the screens that need local data show their own error.
+  /// Opens the encrypted local database for [userId]. Data made without an
+  /// account is kept (and merged into the account); another user's data is
+  /// wiped first. A failure is reported but does not block login: the
+  /// screens that need local data show their own error.
   Future<void> _claimLocalData(String userId) async {
     try {
       await _local.claimFor(userId);
@@ -208,6 +286,10 @@ class AuthController extends Notifier<AuthState> {
       userMessage(e, st);
     }
   }
+
+  /// The main currency to suggest when creating an account: the one
+  /// already used on this phone, if any.
+  String? get suggestedCurrency => state.profile?.baseCurrency;
 
   Future<SignUpProfile> _profile({
     String name = '',

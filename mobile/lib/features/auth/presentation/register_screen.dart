@@ -24,8 +24,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  late String _currency = ref.read(deviceProfileProvider).defaultCurrency;
-  bool _currencyPickedByUser = false;
+  // The currency already used on this phone (without an account), if any.
+  late String _currency =
+      ref.read(profileProvider)?.baseCurrency ??
+      ref.read(deviceProfileProvider).defaultCurrency;
+  late bool _currencyPickedByUser = ref.read(profileProvider) != null;
   bool _loading = false;
   String? _error;
 

@@ -5,6 +5,7 @@ import 'package:pennywise/core/router/routes.dart';
 import 'package:pennywise/core/utils/currencies.dart';
 import 'package:pennywise/features/auth/application/auth_controller.dart';
 import 'package:pennywise/features/auth/domain/app_user.dart';
+import 'package:pennywise/features/auth/domain/profile.dart';
 import 'package:pennywise/features/auth/domain/validators.dart';
 
 void main() {
@@ -21,26 +22,43 @@ void main() {
       googleLinked: false,
     );
     const signedIn = SignedIn(user);
+    const expired = SignedIn(user, sessionExpired: true);
+    const guest = Guest(
+      Profile(name: '', baseCurrency: 'EUR', timezone: 'UTC', locale: 'en'),
+    );
 
     final cases = <(AuthState, String, String?)>[
       // While loading, everything waits on the splash screen.
       (const AuthLoading(), Routes.dashboard, Routes.splash),
       (const AuthLoading(), Routes.splash, null),
-      // Signed out: only the login screens.
-      (const SignedOut(), Routes.dashboard, Routes.login),
-      (const SignedOut(), Routes.settings, Routes.login),
-      (const SignedOut(), Routes.splash, Routes.login),
-      (const SignedOut(), Routes.login, null),
-      (const SignedOut(), Routes.register, null),
-      (const SignedOut(), Routes.forgotPassword, null),
-      // Signed in: login screens bounce to the dashboard.
+      // First launch: the welcome screen, or logging in instead.
+      (const SetupNeeded(), Routes.dashboard, Routes.welcome),
+      (const SetupNeeded(), Routes.splash, Routes.welcome),
+      (const SetupNeeded(), Routes.welcome, null),
+      (const SetupNeeded(), Routes.login, null),
+      (const SetupNeeded(), Routes.register, null),
+      // Without an account every screen works, and logging in is optional.
+      (guest, Routes.dashboard, null),
+      (guest, Routes.settings, null),
+      (guest, Routes.export, null),
+      (guest, Routes.login, null),
+      (guest, Routes.register, null),
+      (guest, Routes.forgotPassword, null),
+      (guest, Routes.splash, Routes.dashboard),
+      (guest, Routes.welcome, Routes.dashboard),
+      // Signed in: login screens bounce to the dashboard...
       (signedIn, Routes.login, Routes.dashboard),
       (signedIn, Routes.register, Routes.dashboard),
       (signedIn, Routes.splash, Routes.dashboard),
+      (signedIn, Routes.welcome, Routes.dashboard),
       (signedIn, Routes.settings, null),
+      // ...unless the session expired: then logging in again is allowed.
+      (expired, Routes.login, null),
+      (expired, Routes.dashboard, null),
       // A reset link opens in every state.
       (const AuthLoading(), Routes.resetPassword, null),
-      (const SignedOut(), Routes.resetPassword, null),
+      (const SetupNeeded(), Routes.resetPassword, null),
+      (guest, Routes.resetPassword, null),
       (signedIn, Routes.resetPassword, null),
     ];
     for (final (state, from, want) in cases) {

@@ -46,6 +46,12 @@ abstract class TokenStore {
   Future<Map<String, dynamic>?> readUser();
   Future<void> writeUser(Map<String, dynamic> user);
 
+  /// The profile used without an account (main currency, time zone).
+  /// Not removed by [clear]: it outlives log-outs.
+  Future<Map<String, dynamic>?> readGuestProfile();
+  Future<void> writeGuestProfile(Map<String, dynamic> profile);
+
+  /// Removes the session and the cached user.
   Future<void> clear();
 }
 
@@ -65,6 +71,7 @@ class SecureTokenStore implements TokenStore {
 
   static const _tokensKey = 'auth_tokens';
   static const _userKey = 'auth_user';
+  static const _guestKey = 'guest_profile';
 
   @override
   Future<AuthTokens?> readTokens() async {
@@ -83,8 +90,21 @@ class SecureTokenStore implements TokenStore {
       _storage.write(key: _tokensKey, value: jsonEncode(tokens.toJson()));
 
   @override
-  Future<Map<String, dynamic>?> readUser() async {
-    final raw = await _storage.read(key: _userKey);
+  Future<Map<String, dynamic>?> readUser() => _readJson(_userKey);
+
+  @override
+  Future<void> writeUser(Map<String, dynamic> user) =>
+      _storage.write(key: _userKey, value: jsonEncode(user));
+
+  @override
+  Future<Map<String, dynamic>?> readGuestProfile() => _readJson(_guestKey);
+
+  @override
+  Future<void> writeGuestProfile(Map<String, dynamic> profile) =>
+      _storage.write(key: _guestKey, value: jsonEncode(profile));
+
+  Future<Map<String, dynamic>?> _readJson(String key) async {
+    final raw = await _storage.read(key: key);
     if (raw == null) return null;
     try {
       return jsonDecode(raw) as Map<String, dynamic>;
@@ -92,10 +112,6 @@ class SecureTokenStore implements TokenStore {
       return null;
     }
   }
-
-  @override
-  Future<void> writeUser(Map<String, dynamic> user) =>
-      _storage.write(key: _userKey, value: jsonEncode(user));
 
   @override
   Future<void> clear() async {
@@ -108,6 +124,7 @@ class SecureTokenStore implements TokenStore {
 class InMemoryTokenStore implements TokenStore {
   AuthTokens? tokens;
   Map<String, dynamic>? user;
+  Map<String, dynamic>? guestProfile;
 
   @override
   Future<AuthTokens?> readTokens() async => tokens;
@@ -117,6 +134,11 @@ class InMemoryTokenStore implements TokenStore {
   Future<Map<String, dynamic>?> readUser() async => user;
   @override
   Future<void> writeUser(Map<String, dynamic> u) async => user = u;
+  @override
+  Future<Map<String, dynamic>?> readGuestProfile() async => guestProfile;
+  @override
+  Future<void> writeGuestProfile(Map<String, dynamic> p) async =>
+      guestProfile = p;
   @override
   Future<void> clear() async {
     tokens = null;

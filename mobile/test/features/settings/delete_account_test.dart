@@ -51,7 +51,7 @@ void main() {
     await tapOn(tester, find.widgetWithText(FilledButton, 'Delete account'));
 
     expect(find.text('Delete your account?'), findsNothing);
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(h.store.guestProfile, isNotNull, reason: 'goes on without one');
     expect(h.backend.users.containsKey('ann@example.com'), isFalse);
     expect(h.store.tokens, isNull);
     expect(h.backend.callCount('DELETE /v1/me'), 1);

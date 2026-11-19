@@ -101,9 +101,10 @@ class AppLockController extends Notifier<AppLockState> {
       onResume: _show,
     );
     ref.onDispose(() => _lifecycle?.dispose());
-    // A new user must not inherit someone else's lock.
+    // Logging out must not leave the next person someone else's lock.
+    // (A guest who signs in keeps their own lock.)
     ref.listen(authControllerProvider, (prev, next) {
-      if (next is SignedOut && prev is! SignedOut) unawaited(_clear());
+      if (prev is SignedIn && next is! SignedIn) unawaited(_clear());
     });
     unawaited(_load());
     return const AppLockState();

@@ -146,7 +146,7 @@ void main() {
     await background(tester, const Duration(minutes: 5));
     await tapOn(tester, find.text('Forgot PIN?'));
     await tapOn(tester, find.widgetWithText(FilledButton, 'Log out'));
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(h.store.tokens, isNull, reason: 'logged out, now without account');
     expect(h.prefs.values.containsKey('lock_pin_hash'), isFalse);
 
     await logIn(tester, 'ann@example.com', pw);

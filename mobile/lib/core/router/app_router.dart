@@ -9,6 +9,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/auth/presentation/welcome_screen.dart';
 import '../../features/budgets/presentation/budget_form_screen.dart';
 import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
@@ -43,6 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         authRedirect(auth.value, state.matchedLocation),
     routes: [
       GoRoute(path: Routes.splash, builder: (_, _) => const SplashScreen()),
+      GoRoute(path: Routes.welcome, builder: (_, _) => const WelcomeScreen()),
       GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
       GoRoute(path: Routes.register, builder: (_, _) => const RegisterScreen()),
       GoRoute(

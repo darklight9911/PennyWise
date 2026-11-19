@@ -22,7 +22,10 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('You can log back in at any time.'),
+        content: const Text(
+          'Your data stays in your account. This phone starts empty again, '
+          'and you can keep using pennyWise without an account.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -63,15 +66,69 @@ class SettingsScreen extends ConsumerWidget {
     if (picked != null) await ref.read(themeModeProvider.notifier).set(picked);
   }
 
+  Future<void> _confirmErase(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Erase data on this phone?'),
+        content: const Text(
+          'Everything you added will be deleted. It is not backed up, so '
+          'this cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Erase'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(authControllerProvider.notifier).eraseGuestData();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
     final user = auth is SignedIn ? auth.user : null;
+    final profile = auth.profile;
+    final guest = auth is Guest;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          if (guest)
+            const _CardPadding(
+              child: _AccountCard(
+                icon: HugeIcons.strokeRoundedCloudUpload,
+                title: 'Back up and sync',
+                message:
+                    'You are using pennyWise without an account. Your data '
+                    'is only on this phone. Log in or create a free account '
+                    'to back it up and use it on other phones too.',
+                showCreate: true,
+              ),
+            ),
+          if (auth is SignedIn && auth.sessionExpired)
+            const _CardPadding(
+              child: _AccountCard(
+                icon: HugeIcons.strokeRoundedCloudSlowWind,
+                title: 'Log in again to sync',
+                message:
+                    'Your session ended. Everything still works on this '
+                    'phone; log in again to sync your changes.',
+                showCreate: false,
+              ),
+            ),
           if (user != null && !user.emailVerified)
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -96,23 +153,23 @@ class SettingsScreen extends ConsumerWidget {
             leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
             title: const Text('Main currency'),
             subtitle: Text(
-              user == null
+              profile == null
                   ? '—'
-                  : user.recalculating
-                  ? '${user.baseCurrency} · converting totals…'
-                  : currencyLabel(user.baseCurrency),
+                  : profile.recalculating
+                  ? '${profile.baseCurrency} · converting totals…'
+                  : currencyLabel(profile.baseCurrency),
             ),
-            trailing: user == null
+            trailing: profile == null
                 ? null
                 : const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: user == null || user.recalculating
+            onTap: profile == null || profile.recalculating
                 ? null
-                : () => showMainCurrencyDialog(context, user.baseCurrency),
+                : () => showMainCurrencyDialog(context, profile.baseCurrency),
           ),
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedClock01),
             title: const Text('Time zone'),
-            subtitle: Text(user?.timezone ?? '—'),
+            subtitle: Text(profile?.timezone ?? '—'),
           ),
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedPaintBrush02),
@@ -159,11 +216,24 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('About pennyWise'),
             subtitle: const Text('Version 0.1.0'),
           ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedLogout03),
-            title: const Text('Log out'),
-            onTap: () => _confirmLogout(context, ref),
-          ),
+          if (user != null)
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedLogout03),
+              title: const Text('Log out'),
+              onTap: () => _confirmLogout(context, ref),
+            ),
+          if (guest)
+            ListTile(
+              leading: AppIcon(
+                HugeIcons.strokeRoundedDelete02,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Erase data on this phone',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () => _confirmErase(context, ref),
+            ),
           if (user != null)
             ListTile(
               leading: AppIcon(
@@ -180,6 +250,86 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _CardPadding extends StatelessWidget {
+  const _CardPadding({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      Spacing.lg,
+      Spacing.sm,
+      Spacing.lg,
+      Spacing.sm,
+    ),
+    child: child,
+  );
+}
+
+/// Invites the user to log in (or sign up) to back up and sync.
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.showCreate,
+  });
+
+  final AppIconData icon;
+  final String title;
+  final String message;
+  final bool showCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final on = theme.colorScheme.onSecondaryContainer;
+    return Card(
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppIcon(icon, color: on),
+            const SizedBox(width: Spacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: Spacing.xs),
+                  Text(message, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: Spacing.sm),
+                  Wrap(
+                    spacing: Spacing.sm,
+                    runSpacing: Spacing.xs,
+                    children: [
+                      FilledButton(
+                        onPressed: () => context.push(Routes.login),
+                        child: const Text('Log in'),
+                      ),
+                      if (showCreate)
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: on,
+                            minimumSize: const Size(64, 48),
+                          ),
+                          onPressed: () => context.push(Routes.register),
+                          child: const Text('Create account'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

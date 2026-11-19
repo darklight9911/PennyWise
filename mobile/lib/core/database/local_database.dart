@@ -88,18 +88,32 @@ class LocalDatabase {
 
   static const _ownerKey = 'owner_user_id';
 
-  /// Makes sure the local data belongs to [userId]. If another user's data
-  /// is on this phone, it is wiped first, so nobody sees someone else's money.
-  /// (The same user logging back in after a session expiry keeps their data,
-  /// including changes not yet synced.)
+  /// Owner of data made without an account.
+  static const guestOwner = 'guest';
+
+  /// Set when guest data was handed to an account and still has to be
+  /// merged into it (see the sync merge step).
+  static const mergePendingKey = 'merge_pending';
+
+  /// Makes sure the local data belongs to [userId] ([guestOwner] without an
+  /// account).
+  ///
+  /// - Guest data claimed by an account is kept: it becomes the account's
+  ///   and is merged into it with the next sync.
+  /// - Another user's data is wiped first, so nobody sees someone else's
+  ///   money. (The same user logging back in after a session expiry keeps
+  ///   their data, including changes not yet synced.)
   Future<AppDatabase> claimFor(String userId) async {
     var db = await database;
     final owner = await db.readMeta(_ownerKey);
-    if (owner != null && owner != userId) {
+    if (owner == userId) return db;
+    if (owner == guestOwner) {
+      await db.writeMeta(mergePendingKey, '1');
+    } else if (owner != null) {
       await wipe();
       db = await database;
     }
-    if (owner != userId) await db.writeMeta(_ownerKey, userId);
+    await db.writeMeta(_ownerKey, userId);
     return db;
   }
 
@@ -165,6 +179,20 @@ Future<File> _defaultFile() async {
   final dir = await getApplicationSupportDirectory();
   return File(p.join(dir.path, 'pennywise.db'));
 }
+
+/// Goes up every time the local data is wiped, so everything built on the
+/// old database is rebuilt, even when the owner stays the same (a guest
+/// erasing their data).
+class LocalDataEpoch extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
+final localDataEpochProvider = NotifierProvider<LocalDataEpoch, int>(
+  LocalDataEpoch.new,
+);
 
 final localDatabaseProvider = Provider<LocalDatabase>((ref) {
   final local = LocalDatabase(

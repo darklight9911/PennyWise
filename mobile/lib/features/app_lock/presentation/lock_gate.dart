@@ -18,10 +18,12 @@ class LockGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lock = ref.watch(appLockProvider);
-    final signedIn = ref.watch(authControllerProvider) is SignedIn;
+    // Locks the app's data, with or without an account.
+    final auth = ref.watch(authControllerProvider);
+    final hasData = auth is SignedIn || auth is Guest;
     final Widget? over = !lock.ready
         ? const _Cover()
-        : lock.enabled && signedIn && lock.locked
+        : lock.enabled && hasData && lock.locked
         ? const LockScreen()
         : lock.enabled && lock.covered
         ? const _Cover()
