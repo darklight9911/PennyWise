@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../application/ledger_providers.dart';
 import 'ledger_style.dart';
 
@@ -29,43 +30,45 @@ class AccountsScreen extends ConsumerWidget {
         icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: const Text('Add account'),
       ),
-      body: accounts.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load accounts: $e')),
-        data: (list) => list.isEmpty
-            ? const EmptyState(
-                mascot: PandaMood.wave,
-                icon: HugeIcons.strokeRoundedWallet01,
-                title: 'No accounts yet',
-                message: 'Add where your money lives: cash, a bank account, a card or a mobile wallet.',
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.only(bottom: 96),
-                itemCount: list.length,
-                separatorBuilder: (_, _) => const Divider(indent: 72),
-                itemBuilder: (context, i) {
-                  final a = list[i];
-                  return ListTile(
-                    leading: IconBadge(
-                      icon: accountIcon(a.type),
-                      color: scheme.primary,
-                    ),
-                    title: Text(a.name),
-                    subtitle: Text(
-                      '${accountTypes[a.type]?.$1 ?? a.type} · ${a.currency}',
-                    ),
-                    trailing: TrailingAmount(
-                      child: AmountText(
-                        minor: balances[a.id] ?? a.openingBalanceMinor,
-                        currency: a.currency,
-                        signed: false,
-                        style: Theme.of(context).textTheme.titleMedium,
+      body: ResponsiveBody(
+        child: accounts.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load accounts: $e')),
+          data: (list) => list.isEmpty
+              ? const EmptyState(
+                  mascot: PandaMood.wave,
+                  icon: HugeIcons.strokeRoundedWallet01,
+                  title: 'No accounts yet',
+                  message: 'Add where your money lives: cash, a bank account, a card or a mobile wallet.',
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 88),
+                  itemCount: list.length,
+                  separatorBuilder: (_, _) => const Divider(indent: 72),
+                  itemBuilder: (context, i) {
+                    final a = list[i];
+                    return ListTile(
+                      leading: IconBadge(
+                        icon: accountIcon(a.type),
+                        color: scheme.primary,
                       ),
-                    ),
-                    onTap: () => context.push(Routes.editAccount(a.id)),
-                  );
-                },
-              ),
+                      title: Text(a.name),
+                      subtitle: Text(
+                        '${accountTypes[a.type]?.$1 ?? a.type} · ${a.currency}',
+                      ),
+                      trailing: TrailingAmount(
+                        child: AmountText(
+                          minor: balances[a.id] ?? a.openingBalanceMinor,
+                          currency: a.currency,
+                          signed: false,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      onTap: () => context.push(Routes.editAccount(a.id)),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }

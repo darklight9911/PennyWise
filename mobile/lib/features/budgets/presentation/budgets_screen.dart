@@ -6,6 +6,7 @@ import '../../../core/router/routes.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../currency/presentation/recalculating_banner.dart';
@@ -29,32 +30,34 @@ class BudgetsScreen extends ConsumerWidget {
         icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: const Text('Add budget'),
       ),
-      body: profile?.recalculating ?? false
-          ? ListView(
-              padding: const EdgeInsets.all(16),
-              children: const [RecalculatingBanner()],
-            )
-          : budgets.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Could not load budgets: $e')),
-              data: (list) => list.isEmpty
-                  ? const EmptyState(
-                      mascot: PandaMood.thinking,
-                      icon: HugeIcons.strokeRoundedTarget02,
-                      title: 'No budgets yet',
-                      message:
-                          'Set a limit for a week or a month, for one category or '
-                          'all spending. You get a message at 80 % and 100 %.',
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.only(top: 8, bottom: 96),
-                      children: [
-                        for (final p in list)
-                          BudgetTile(progress: p, currency: currency),
-                      ],
-                    ),
-            ),
+      body: ResponsiveBody(
+        child: profile?.recalculating ?? false
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: const [RecalculatingBanner()],
+              )
+            : budgets.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) =>
+                    Center(child: Text('Could not load budgets: $e')),
+                data: (list) => list.isEmpty
+                    ? const EmptyState(
+                        mascot: PandaMood.thinking,
+                        icon: HugeIcons.strokeRoundedTarget02,
+                        title: 'No budgets yet',
+                        message:
+                            'Set a limit for a week or a month, for one category or '
+                            'all spending. You get a message at 80 % and 100 %.',
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.only(top: 8, bottom: 88),
+                        children: [
+                          for (final p in list)
+                            BudgetTile(progress: p, currency: currency),
+                        ],
+                      ),
+              ),
+      ),
     );
   }
 }

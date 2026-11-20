@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/presentation/day_labels.dart';
@@ -43,23 +44,23 @@ class GoalDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(Spacing.lg),
-        children: [
-          GoalCard(progress: progress, currency: currency),
-          const SizedBox(height: Spacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(
+      body: ResponsiveBody(
+        child: ListView(
+          padding: EdgeInsets.symmetric(
+            horizontal: ResponsiveLayout.horizontalPadding(context),
+            vertical: Spacing.md,
+          ),
+          children: [
+            GoalCard(progress: progress, currency: currency),
+            const SizedBox(height: Spacing.md),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final addBtn = FilledButton(
                   onPressed: () =>
                       _changeMoney(context, ref, currency, add: true),
                   child: const Text('Add money'),
-                ),
-              ),
-              const SizedBox(width: Spacing.md),
-              Expanded(
-                child: OutlinedButton(
+                );
+                final takeBtn = OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(64, 48),
                   ),
@@ -67,43 +68,65 @@ class GoalDetailScreen extends ConsumerWidget {
                       ? null
                       : () => _changeMoney(context, ref, currency, add: false),
                   child: const Text('Take out'),
+                );
+                if (constraints.maxWidth < 280) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      addBtn,
+                      const SizedBox(height: Spacing.sm),
+                      takeBtn,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: addBtn),
+                    const SizedBox(width: Spacing.sm),
+                    Expanded(child: takeBtn),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: Spacing.lg),
+            Text('History', style: Theme.of(context).textTheme.titleMedium),
+            if (history.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: Spacing.sm),
+                child: Text('Nothing yet.'),
+              ),
+            for (final c in history)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(dayLabel(c.localDate, DateTime.now())),
+                subtitle: c.note.isEmpty ? null : Text(c.note),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TrailingAmount(
+                      child: AmountText(
+                        minor: c.amountMinor,
+                        currency: currency,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Remove',
+                      icon: const AppIcon(
+                        HugeIcons.strokeRoundedDelete02,
+                        size: 20,
+                      ),
+                      onPressed: () async {
+                        final store = await ref.read(
+                          ledgerStoreProvider.future,
+                        );
+                        await store.deleteContribution(c.id);
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: Spacing.xl),
-          Text('History', style: Theme.of(context).textTheme.titleMedium),
-          if (history.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: Spacing.sm),
-              child: Text('Nothing yet.'),
-            ),
-          for (final c in history)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(dayLabel(c.localDate, DateTime.now())),
-              subtitle: c.note.isEmpty ? null : Text(c.note),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TrailingAmount(
-                    child: AmountText(minor: c.amountMinor, currency: currency),
-                  ),
-                  IconButton(
-                    tooltip: 'Remove',
-                    icon: const AppIcon(
-                      HugeIcons.strokeRoundedDelete02,
-                      size: 20,
-                    ),
-                    onPressed: () async {
-                      final store = await ref.read(ledgerStoreProvider.future);
-                      await store.deleteContribution(c.id);
-                    },
-                  ),
-                ],
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

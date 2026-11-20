@@ -9,6 +9,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
@@ -31,33 +32,35 @@ class GoalsScreen extends ConsumerWidget {
         icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: const Text('Add goal'),
       ),
-      body: goals.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load goals: $e')),
-        data: (list) => list.isEmpty
-            ? const EmptyState(
-                mascot: PandaMood.happy,
-                icon: HugeIcons.strokeRoundedPiggyBank,
-                title: 'No goals yet',
-                message:
-                    'Saving for a laptop, a trip or a rainy day? Add a goal and '
-                    'put money towards it whenever you can.',
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  Spacing.lg,
-                  Spacing.lg,
-                  Spacing.lg,
-                  96,
+      body: ResponsiveBody(
+        child: goals.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load goals: $e')),
+          data: (list) => list.isEmpty
+              ? const EmptyState(
+                  mascot: PandaMood.happy,
+                  icon: HugeIcons.strokeRoundedPiggyBank,
+                  title: 'No goals yet',
+                  message:
+                      'Saving for a laptop, a trip or a rainy day? Add a goal and '
+                      'put money towards it whenever you can.',
+                )
+              : ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    ResponsiveLayout.horizontalPadding(context),
+                    Spacing.md,
+                    ResponsiveLayout.horizontalPadding(context),
+                    88,
+                  ),
+                  children: [
+                    for (final g in list)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.sm),
+                        child: GoalCard(progress: g, currency: currency),
+                      ),
+                  ],
                 ),
-                children: [
-                  for (final g in list)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.md),
-                      child: GoalCard(progress: g, currency: currency),
-                    ),
-                ],
-              ),
+        ),
       ),
     );
   }
@@ -83,7 +86,7 @@ class GoalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.card),
         onTap: () => context.push(Routes.goal(p.goal.id)),
         child: Padding(
-          padding: const EdgeInsets.all(Spacing.lg),
+          padding: const EdgeInsets.all(Spacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

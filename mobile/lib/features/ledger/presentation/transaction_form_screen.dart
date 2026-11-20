@@ -9,6 +9,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../receipts/data/receipt_picker.dart';
 import '../../receipts/presentation/receipts_section.dart';
@@ -269,176 +270,187 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final needsReceived =
         _isTransfer && to != null && to.currency != from.currency;
 
-    return Form(
-      key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.all(Spacing.lg),
-        children: [
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: TxKind.expense,
-                label: Text('Expense'),
-                icon: AppIcon(HugeIcons.strokeRoundedMinusSign),
-              ),
-              ButtonSegment(
-                value: TxKind.income,
-                label: Text('Income'),
-                icon: AppIcon(HugeIcons.strokeRoundedPlusSign),
-              ),
-              ButtonSegment(
-                value: TxKind.transfer,
-                label: Text('Transfer'),
-                icon: AppIcon(
-                  HugeIcons.strokeRoundedArrowDataTransferHorizontal,
+    return ResponsiveBody(
+      maxWidth: ContentWidths.form,
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          padding: EdgeInsets.symmetric(
+            horizontal: ResponsiveLayout.horizontalPadding(context),
+            vertical: Spacing.md,
+          ),
+          children: [
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: TxKind.expense,
+                  label: Text('Expense'),
+                  icon: AppIcon(HugeIcons.strokeRoundedMinusSign),
                 ),
-              ),
-            ],
-            selected: {_kind},
-            onSelectionChanged: (s) => setState(() {
-              _kind = s.single;
-              _categoryId = null; // categories differ per kind
-            }),
-          ),
-          const SizedBox(height: Spacing.xl),
-          TextFormField(
-            controller: _amount,
-            autofocus: _isNew,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: Theme.of(context).textTheme.headlineMedium,
-            decoration: InputDecoration(
-              labelText: 'Amount',
-              suffixText: from.currency,
-            ),
-            validator: (v) => _amountError(v, from.currency),
-          ),
-          const SizedBox(height: Spacing.lg),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            key: ValueKey('from-$_kind'),
-            initialValue: from.id,
-            decoration: InputDecoration(
-              labelText: _isTransfer ? 'From account' : 'Account',
-            ),
-            items: [
-              for (final a in accounts)
-                DropdownMenuItem(
-                  value: a.id,
-                  child: Text(
-                    '${a.name} (${a.currency})',
-                    overflow: TextOverflow.ellipsis,
+                ButtonSegment(
+                  value: TxKind.income,
+                  label: Text('Income'),
+                  icon: AppIcon(HugeIcons.strokeRoundedPlusSign),
+                ),
+                ButtonSegment(
+                  value: TxKind.transfer,
+                  label: Text('Transfer'),
+                  icon: AppIcon(
+                    HugeIcons.strokeRoundedArrowDataTransferHorizontal,
                   ),
                 ),
-            ],
-            onChanged: (v) => setState(() => _accountId = v),
-          ),
-          const SizedBox(height: Spacing.lg),
-          if (_isTransfer) ...[
-            if (targets.isEmpty)
-              const Text('Add a second account to move money between accounts.')
-            else
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                key: ValueKey('to-${from.id}'),
-                initialValue: to?.id,
-                decoration: const InputDecoration(labelText: 'To account'),
-                items: [
-                  for (final a in targets)
-                    DropdownMenuItem(
-                      value: a.id,
-                      child: Text(
-                        '${a.name} (${a.currency})',
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              ],
+              selected: {_kind},
+              onSelectionChanged: (s) => setState(() {
+                _kind = s.single;
+                _categoryId = null; // categories differ per kind
+              }),
+            ),
+            const SizedBox(height: Spacing.xl),
+            TextFormField(
+              controller: _amount,
+              autofocus: _isNew,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: Theme.of(context).textTheme.headlineMedium,
+              decoration: InputDecoration(
+                labelText: 'Amount',
+                suffixText: from.currency,
+              ),
+              validator: (v) => _amountError(v, from.currency),
+            ),
+            const SizedBox(height: Spacing.lg),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              key: ValueKey('from-$_kind'),
+              initialValue: from.id,
+              decoration: InputDecoration(
+                labelText: _isTransfer ? 'From account' : 'Account',
+              ),
+              items: [
+                for (final a in accounts)
+                  DropdownMenuItem(
+                    value: a.id,
+                    child: Text(
+                      '${a.name} (${a.currency})',
+                      overflow: TextOverflow.ellipsis,
                     ),
-                ],
-                validator: (v) =>
-                    v == null ? 'Pick where the money goes' : null,
-                onChanged: (v) => setState(() => _toAccountId = v),
-              ),
-            if (needsReceived) ...[
-              const SizedBox(height: Spacing.lg),
-              TextFormField(
-                controller: _received,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                  ),
+              ],
+              onChanged: (v) => setState(() => _accountId = v),
+            ),
+            const SizedBox(height: Spacing.lg),
+            if (_isTransfer) ...[
+              if (targets.isEmpty)
+                const Text(
+                  'Add a second account to move money between accounts.',
+                )
+              else
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  key: ValueKey('to-${from.id}'),
+                  initialValue: to?.id,
+                  decoration: const InputDecoration(labelText: 'To account'),
+                  items: [
+                    for (final a in targets)
+                      DropdownMenuItem(
+                        value: a.id,
+                        child: Text(
+                          '${a.name} (${a.currency})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  validator: (v) =>
+                      v == null ? 'Pick where the money goes' : null,
+                  onChanged: (v) => setState(() => _toAccountId = v),
                 ),
-                decoration: InputDecoration(
-                  labelText: 'Amount received',
-                  suffixText: to.currency,
-                  helperText: 'What arrived in ${to.name}, in ${to.currency}.',
+              if (needsReceived) ...[
+                const SizedBox(height: Spacing.lg),
+                TextFormField(
+                  controller: _received,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Amount received',
+                    suffixText: to.currency,
+                    helperText:
+                        'What arrived in ${to.name}, in ${to.currency}.',
+                  ),
+                  validator: (v) => _amountError(v, to.currency),
                 ),
-                validator: (v) => _amountError(v, to.currency),
+              ],
+            ] else ...[
+              if (from.currency != _baseCurrency) ...[
+                TextFormField(
+                  controller: _rate,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Exchange rate (optional)',
+                    prefixText: '1 ${from.currency} = ',
+                    suffixText: _baseCurrency,
+                    helperText:
+                        "Leave empty to use the day's rate. Type one for "
+                        'currencies without a daily rate.',
+                    helperMaxLines: 2,
+                  ),
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty || parseRate(v!) != null
+                      ? null
+                      : 'Use a number above zero, like 1.08',
+                ),
+                const SizedBox(height: Spacing.lg),
+              ],
+              _CategoryPicker(
+                kind: _kind,
+                selected: _categoryId,
+                onSelected: (id) => setState(() => _categoryId = id),
               ),
             ],
-          ] else ...[
-            if (from.currency != _baseCurrency) ...[
-              TextFormField(
-                controller: _rate,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Exchange rate (optional)',
-                  prefixText: '1 ${from.currency} = ',
-                  suffixText: _baseCurrency,
-                  helperText:
-                      "Leave empty to use the day's rate. Type one for "
-                      'currencies without a daily rate.',
-                  helperMaxLines: 2,
-                ),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty || parseRate(v!) != null
-                    ? null
-                    : 'Use a number above zero, like 1.08',
+            const SizedBox(height: Spacing.lg),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
+              title: Text(dayLabel(localDateOf(_when), DateTime.now())),
+              subtitle: const Text('Date'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedCalendar01),
+              onTap: _pickDate,
+            ),
+            TextFormField(
+              controller: _note,
+              maxLength: 500,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Note (optional)'),
+            ),
+            if (!_isTransfer) ...[
+              const SizedBox(height: Spacing.sm),
+              ReceiptsSection(
+                transactionId: _existing?.id,
+                pending: _photos,
+                onPendingChanged: (list) => setState(() => _photos = list),
               ),
-              const SizedBox(height: Spacing.lg),
             ],
-            _CategoryPicker(
-              kind: _kind,
-              selected: _categoryId,
-              onSelected: (id) => setState(() => _categoryId = id),
-            ),
-          ],
-          const SizedBox(height: Spacing.lg),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
-            title: Text(dayLabel(localDateOf(_when), DateTime.now())),
-            subtitle: const Text('Date'),
-            trailing: const AppIcon(HugeIcons.strokeRoundedCalendar01),
-            onTap: _pickDate,
-          ),
-          TextFormField(
-            controller: _note,
-            maxLength: 500,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Note (optional)'),
-          ),
-          if (!_isTransfer) ...[
-            const SizedBox(height: Spacing.sm),
-            ReceiptsSection(
-              transactionId: _existing?.id,
-              pending: _photos,
-              onPendingChanged: (list) => setState(() => _photos = list),
-            ),
-          ],
-          const SizedBox(height: Spacing.lg),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: Spacing.lg),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+            const SizedBox(height: Spacing.lg),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: Spacing.lg),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
+            FilledButton(
+              onPressed: _saving || (_isTransfer && targets.isEmpty)
+                  ? null
+                  : () => _save(accounts),
+              child: Text(_isNew ? 'Save' : 'Save changes'),
             ),
-          FilledButton(
-            onPressed: _saving || (_isTransfer && targets.isEmpty)
-                ? null
-                : () => _save(accounts),
-            child: Text(_isNew ? 'Save' : 'Save changes'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -495,25 +507,28 @@ class _NoAccounts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const AppIcon(HugeIcons.strokeRoundedWallet01, size: 48),
-            const SizedBox(height: Spacing.lg),
-            const Text('First, add an account', textAlign: TextAlign.center),
-            const SizedBox(height: Spacing.sm),
-            const Text(
-              'Every transaction belongs to an account, like your wallet or bank.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: Spacing.xl),
-            FilledButton(
-              onPressed: () => context.push(Routes.newAccount),
-              child: const Text('Add an account'),
-            ),
-          ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: ContentWidths.narrow),
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AppIcon(HugeIcons.strokeRoundedWallet01, size: 48),
+              const SizedBox(height: Spacing.md),
+              const Text('First, add an account', textAlign: TextAlign.center),
+              const SizedBox(height: Spacing.sm),
+              const Text(
+                'Every transaction belongs to an account, like your wallet or bank.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: Spacing.lg),
+              FilledButton(
+                onPressed: () => context.push(Routes.newAccount),
+                child: const Text('Add an account'),
+              ),
+            ],
+          ),
         ),
       ),
     );

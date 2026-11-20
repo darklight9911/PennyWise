@@ -5,6 +5,7 @@ import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../application/ledger_providers.dart';
 import '../data/ledger_store.dart';
 import 'ledger_style.dart';
@@ -71,30 +72,32 @@ class _CategoryList extends ConsumerWidget {
               : 'Add income category',
         ),
       ),
-      body: categories.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load: $e')),
-        data: (list) => list.isEmpty
-            ? const Center(child: Text('No categories yet.'))
-            : ListView.builder(
-                padding: const EdgeInsets.only(bottom: 96),
-                itemCount: list.length,
-                itemBuilder: (context, i) {
-                  final c = list[i];
-                  return ListTile(
-                    leading: IconBadge(
-                      icon: categoryIcon(c.icon),
-                      color: colorFromHex(c.color, scheme.primary),
-                    ),
-                    title: Text(c.name),
-                    trailing: const AppIcon(
-                      HugeIcons.strokeRoundedArrowRight01,
-                    ),
-                    onTap: () =>
-                        showCategoryEditor(context, kind: kind, existing: c),
-                  );
-                },
-              ),
+      body: ResponsiveBody(
+        child: categories.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load: $e')),
+          data: (list) => list.isEmpty
+              ? const Center(child: Text('No categories yet.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 88),
+                  itemCount: list.length,
+                  itemBuilder: (context, i) {
+                    final c = list[i];
+                    return ListTile(
+                      leading: IconBadge(
+                        icon: categoryIcon(c.icon),
+                        color: colorFromHex(c.color, scheme.primary),
+                      ),
+                      title: Text(c.name),
+                      trailing: const AppIcon(
+                        HugeIcons.strokeRoundedArrowRight01,
+                      ),
+                      onTap: () =>
+                          showCategoryEditor(context, kind: kind, existing: c),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }

@@ -8,6 +8,7 @@ import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
 import '../../ledger/presentation/day_labels.dart';
@@ -30,25 +31,27 @@ class RecurringScreen extends ConsumerWidget {
         icon: const AppIcon(HugeIcons.strokeRoundedPlusSign),
         label: const Text('Add recurring'),
       ),
-      body: rules.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load: $e')),
-        data: (list) => list.isEmpty
-            ? const EmptyState(
-                mascot: PandaMood.thinking,
-                icon: HugeIcons.strokeRoundedRepeat,
-                title: 'Nothing recurring yet',
-                message:
-                    'Add rent, salary or a subscription once. pennyWise then '
-                    'adds it on each due date and can remind you before.',
-              )
-            : ListView(
-                padding: const EdgeInsets.only(top: 8, bottom: 96),
-                children: [
-                  for (final r in list)
-                    _RuleTile(rule: r, category: categories[r.categoryId]),
-                ],
-              ),
+      body: ResponsiveBody(
+        child: rules.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load: $e')),
+          data: (list) => list.isEmpty
+              ? const EmptyState(
+                  mascot: PandaMood.thinking,
+                  icon: HugeIcons.strokeRoundedRepeat,
+                  title: 'Nothing recurring yet',
+                  message:
+                      'Add rent, salary or a subscription once. pennyWise then '
+                      'adds it on each due date and can remind you before.',
+                )
+              : ListView(
+                  padding: const EdgeInsets.only(top: 8, bottom: 88),
+                  children: [
+                    for (final r in list)
+                      _RuleTile(rule: r, category: categories[r.categoryId]),
+                  ],
+                ),
+        ),
       ),
     );
   }

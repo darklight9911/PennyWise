@@ -49,7 +49,7 @@ class BudgetTile extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: Spacing.lg,
-          vertical: Spacing.md,
+          vertical: Spacing.sm,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

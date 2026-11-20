@@ -6,6 +6,7 @@ import '../../../core/widgets/app_icon.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../application/auth_controller.dart';
 
 /// Common layout for the logged-out screens: brand header, centred
@@ -65,20 +66,20 @@ class AuthScaffold extends ConsumerWidget {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.xl,
-              vertical: Spacing.xxl,
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveLayout.horizontalPadding(context),
+              vertical: Spacing.lg,
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: ContentWidths.narrow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!showBack) ...[
-                    Center(child: PandaMascot(mood: mascotMood, size: 132)),
+                    Center(child: PandaMascot(mood: mascotMood, size: 104)),
                     const SizedBox(height: Spacing.sm),
                     const BrandMark(),
-                    const SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.lg),
                   ],
                   Text(title, style: theme.textTheme.headlineSmall),
                   if (subtitle != null) ...[
@@ -90,7 +91,7 @@ class AuthScaffold extends ConsumerWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.lg),
                   ...children,
                 ],
               ),

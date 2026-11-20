@@ -8,10 +8,10 @@ import '../../../core/device/device_profile.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../currency/presentation/currency_picker_sheet.dart';
 import '../application/ledger_providers.dart';
-import 'accounts_screen.dart';
 import 'ledger_style.dart';
 
 /// Add a new account ([accountId] null) or edit one.
@@ -187,87 +187,93 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: accountFormPadding,
-                children: [
-                  TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      hintText: 'e.g. Wallet, City Bank',
-                    ),
-                    validator: (v) {
-                      final n = v?.trim().length ?? 0;
-                      if (n == 0) return 'Give the account a name';
-                      if (n > 60) return 'Use at most 60 characters';
-                      return null;
-                    },
+          : ResponsiveBody(
+              maxWidth: ContentWidths.form,
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveLayout.horizontalPadding(context),
+                    vertical: Spacing.md,
                   ),
-                  const SizedBox(height: Spacing.lg),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _type,
-                    decoration: const InputDecoration(labelText: 'Type'),
-                    items: [
-                      for (final e in accountTypes.entries)
-                        DropdownMenuItem(
-                          value: e.key,
-                          child: Row(
-                            children: [
-                              AppIcon(e.value.$2, size: 20),
-                              const SizedBox(width: Spacing.md),
-                              Text(e.value.$1),
-                            ],
+                  children: [
+                    TextFormField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        hintText: 'e.g. Wallet, City Bank',
+                      ),
+                      validator: (v) {
+                        final n = v?.trim().length ?? 0;
+                        if (n == 0) return 'Give the account a name';
+                        if (n > 60) return 'Use at most 60 characters';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _type,
+                      decoration: const InputDecoration(labelText: 'Type'),
+                      items: [
+                        for (final e in accountTypes.entries)
+                          DropdownMenuItem(
+                            value: e.key,
+                            child: Row(
+                              children: [
+                                AppIcon(e.value.$2, size: 20),
+                                const SizedBox(width: Spacing.md),
+                                Text(e.value.$1),
+                              ],
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _type = v ?? _type),
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    CurrencyField(
+                      label: 'Currency',
+                      value: _currency,
+                      helperText: _currencyLocked
+                          ? 'Locked: this account already has transactions.'
+                          : 'Cannot be changed once you add transactions.',
+                      enabled: !_currencyLocked && !_saving,
+                      onTap: _pickCurrency,
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    TextFormField(
+                      controller: _opening,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Starting balance',
+                        hintText: '0',
+                        suffixText: _currency,
+                        helperText: 'What is in this account today. Can be negative (e.g. a card).',
+                        helperMaxLines: 2,
+                      ),
+                      validator: _validateOpening,
+                    ),
+                    const SizedBox(height: Spacing.xl),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.lg),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
                           ),
                         ),
-                    ],
-                    onChanged: (v) => setState(() => _type = v ?? _type),
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  CurrencyField(
-                    label: 'Currency',
-                    value: _currency,
-                    helperText: _currencyLocked
-                        ? 'Locked: this account already has transactions.'
-                        : 'Cannot be changed once you add transactions.',
-                    enabled: !_currencyLocked && !_saving,
-                    onTap: _pickCurrency,
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  TextFormField(
-                    controller: _opening,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Starting balance',
-                      hintText: '0',
-                      suffixText: _currency,
-                      helperText: 'What is in this account today. Can be negative (e.g. a card).',
-                      helperMaxLines: 2,
-                    ),
-                    validator: _validateOpening,
-                  ),
-                  const SizedBox(height: Spacing.xl),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.lg),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
                       ),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: Text(_isNew ? 'Add account' : 'Save changes'),
                     ),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: Text(_isNew ? 'Add account' : 'Save changes'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
     );

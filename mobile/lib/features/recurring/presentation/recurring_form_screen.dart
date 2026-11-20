@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
 import '../../ledger/presentation/day_labels.dart';
@@ -214,202 +215,220 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(Spacing.lg),
-                children: [
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: TxKind.expense,
-                        label: Text('Expense'),
-                      ),
-                      ButtonSegment(
-                        value: TxKind.income,
-                        label: Text('Income'),
-                      ),
-                    ],
-                    selected: {_kind},
-                    onSelectionChanged: (s) => setState(() {
-                      _kind = s.single;
-                      _categoryId = null;
-                    }),
+          : ResponsiveBody(
+              maxWidth: ContentWidths.form,
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveLayout.horizontalPadding(context),
+                    vertical: Spacing.md,
                   ),
-                  const SizedBox(height: Spacing.lg),
-                  TextFormField(
-                    controller: _amount,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                  children: [
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: TxKind.expense,
+                          label: Text('Expense'),
+                        ),
+                        ButtonSegment(
+                          value: TxKind.income,
+                          label: Text('Income'),
+                        ),
+                      ],
+                      selected: {_kind},
+                      onSelectionChanged: (s) => setState(() {
+                        _kind = s.single;
+                        _categoryId = null;
+                      }),
                     ),
-                    decoration: InputDecoration(
-                      labelText: 'Amount',
-                      suffixText: currency,
-                    ),
-                    validator: (v) {
-                      final c = currency;
-                      if (c == null) return null; // the account field says it
-                      final r = parseAmount(v ?? '', c);
-                      if (r.error != null) return amountErrorText(r.error!, c);
-                      if (r.minor == 0) return 'Enter an amount above zero';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _accountId,
-                    decoration: const InputDecoration(labelText: 'Account'),
-                    items: [
-                      for (final a in accounts)
-                        DropdownMenuItem(
-                          value: a.id,
-                          child: Text(a.name, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    validator: (v) => v == null ? 'Choose an account' : null,
-                    onChanged: (v) => setState(() => _accountId = v),
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    // A new key when the kind changes resets the field.
-                    key: ValueKey(_kind),
-                    initialValue: categories.any((c) => c.id == _categoryId)
-                        ? _categoryId
-                        : null,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: [
-                      for (final c in categories)
-                        DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    validator: (v) => v == null ? 'Choose a category' : null,
-                    onChanged: (v) => setState(() => _categoryId = v),
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 96,
-                        child: TextFormField(
-                          controller: _every,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Every'),
-                          validator: (v) {
-                            final n = int.tryParse(v?.trim() ?? '');
-                            if (n == null || n < 1 || n > 365) return '1–365';
-                            return null;
-                          },
-                        ),
+                    const SizedBox(height: Spacing.lg),
+                    TextFormField(
+                      controller: _amount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      const SizedBox(width: Spacing.md),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          initialValue: _frequency,
-                          decoration: const InputDecoration(
-                            labelText: 'Repeats',
-                          ),
-                          items: [
-                            for (final f in _frequencies.entries)
-                              DropdownMenuItem(
-                                value: f.key,
-                                child: Text(f.value),
-                              ),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _frequency = v ?? 'monthly'),
-                        ),
+                      decoration: InputDecoration(
+                        labelText: 'Amount',
+                        suffixText: currency,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
-                    title: Text('Starts ${dayLabel(_start, now)}'),
-                    onTap: () async {
-                      final d = await _pickDate(_start);
-                      if (d == null) return;
-                      setState(() {
-                        _start = d;
-                        if (_end != null && _end!.compareTo(d) < 0) _end = d;
-                      });
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
-                    title: Text(
-                      _end == null
-                          ? 'No end date'
-                          : 'Ends ${dayLabel(_end!, now)}',
+                      validator: (v) {
+                        final c = currency;
+                        if (c == null) return null; // the account field says it
+                        final r = parseAmount(v ?? '', c);
+                        if (r.error != null) {
+                          return amountErrorText(r.error!, c);
+                        }
+                        if (r.minor == 0) return 'Enter an amount above zero';
+                        return null;
+                      },
                     ),
-                    trailing: _end == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'Remove end date',
-                            icon: const AppIcon(
-                              HugeIcons.strokeRoundedCancel01,
+                    const SizedBox(height: Spacing.lg),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _accountId,
+                      decoration: const InputDecoration(labelText: 'Account'),
+                      items: [
+                        for (final a in accounts)
+                          DropdownMenuItem(
+                            value: a.id,
+                            child: Text(
+                              a.name,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            onPressed: () => setState(() => _end = null),
                           ),
-                    onTap: () async {
-                      final d = await _pickDate(_end, notBefore: _start);
-                      if (d != null) setState(() => _end = d);
-                    },
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    initialValue: _reminders.containsKey(_remind) ? _remind : 0,
-                    decoration: const InputDecoration(labelText: 'Reminder'),
-                    items: [
-                      for (final r in _reminders.entries)
-                        DropdownMenuItem(value: r.key, child: Text(r.value)),
-                    ],
-                    onChanged: (v) => setState(() => _remind = v ?? 0),
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  TextFormField(
-                    controller: _note,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Name (optional)',
-                      hintText: 'e.g. Rent, Netflix',
+                      ],
+                      validator: (v) => v == null ? 'Choose an account' : null,
+                      onChanged: (v) => setState(() => _accountId = v),
                     ),
-                    validator: (v) => (v?.trim().length ?? 0) > 200
-                        ? 'Use at most 200 characters'
-                        : null,
-                  ),
-                  if (_existing != null)
-                    SwitchListTile(
+                    const SizedBox(height: Spacing.lg),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      // A new key when the kind changes resets the field.
+                      key: ValueKey(_kind),
+                      initialValue: categories.any((c) => c.id == _categoryId)
+                          ? _categoryId
+                          : null,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: [
+                        for (final c in categories)
+                          DropdownMenuItem(
+                            value: c.id,
+                            child: Text(
+                              c.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      validator: (v) => v == null ? 'Choose a category' : null,
+                      onChanged: (v) => setState(() => _categoryId = v),
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 96,
+                          child: TextFormField(
+                            controller: _every,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Every',
+                            ),
+                            validator: (v) {
+                              final n = int.tryParse(v?.trim() ?? '');
+                              if (n == null || n < 1 || n > 365) return '1–365';
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.md),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _frequency,
+                            decoration: const InputDecoration(
+                              labelText: 'Repeats',
+                            ),
+                            items: [
+                              for (final f in _frequencies.entries)
+                                DropdownMenuItem(
+                                  value: f.key,
+                                  child: Text(f.value),
+                                ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _frequency = v ?? 'monthly'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Active'),
-                      subtitle: const Text('Off pauses new entries'),
-                      value: _active,
-                      onChanged: (v) => setState(() => _active = v),
+                      leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
+                      title: Text('Starts ${dayLabel(_start, now)}'),
+                      onTap: () async {
+                        final d = await _pickDate(_start);
+                        if (d == null) return;
+                        setState(() {
+                          _start = d;
+                          if (_end != null && _end!.compareTo(d) < 0) _end = d;
+                        });
+                      },
                     ),
-                  const SizedBox(height: Spacing.xl),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.lg),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
+                      title: Text(
+                        _end == null
+                            ? 'No end date'
+                            : 'Ends ${dayLabel(_end!, now)}',
+                      ),
+                      trailing: _end == null
+                          ? null
+                          : IconButton(
+                              tooltip: 'Remove end date',
+                              icon: const AppIcon(
+                                HugeIcons.strokeRoundedCancel01,
+                              ),
+                              onPressed: () => setState(() => _end = null),
+                            ),
+                      onTap: () async {
+                        final d = await _pickDate(_end, notBefore: _start);
+                        if (d != null) setState(() => _end = d);
+                      },
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: _reminders.containsKey(_remind)
+                          ? _remind
+                          : 0,
+                      decoration: const InputDecoration(labelText: 'Reminder'),
+                      items: [
+                        for (final r in _reminders.entries)
+                          DropdownMenuItem(value: r.key, child: Text(r.value)),
+                      ],
+                      onChanged: (v) => setState(() => _remind = v ?? 0),
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    TextFormField(
+                      controller: _note,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        labelText: 'Name (optional)',
+                        hintText: 'e.g. Rent, Netflix',
+                      ),
+                      validator: (v) => (v?.trim().length ?? 0) > 200
+                          ? 'Use at most 200 characters'
+                          : null,
+                    ),
+                    if (_existing != null)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Active'),
+                        subtitle: const Text('Off pauses new entries'),
+                        value: _active,
+                        onChanged: (v) => setState(() => _active = v),
+                      ),
+                    const SizedBox(height: Spacing.xl),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.lg),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
+                    FilledButton(
+                      onPressed: _saving ? null : () => _save(accountIndex),
+                      child: Text(_isNew ? 'Add recurring' : 'Save changes'),
                     ),
-                  FilledButton(
-                    onPressed: _saving ? null : () => _save(accountIndex),
-                    child: Text(_isNew ? 'Add recurring' : 'Save changes'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
     );

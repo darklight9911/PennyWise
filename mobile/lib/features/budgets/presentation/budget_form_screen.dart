@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
@@ -157,102 +158,116 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(Spacing.lg),
-                children: [
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _categoryId,
-                    decoration: const InputDecoration(labelText: 'Spending on'),
-                    items: [
-                      const DropdownMenuItem(
-                        value: _all,
-                        child: Text('All spending'),
+          : ResponsiveBody(
+              maxWidth: ContentWidths.form,
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveLayout.horizontalPadding(context),
+                    vertical: Spacing.md,
+                  ),
+                  children: [
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _categoryId,
+                      decoration: const InputDecoration(
+                        labelText: 'Spending on',
                       ),
-                      for (final c in categories)
-                        DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name, overflow: TextOverflow.ellipsis),
+                      items: [
+                        const DropdownMenuItem(
+                          value: _all,
+                          child: Text('All spending'),
                         ),
-                      if (!categories.any((c) => c.id == _categoryId) &&
-                          _categoryId != _all)
-                        DropdownMenuItem(
-                          value: _categoryId,
-                          child: const Text('(deleted category)'),
-                        ),
-                    ],
-                    onChanged: (v) => setState(() => _categoryId = v ?? _all),
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  TextFormField(
-                    controller: _amount,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                        for (final c in categories)
+                          DropdownMenuItem(
+                            value: c.id,
+                            child: Text(
+                              c.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        if (!categories.any((c) => c.id == _categoryId) &&
+                            _categoryId != _all)
+                          DropdownMenuItem(
+                            value: _categoryId,
+                            child: const Text('(deleted category)'),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _categoryId = v ?? _all),
                     ),
-                    decoration: InputDecoration(
-                      labelText: 'Limit',
-                      suffixText: currency,
-                    ),
-                    validator: (v) {
-                      final r = parseAmount(v ?? '', currency);
-                      if (r.error != null) {
-                        return amountErrorText(r.error!, currency);
-                      }
-                      if (r.minor == 0) return 'Enter a limit above zero';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'weekly', label: Text('Every week')),
-                      ButtonSegment(
-                        value: 'monthly',
-                        label: Text('Every month'),
+                    const SizedBox(height: Spacing.lg),
+                    TextFormField(
+                      controller: _amount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                    ],
-                    selected: {_period},
-                    onSelectionChanged: (s) =>
-                        setState(() => _period = s.single),
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  Text(
-                    _period == 'weekly'
-                        ? 'Weeks start on Monday.'
-                        : 'Months start on the 1st.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Message me at 80 %'),
-                    value: _alert80,
-                    onChanged: (v) => setState(() => _alert80 = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Message me at 100 %'),
-                    value: _alert100,
-                    onChanged: (v) => setState(() => _alert100 = v),
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.lg),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                      decoration: InputDecoration(
+                        labelText: 'Limit',
+                        suffixText: currency,
+                      ),
+                      validator: (v) {
+                        final r = parseAmount(v ?? '', currency);
+                        if (r.error != null) {
+                          return amountErrorText(r.error!, currency);
+                        }
+                        if (r.minor == 0) return 'Enter a limit above zero';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'weekly',
+                          label: Text('Every week'),
+                        ),
+                        ButtonSegment(
+                          value: 'monthly',
+                          label: Text('Every month'),
+                        ),
+                      ],
+                      selected: {_period},
+                      onSelectionChanged: (s) =>
+                          setState(() => _period = s.single),
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    Text(
+                      _period == 'weekly'
+                          ? 'Weeks start on Monday.'
+                          : 'Months start on the 1st.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Message me at 80 %'),
+                      value: _alert80,
+                      onChanged: (v) => setState(() => _alert80 = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Message me at 100 %'),
+                      value: _alert100,
+                      onChanged: (v) => setState(() => _alert100 = v),
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.lg),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: Text(_isNew ? 'Add budget' : 'Save changes'),
                     ),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: Text(_isNew ? 'Add budget' : 'Save changes'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
     );

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../application/app_lock.dart';
 import 'pin_pad.dart';
@@ -122,98 +123,106 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(Spacing.xl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppIcon(
-                    HugeIcons.strokeRoundedSquareLock02,
-                    size: 40,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  Text(
-                    'pennyWise is locked',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  Text('Enter your PIN', style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: Spacing.xl),
-                  PinDots(filled: _pin.length, length: lock.pinLength),
-                  SizedBox(
-                    height: 40,
-                    child: Center(
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          _message ?? '',
-                          style: TextStyle(color: theme.colorScheme.error),
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveLayout.horizontalPadding(context),
+                vertical: Spacing.lg,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: ContentWidths.narrow,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppIcon(
+                      HugeIcons.strokeRoundedSquareLock02,
+                      size: 40,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: Spacing.lg),
+                    Text(
+                      'pennyWise is locked',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    Text('Enter your PIN', style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: Spacing.xl),
+                    PinDots(filled: _pin.length, length: lock.pinLength),
+                    SizedBox(
+                      height: 40,
+                      child: Center(
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            _message ?? '',
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  PinPad(
-                    enabled: !_checking && !waiting,
-                    onDigit: _digit,
-                    onBackspace: () => setState(() {
-                      if (_pin.isNotEmpty) {
-                        _pin = _pin.substring(0, _pin.length - 1);
-                      }
-                    }),
-                    extra: lock.biometric
-                        ? Semantics(
-                            button: true,
-                            label: 'Unlock with fingerprint or face',
-                            excludeSemantics: true,
-                            child: IconButton(
-                              iconSize: 32,
-                              icon: AppIcon(
-                                HugeIcons.strokeRoundedFingerPrint,
-                                color: theme.colorScheme.primary,
+                    PinPad(
+                      enabled: !_checking && !waiting,
+                      onDigit: _digit,
+                      onBackspace: () => setState(() {
+                        if (_pin.isNotEmpty) {
+                          _pin = _pin.substring(0, _pin.length - 1);
+                        }
+                      }),
+                      extra: lock.biometric
+                          ? Semantics(
+                              button: true,
+                              label: 'Unlock with fingerprint or face',
+                              excludeSemantics: true,
+                              child: IconButton(
+                                iconSize: 32,
+                                icon: AppIcon(
+                                  HugeIcons.strokeRoundedFingerPrint,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                onPressed: () => ref
+                                    .read(appLockProvider.notifier)
+                                    .unlockWithBiometrics(),
                               ),
-                              onPressed: () => ref
-                                  .read(appLockProvider.notifier)
-                                  .unlockWithBiometrics(),
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  if (!_confirmLogout)
-                    TextButton(
-                      onPressed: () => setState(() => _confirmLogout = true),
-                      child: const Text('Forgot PIN?'),
-                    )
-                  else ...[
-                    Text(
-                      'Log out to remove the lock. Changes not yet synced on this '
-                      'phone are lost; everything synced comes back when you log in.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall,
+                            )
+                          : null,
                     ),
-                    const SizedBox(height: Spacing.sm),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextButton(
-                          onPressed: () =>
-                              setState(() => _confirmLogout = false),
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: Spacing.sm),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: theme.colorScheme.error,
+                    const SizedBox(height: Spacing.lg),
+                    if (!_confirmLogout)
+                      TextButton(
+                        onPressed: () => setState(() => _confirmLogout = true),
+                        child: const Text('Forgot PIN?'),
+                      )
+                    else ...[
+                      Text(
+                        'Log out to remove the lock. Changes not yet synced on this '
+                        'phone are lost; everything synced comes back when you log in.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: Spacing.sm),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            onPressed: () =>
+                                setState(() => _confirmLogout = false),
+                            child: const Text('Cancel'),
                           ),
-                          onPressed: () => ref
-                              .read(authControllerProvider.notifier)
-                              .logout(),
-                          child: const Text('Log out'),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: Spacing.sm),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: theme.colorScheme.error,
+                            ),
+                            onPressed: () => ref
+                                .read(authControllerProvider.notifier)
+                                .logout(),
+                            child: const Text('Log out'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

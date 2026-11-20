@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 
 /// Dots showing how many digits are typed.
 class PinDots extends StatelessWidget {
@@ -55,8 +56,14 @@ class PinPad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final compact = size.width < Breakpoints.narrow || size.height < 680;
+    final keySize = compact ? 60.0 : 68.0;
+    final keyPadding = compact ? 4.0 : 6.0;
     Widget key(String d) => _Key(
       label: d,
+      size: keySize,
+      padding: keyPadding,
       onTap: enabled ? () => onDigit(d) : null,
       child: Text(d, style: Theme.of(context).textTheme.headlineSmall),
     );
@@ -75,10 +82,15 @@ class PinPad extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox.square(dimension: 84, child: Center(child: extra)),
+            SizedBox.square(
+              dimension: keySize + keyPadding * 2,
+              child: Center(child: extra),
+            ),
             key('0'),
             _Key(
               label: 'Delete last digit',
+              size: keySize,
+              padding: keyPadding,
               onTap: enabled ? onBackspace : null,
               child: const AppIcon(HugeIcons.strokeRoundedArrowLeft01),
             ),
@@ -90,16 +102,24 @@ class PinPad extends StatelessWidget {
 }
 
 class _Key extends StatelessWidget {
-  const _Key({required this.label, required this.child, this.onTap});
+  const _Key({
+    required this.label,
+    required this.size,
+    required this.padding,
+    required this.child,
+    this.onTap,
+  });
 
   final String label;
+  final double size;
+  final double padding;
   final Widget child;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(6),
+      padding: EdgeInsets.all(padding),
       child: Semantics(
         button: true,
         label: label,
@@ -110,7 +130,10 @@ class _Key extends StatelessWidget {
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
-            child: SizedBox.square(dimension: 72, child: Center(child: child)),
+            child: SizedBox.square(
+              dimension: size,
+              child: Center(child: child),
+            ),
           ),
         ),
       ),

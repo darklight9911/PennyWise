@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../application/app_lock.dart';
 import 'pin_pad.dart';
 
@@ -65,52 +66,58 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(Spacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  confirming ? 'Enter the PIN again' : 'Choose a PIN',
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: Spacing.sm),
-                Text(
-                  confirming ? 'To make sure it is the one you meant.' : '4 to 6 digits. You need it each time you open pennyWise.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: Spacing.xl),
-                PinDots(
-                  filled: _pin.length,
-                  length: confirming
-                      ? _first!.length
-                      : (_pin.length < 4 ? 4 : _pin.length),
-                ),
-                SizedBox(
-                  height: 40,
-                  child: Center(
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        _error ?? '',
-                        style: TextStyle(color: theme.colorScheme.error),
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveLayout.horizontalPadding(context),
+              vertical: Spacing.lg,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: ContentWidths.narrow),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    confirming ? 'Enter the PIN again' : 'Choose a PIN',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  Text(
+                    confirming ? 'To make sure it is the one you meant.' : '4 to 6 digits. You need it each time you open pennyWise.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: Spacing.xl),
+                  PinDots(
+                    filled: _pin.length,
+                    length: confirming
+                        ? _first!.length
+                        : (_pin.length < 4 ? 4 : _pin.length),
+                  ),
+                  SizedBox(
+                    height: 40,
+                    child: Center(
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _error ?? '',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                PinPad(
-                  enabled: !_saving,
-                  onDigit: _digit,
-                  onBackspace: () => setState(() {
-                    if (_pin.isNotEmpty) {
-                      _pin = _pin.substring(0, _pin.length - 1);
-                    }
-                  }),
-                ),
-                if (!confirming) ...[
-                  const SizedBox(height: Spacing.lg),
-                  FilledButton(onPressed: _next, child: const Text('Next')),
+                  PinPad(
+                    enabled: !_saving,
+                    onDigit: _digit,
+                    onBackspace: () => setState(() {
+                      if (_pin.isNotEmpty) {
+                        _pin = _pin.substring(0, _pin.length - 1);
+                      }
+                    }),
+                  ),
+                  if (!confirming) ...[
+                    const SizedBox(height: Spacing.lg),
+                    FilledButton(onPressed: _next, child: const Text('Next')),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

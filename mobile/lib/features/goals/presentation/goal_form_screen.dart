@@ -9,6 +9,7 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/presentation/day_labels.dart';
@@ -159,81 +160,87 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(Spacing.lg),
-                children: [
-                  TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'What are you saving for?',
-                      hintText: 'e.g. New laptop',
-                    ),
-                    validator: (v) {
-                      final n = v?.trim().length ?? 0;
-                      if (n == 0) return 'Give the goal a name';
-                      if (n > 60) return 'Use at most 60 characters';
-                      return null;
-                    },
+          : ResponsiveBody(
+              maxWidth: ContentWidths.form,
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveLayout.horizontalPadding(context),
+                    vertical: Spacing.md,
                   ),
-                  const SizedBox(height: Spacing.lg),
-                  TextFormField(
-                    controller: _target,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                  children: [
+                    TextFormField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        labelText: 'What are you saving for?',
+                        hintText: 'e.g. New laptop',
+                      ),
+                      validator: (v) {
+                        final n = v?.trim().length ?? 0;
+                        if (n == 0) return 'Give the goal a name';
+                        if (n > 60) return 'Use at most 60 characters';
+                        return null;
+                      },
                     ),
-                    decoration: InputDecoration(
-                      labelText: 'Target',
-                      suffixText: currency,
+                    const SizedBox(height: Spacing.lg),
+                    TextFormField(
+                      controller: _target,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Target',
+                        suffixText: currency,
+                      ),
+                      validator: (v) {
+                        final r = parseAmount(v ?? '', currency);
+                        if (r.error != null) {
+                          return amountErrorText(r.error!, currency);
+                        }
+                        if (r.minor == 0) return 'Enter a target above zero';
+                        return null;
+                      },
                     ),
-                    validator: (v) {
-                      final r = parseAmount(v ?? '', currency);
-                      if (r.error != null) {
-                        return amountErrorText(r.error!, currency);
-                      }
-                      if (r.minor == 0) return 'Enter a target above zero';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
-                    title: Text(
-                      _deadline == null
-                          ? 'No deadline'
-                          : 'By ${dayLabel(_deadline!, DateTime.now())}',
-                    ),
-                    subtitle: const Text('Optional'),
-                    trailing: _deadline == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'Remove deadline',
-                            icon: const AppIcon(
-                              HugeIcons.strokeRoundedCancel01,
+                    const SizedBox(height: Spacing.lg),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const AppIcon(HugeIcons.strokeRoundedCalendar03),
+                      title: Text(
+                        _deadline == null
+                            ? 'No deadline'
+                            : 'By ${dayLabel(_deadline!, DateTime.now())}',
+                      ),
+                      subtitle: const Text('Optional'),
+                      trailing: _deadline == null
+                          ? null
+                          : IconButton(
+                              tooltip: 'Remove deadline',
+                              icon: const AppIcon(
+                                HugeIcons.strokeRoundedCancel01,
+                              ),
+                              onPressed: () => setState(() => _deadline = null),
                             ),
-                            onPressed: () => setState(() => _deadline = null),
+                      onTap: _pickDeadline,
+                    ),
+                    const SizedBox(height: Spacing.xl),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.lg),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
                           ),
-                    onTap: _pickDeadline,
-                  ),
-                  const SizedBox(height: Spacing.xl),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.lg),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: Text(_isNew ? 'Add goal' : 'Save changes'),
                     ),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: Text(_isNew ? 'Add goal' : 'Save changes'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
     );
