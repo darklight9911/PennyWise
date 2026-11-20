@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currencies.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import 'verify_email_card.dart';
 
@@ -18,7 +19,7 @@ Future<void> showProfileModal(BuildContext context) {
     useSafeArea: true,
     showDragHandle: true,
     backgroundColor: theme.colorScheme.surface,
-    constraints: const BoxConstraints(maxWidth: 540),
+    constraints: const BoxConstraints(maxWidth: ContentWidths.form),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.card)),
     ),
@@ -42,7 +43,7 @@ class _ProfileModalSheet extends ConsumerWidget {
         Spacing.lg,
         Spacing.xs,
         Spacing.lg,
-        Spacing.xl,
+        Spacing.lg,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -64,12 +65,12 @@ class _ProfileModalSheet extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.sm),
           Center(
             child: Column(
               children: [
                 CircleAvatar(
-                  radius: 36,
+                  radius: 30,
                   backgroundColor: theme.colorScheme.primary.withValues(
                     alpha: 0.12,
                   ),
@@ -80,11 +81,11 @@ class _ProfileModalSheet extends ConsumerWidget {
                               ? user.displayName[0].toUpperCase()
                               : '?',
                           style: const TextStyle(
-                            fontSize: 32,
+                            fontSize: 26,
                             fontWeight: FontWeight.bold,
                           ),
                         )
-                      : const AppIcon(HugeIcons.strokeRoundedUser, size: 36),
+                      : const AppIcon(HugeIcons.strokeRoundedUser, size: 30),
                 ),
                 const SizedBox(height: Spacing.sm),
                 Text(
@@ -103,7 +104,7 @@ class _ProfileModalSheet extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.md),
           Card(
             clipBehavior: Clip.antiAlias,
             child: Column(

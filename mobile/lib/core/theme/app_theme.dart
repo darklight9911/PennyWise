@@ -154,11 +154,8 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      segmentedButtonTheme: SegmentedButtonThemeData(
-        style: ButtonStyle(
-          visualDensity: const VisualDensity(vertical: -1),
-          tapTargetSize: MaterialTapTargetSize.padded,
-        ),
+      segmentedButtonTheme: const SegmentedButtonThemeData(
+        style: ButtonStyle(tapTargetSize: MaterialTapTargetSize.padded),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,

@@ -9,6 +9,7 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../../core/utils/money.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../currency/data/fx_rates.dart';
@@ -75,6 +76,7 @@ class DashboardScreen extends ConsumerWidget {
     final muted = theme.textTheme.bodyMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
+    final hPad = ResponsiveLayout.horizontalPadding(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -88,177 +90,190 @@ class DashboardScreen extends ConsumerWidget {
           SizedBox(width: Spacing.sm),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(syncControllerProvider.notifier).syncNow();
-          try {
-            await ref.read(authControllerProvider.notifier).refreshUser();
-          } on ApiException {
-            // Offline: keep showing what we have.
-          }
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            Spacing.lg,
-            Spacing.lg,
-            Spacing.lg,
-            96,
-          ),
-          children: [
-            _PennyCard(greeting: greeting),
-            const SizedBox(height: Spacing.md),
-            if (recalculating) ...[
-              const RecalculatingBanner(),
+      body: ResponsiveBody(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await ref.read(syncControllerProvider.notifier).syncNow();
+            try {
+              await ref.read(authControllerProvider.notifier).refreshUser();
+            } on ApiException {
+              // Offline: keep showing what we have.
+            }
+          },
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(hPad, Spacing.md, hPad, 88),
+            children: [
+              _PennyCard(greeting: greeting),
               const SizedBox(height: Spacing.md),
-            ] else ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(Spacing.xl),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Total balance', style: muted),
-                      const SizedBox(height: Spacing.sm),
-                      AmountText(
-                        minor: total,
-                        currency: currency,
-                        signed: false,
-                        large: true,
-                        style: theme.textTheme.displaySmall,
-                      ),
-                      if (converted > 0 || otherCurrencies > 0) ...[
-                        const SizedBox(height: Spacing.sm),
-                        Text(
-                          [
-                            if (converted > 0)
-                              '$converted ${converted == 1 ? 'account' : 'accounts'} '
-                                  "converted at today's rate.",
-                            if (otherCurrencies > 0)
-                              '$otherCurrencies ${otherCurrencies == 1 ? 'account' : 'accounts'} '
-                                  'in other currencies not included (no rate yet).',
-                          ].join(' '),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+              if (recalculating) ...[
+                const RecalculatingBanner(),
+                const SizedBox(height: Spacing.md),
+              ] else ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(Spacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total balance', style: muted),
+                        const SizedBox(height: Spacing.xs),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: AmountText(
+                            minor: total,
+                            currency: currency,
+                            signed: false,
+                            large: true,
+                            style: theme.textTheme.displaySmall,
                           ),
                         ),
+                        if (converted > 0 || otherCurrencies > 0) ...[
+                          const SizedBox(height: Spacing.sm),
+                          Text(
+                            [
+                              if (converted > 0)
+                                '$converted ${converted == 1 ? 'account' : 'accounts'} '
+                                    "converted at today's rate.",
+                              if (otherCurrencies > 0)
+                                '$otherCurrencies ${otherCurrencies == 1 ? 'account' : 'accounts'} '
+                                    'in other currencies not included (no rate yet).',
+                            ].join(' '),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: Spacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MonthFigure(
+                const SizedBox(height: Spacing.md),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final incomeCard = _MonthFigure(
                       label: 'Income today',
                       minor: totals.incomeMinor,
                       currency: currency,
                       labelStyle: muted,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.md),
-                  Expanded(
-                    child: _MonthFigure(
+                    );
+                    final spentCard = _MonthFigure(
                       label: 'Spent today',
                       minor: -totals.expenseMinor,
                       currency: currency,
                       labelStyle: muted,
-                    ),
-                  ),
-                ],
-              ),
-              if (totals.missingRate > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: Spacing.sm),
-                  child: Text(
-                    '${totals.missingRate} ${totals.missingRate == 1 ? 'transaction' : 'transactions'} '
-                    'in other currencies not counted yet: '
-                    '${totals.missingRate == 1 ? 'it waits' : 'they wait'} for an exchange rate.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                    );
+                    if (constraints.maxWidth < 280) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          incomeCard,
+                          const SizedBox(height: Spacing.sm),
+                          spentCard,
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: incomeCard),
+                        const SizedBox(width: Spacing.sm),
+                        Expanded(child: spentCard),
+                      ],
+                    );
+                  },
                 ),
-              const SizedBox(height: Spacing.xl),
-            ],
-            if (budgets.isNotEmpty && !recalculating) ...[
-              _SectionHeader(
-                title: 'Budgets',
-                action: 'Manage',
-                onAction: () => context.push(Routes.budgets),
-              ),
-              Card(
-                child: Column(
-                  children: [
-                    for (final b in budgets.take(3))
-                      BudgetTile(progress: b, currency: currency),
-                  ],
-                ),
-              ),
-              const SizedBox(height: Spacing.xl),
-            ],
-            _SectionHeader(
-              title: 'Accounts',
-              action: 'Manage',
-              onAction: () => context.push(Routes.accounts),
-            ),
-            if (accounts.isEmpty)
-              Card(
-                child: ListTile(
-                  leading: const AppIcon(HugeIcons.strokeRoundedWallet02),
-                  title: const Text('Add your first account'),
-                  subtitle: const Text(
-                    'Cash, a bank account, a card or a mobile wallet.',
-                  ),
-                  onTap: () => context.push(Routes.newAccount),
-                ),
-              )
-            else
-              Card(
-                child: Column(
-                  children: [
-                    for (final a in accounts)
-                      ListTile(
-                        leading: AppIcon(accountIcon(a.type)),
-                        title: Text(a.name),
-                        trailing: TrailingAmount(
-                          child: AmountText(
-                            minor: balances[a.id] ?? a.openingBalanceMinor,
-                            currency: a.currency,
-                            signed: false,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        onTap: () => context.push(Routes.editAccount(a.id)),
+                if (totals.missingRate > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Spacing.sm),
+                    child: Text(
+                      '${totals.missingRate} ${totals.missingRate == 1 ? 'transaction' : 'transactions'} '
+                      'in other currencies not counted yet: '
+                      '${totals.missingRate == 1 ? 'it waits' : 'they wait'} for an exchange rate.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                  ],
+                    ),
+                  ),
+                const SizedBox(height: Spacing.md),
+              ],
+              if (budgets.isNotEmpty && !recalculating) ...[
+                _SectionHeader(
+                  title: 'Budgets',
+                  action: 'Manage',
+                  onAction: () => context.push(Routes.budgets),
                 ),
+                Card(
+                  child: Column(
+                    children: [
+                      for (final b in budgets.take(3))
+                        BudgetTile(progress: b, currency: currency),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: Spacing.md),
+              ],
+              _SectionHeader(
+                title: 'Accounts',
+                action: 'Manage',
+                onAction: () => context.push(Routes.accounts),
               ),
-            const SizedBox(height: Spacing.xl),
-            _SectionHeader(
-              title: 'Recent',
-              action: 'See all',
-              onAction: () => context.go(Routes.transactions),
-            ),
-            if (recent.isEmpty)
-              EmptyRecentCard(
-                hasAccounts: accounts.isNotEmpty,
-                onAction: () => context.push(
-                  accounts.isEmpty
-                      ? Routes.newAccount
-                      : Routes.newTransaction(TxKind.expense),
+              if (accounts.isEmpty)
+                Card(
+                  child: ListTile(
+                    leading: const AppIcon(HugeIcons.strokeRoundedWallet02),
+                    title: const Text('Add your first account'),
+                    subtitle: const Text(
+                      'Cash, a bank account, a card or a mobile wallet.',
+                    ),
+                    onTap: () => context.push(Routes.newAccount),
+                  ),
+                )
+              else
+                Card(
+                  child: Column(
+                    children: [
+                      for (final a in accounts)
+                        ListTile(
+                          leading: AppIcon(accountIcon(a.type)),
+                          title: Text(a.name),
+                          trailing: TrailingAmount(
+                            child: AmountText(
+                              minor: balances[a.id] ?? a.openingBalanceMinor,
+                              currency: a.currency,
+                              signed: false,
+                              style: theme.textTheme.titleMedium,
+                            ),
+                          ),
+                          onTap: () => context.push(Routes.editAccount(a.id)),
+                        ),
+                    ],
+                  ),
                 ),
-              )
-            else
-              Card(
-                child: Column(
-                  children: [
-                    for (final t in recent) TransactionTile(transaction: t),
-                  ],
-                ),
+              const SizedBox(height: Spacing.md),
+              _SectionHeader(
+                title: 'Recent',
+                action: 'See all',
+                onAction: () => context.go(Routes.transactions),
               ),
-          ],
+              if (recent.isEmpty)
+                EmptyRecentCard(
+                  hasAccounts: accounts.isNotEmpty,
+                  onAction: () => context.push(
+                    accounts.isEmpty
+                        ? Routes.newAccount
+                        : Routes.newTransaction(TxKind.expense),
+                  ),
+                )
+              else
+                Card(
+                  child: Column(
+                    children: [
+                      for (final t in recent) TransactionTile(transaction: t),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -311,13 +326,13 @@ class _PennyCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           Spacing.sm,
-          Spacing.sm,
-          Spacing.lg,
-          Spacing.sm,
+          Spacing.xs,
+          Spacing.md,
+          Spacing.xs,
         ),
         child: Row(
           children: [
-            PandaMascot(mood: greeting.mood, size: 88),
+            PandaMascot(mood: greeting.mood, size: 64),
             const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(greeting.message, style: theme.textTheme.bodyMedium),
@@ -346,16 +361,20 @@ class _MonthFigure extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
+        padding: const EdgeInsets.all(Spacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: labelStyle),
             const SizedBox(height: Spacing.xs),
-            AmountText(
-              minor: minor,
-              currency: currency,
-              style: Theme.of(context).textTheme.titleLarge,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: AmountText(
+                minor: minor,
+                currency: currency,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
           ],
         ),

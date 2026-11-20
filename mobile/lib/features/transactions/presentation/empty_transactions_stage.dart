@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
@@ -110,156 +111,158 @@ class _EmptyTransactionsStageState
     final sampleAmount =
         '${formatSigned(sampleMinor, baseCurrency)} $baseCurrency';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.lg,
-        Spacing.xl,
-        Spacing.lg,
-        96,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Semantics(
-              button: true,
-              label: sleeping
-                  ? 'Tap Penny to wake her up'
-                  : 'Tap Penny to make her giggle',
-              excludeSemantics: true,
-              child: Material(
-                shape: const CircleBorder(),
-                color: _pokeCount > 0
-                    ? scheme.secondaryContainer.withValues(alpha: 0.28)
-                    : scheme.surface,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => setState(() => _pokeCount++),
-                  child: Container(
-                    width: 148,
-                    height: 148,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _pokeCount > 0 ? scheme.primary : scheme.outline,
-                      ),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
-                      children: [
-                        PandaMascot(
-                          mood: mood,
-                          size: 128,
-                          giggleTrigger: _pokeCount,
-                          fallback: AppIcon(
-                            hasAccounts
-                                ? HugeIcons.strokeRoundedInvoice01
-                                : HugeIcons.strokeRoundedWallet01,
-                            size: 48,
-                            color: scheme.primary,
-                          ),
+    final hPad = ResponsiveLayout.horizontalPadding(context);
+
+    return ResponsiveBody(
+      maxWidth: ContentWidths.form,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(hPad, Spacing.lg, hPad, 88),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Semantics(
+                button: true,
+                label: sleeping
+                    ? 'Tap Penny to wake her up'
+                    : 'Tap Penny to make her giggle',
+                excludeSemantics: true,
+                child: Material(
+                  shape: const CircleBorder(),
+                  color: _pokeCount > 0
+                      ? scheme.secondaryContainer.withValues(alpha: 0.28)
+                      : scheme.surface,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => setState(() => _pokeCount++),
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _pokeCount > 0
+                              ? scheme.primary
+                              : scheme.outline,
                         ),
-                        if (sleeping)
-                          Positioned(
-                            top: 6,
-                            right: 2,
-                            child: ExcludeSemantics(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Spacing.sm,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: scheme.surface,
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: scheme.outline),
-                                ),
-                                child: Text(
-                                  'Zzz',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          PandaMascot(
+                            mood: mood,
+                            size: 104,
+                            giggleTrigger: _pokeCount,
+                            fallback: AppIcon(
+                              hasAccounts
+                                  ? HugeIcons.strokeRoundedInvoice01
+                                  : HugeIcons.strokeRoundedWallet01,
+                              size: 48,
+                              color: scheme.primary,
+                            ),
+                          ),
+                          if (sleeping)
+                            Positioned(
+                              top: 6,
+                              right: 2,
+                              child: ExcludeSemantics(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Spacing.sm,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surface,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: scheme.outline),
+                                  ),
+                                  child: Text(
+                                    'Zzz',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          Text(
-            sleeping ? 'Tap Penny to wake her up' : 'Penny is ready!',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+            const SizedBox(height: Spacing.sm),
+            Text(
+              sleeping ? 'Tap Penny to wake her up' : 'Penny is ready!',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: Spacing.md),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'No transactions yet',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+            const SizedBox(height: Spacing.md),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(Spacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'No transactions yet',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: Spacing.xs),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: KeyedSubtree(
-                      key: ValueKey(message),
-                      child: Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                    const SizedBox(height: Spacing.xs),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: KeyedSubtree(
+                        key: ValueKey(message),
+                        child: Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: Spacing.lg),
-          _LaunchpadCard(
-            hasAccounts: hasAccounts,
-            accountCount: accounts.length,
-            onAddAccount: () => context.push(Routes.newAccount),
-            onAddExpense: () =>
-                context.push(Routes.newTransaction(TxKind.expense)),
-            onAddIncome: () =>
-                context.push(Routes.newTransaction(TxKind.income)),
-          ),
-          const SizedBox(height: Spacing.lg),
-          Text(
-            'Preview · how entries appear',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
+            const SizedBox(height: Spacing.md),
+            _LaunchpadCard(
+              hasAccounts: hasAccounts,
+              accountCount: accounts.length,
+              onAddAccount: () => context.push(Routes.newAccount),
+              onAddExpense: () =>
+                  context.push(Routes.newTransaction(TxKind.expense)),
+              onAddIncome: () =>
+                  context.push(Routes.newTransaction(TxKind.income)),
             ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          _GhostPreviewCard(
-            accountLabel: hasAccounts ? accounts.first.name : 'Wallet',
-            amountLabel: sampleAmount,
-            onTap: () => context.push(
-              hasAccounts
-                  ? Routes.newTransaction(TxKind.expense)
-                  : Routes.newAccount,
+            const SizedBox(height: Spacing.md),
+            Text(
+              'Preview · how entries appear',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: Spacing.sm),
+            _GhostPreviewCard(
+              accountLabel: hasAccounts ? accounts.first.name : 'Wallet',
+              amountLabel: sampleAmount,
+              onTap: () => context.push(
+                hasAccounts
+                    ? Routes.newTransaction(TxKind.expense)
+                    : Routes.newAccount,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

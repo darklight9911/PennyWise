@@ -6,6 +6,7 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currencies.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../app_lock/application/app_lock.dart';
 import '../../app_lock/application/biometrics.dart';
 import '../../auth/application/auth_controller.dart';
@@ -78,133 +79,135 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          if (guest)
-            const _CardPadding(
-              child: _AccountCard(
-                icon: HugeIcons.strokeRoundedCloudUpload,
-                title: 'Back up and sync',
-                message:
-                    'You are using pennyWise without an account. Your data '
-                    'is only on this phone. Log in or create a free account '
-                    'to back it up and use it on other phones too.',
-                showCreate: true,
+      body: ResponsiveBody(
+        child: ListView(
+          children: [
+            if (guest)
+              const _CardPadding(
+                child: _AccountCard(
+                  icon: HugeIcons.strokeRoundedCloudUpload,
+                  title: 'Back up and sync',
+                  message:
+                      'You are using pennyWise without an account. Your data '
+                      'is only on this phone. Log in or create a free account '
+                      'to back it up and use it on other phones too.',
+                  showCreate: true,
+                ),
               ),
-            ),
-          if (auth is SignedIn && auth.sessionExpired)
-            const _CardPadding(
-              child: _AccountCard(
-                icon: HugeIcons.strokeRoundedCloudSlowWind,
-                title: 'Log in again to sync',
-                message:
-                    'Your session ended. Everything still works on this '
-                    'phone; log in again to sync your changes.',
-                showCreate: false,
+            if (auth is SignedIn && auth.sessionExpired)
+              const _CardPadding(
+                child: _AccountCard(
+                  icon: HugeIcons.strokeRoundedCloudSlowWind,
+                  title: 'Log in again to sync',
+                  message:
+                      'Your session ended. Everything still works on this '
+                      'phone; log in again to sync your changes.',
+                  showCreate: false,
+                ),
               ),
-            ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedUser),
-            title: const Text('Profile'),
-            subtitle: Text(
-              user != null
-                  ? (user.emailVerified
-                        ? user.email
-                        : '${user.email} · not confirmed')
-                  : 'Offline guest',
-            ),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => showProfileModal(context),
-          ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
-            title: const Text('Main currency'),
-            subtitle: Text(
-              profile == null
-                  ? '—'
-                  : profile.recalculating
-                  ? '${profile.baseCurrency} · converting totals…'
-                  : currencyLabel(profile.baseCurrency),
-            ),
-            trailing: profile == null
-                ? null
-                : const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: profile == null || profile.recalculating
-                ? null
-                : () => showMainCurrencyDialog(context, profile.baseCurrency),
-          ),
-          _AppLockTiles(),
-          const Divider(),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedWallet01),
-            title: const Text('Accounts'),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => context.push(Routes.accounts),
-          ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedGrid),
-            title: const Text('Categories'),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => context.push(Routes.categories),
-          ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedTarget02),
-            title: const Text('Budgets'),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => context.push(Routes.budgets),
-          ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedPiggyBank),
-            title: const Text('Goals'),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => context.push(Routes.goals),
-          ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedRepeat),
-            title: const Text('Recurring'),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => context.push(Routes.recurring),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedInformationCircle),
-            title: const Text('About pennyWise'),
-            subtitle: const Text('Version 0.1.0'),
-          ),
-          if (user != null)
             ListTile(
-              leading: const AppIcon(HugeIcons.strokeRoundedLogout03),
-              title: const Text('Log out'),
-              onTap: () => _confirmLogout(context, ref),
+              leading: const AppIcon(HugeIcons.strokeRoundedUser),
+              title: const Text('Profile'),
+              subtitle: Text(
+                user != null
+                    ? (user.emailVerified
+                          ? user.email
+                          : '${user.email} · not confirmed')
+                    : 'Offline guest',
+              ),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => showProfileModal(context),
             ),
-          if (guest)
             ListTile(
-              leading: AppIcon(
-                HugeIcons.strokeRoundedDelete02,
-                color: Theme.of(context).colorScheme.error,
+              leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
+              title: const Text('Main currency'),
+              subtitle: Text(
+                profile == null
+                    ? '—'
+                    : profile.recalculating
+                    ? '${profile.baseCurrency} · converting totals…'
+                    : currencyLabel(profile.baseCurrency),
               ),
-              title: Text(
-                'Erase data on this phone',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onTap: () => _confirmErase(context, ref),
+              trailing: profile == null
+                  ? null
+                  : const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: profile == null || profile.recalculating
+                  ? null
+                  : () => showMainCurrencyDialog(context, profile.baseCurrency),
             ),
-          if (user != null)
+            _AppLockTiles(),
+            const Divider(),
             ListTile(
-              leading: AppIcon(
-                HugeIcons.strokeRoundedDelete02,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                'Delete account',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onTap: () => showDeleteAccountDialog(
-                context,
-                hasPassword: user.hasPassword,
-              ),
+              leading: const AppIcon(HugeIcons.strokeRoundedWallet01),
+              title: const Text('Accounts'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => context.push(Routes.accounts),
             ),
-        ],
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedGrid),
+              title: const Text('Categories'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => context.push(Routes.categories),
+            ),
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedTarget02),
+              title: const Text('Budgets'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => context.push(Routes.budgets),
+            ),
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedPiggyBank),
+              title: const Text('Goals'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => context.push(Routes.goals),
+            ),
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedRepeat),
+              title: const Text('Recurring'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => context.push(Routes.recurring),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedInformationCircle),
+              title: const Text('About pennyWise'),
+              subtitle: const Text('Version 0.1.0'),
+            ),
+            if (user != null)
+              ListTile(
+                leading: const AppIcon(HugeIcons.strokeRoundedLogout03),
+                title: const Text('Log out'),
+                onTap: () => _confirmLogout(context, ref),
+              ),
+            if (guest)
+              ListTile(
+                leading: AppIcon(
+                  HugeIcons.strokeRoundedDelete02,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Erase data on this phone',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () => _confirmErase(context, ref),
+              ),
+            if (user != null)
+              ListTile(
+                leading: AppIcon(
+                  HugeIcons.strokeRoundedDelete02,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Delete account',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () => showDeleteAccountDialog(
+                  context,
+                  hasPassword: user.hasPassword,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

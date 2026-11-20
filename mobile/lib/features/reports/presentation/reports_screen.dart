@@ -11,6 +11,7 @@ import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../currency/presentation/recalculating_banner.dart';
 import '../../ledger/application/ledger_providers.dart';
@@ -121,6 +122,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         .where((a) => !a.archived)
         .toList();
 
+    final hPad = ResponsiveLayout.horizontalPadding(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reports'),
@@ -132,75 +135,72 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          Spacing.lg,
-          Spacing.lg,
-          Spacing.lg,
-          96,
-        ),
-        children: [
-          SegmentedButton<ReportPeriod>(
-            segments: const [
-              ButtonSegment(value: ReportPeriod.month, label: Text('Month')),
-              ButtonSegment(
-                value: ReportPeriod.quarter,
-                label: Text('3 months'),
-              ),
-              ButtonSegment(value: ReportPeriod.year, label: Text('Year')),
+      body: ResponsiveBody(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(hPad, Spacing.md, hPad, 88),
+          children: [
+            SegmentedButton<ReportPeriod>(
+              segments: const [
+                ButtonSegment(value: ReportPeriod.month, label: Text('Month')),
+                ButtonSegment(
+                  value: ReportPeriod.quarter,
+                  label: Text('3 months'),
+                ),
+                ButtonSegment(value: ReportPeriod.year, label: Text('Year')),
+              ],
+              selected: {_period},
+              onSelectionChanged: (s) => setState(() => _period = s.single),
+            ),
+            const SizedBox(height: Spacing.md),
+            if (profile?.recalculating ?? false)
+              const RecalculatingBanner()
+            else if (spending.isLoading && !spending.hasValue)
+              const Padding(
+                padding: EdgeInsets.all(Spacing.xl),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (spent == 0 && earned == 0)
+              EmptyState(
+                mascot: PandaMood.thinking,
+                icon: HugeIcons.strokeRoundedPieChart,
+                title: 'Nothing to show yet',
+                message:
+                    'No income or spending ${range.label}. Charts appear once you add transactions.',
+                action: FilledButton.icon(
+                  icon: AppIcon(
+                    accounts.isEmpty
+                        ? HugeIcons.strokeRoundedWallet01
+                        : HugeIcons.strokeRoundedPlusSign,
+                    size: 20,
+                  ),
+                  label: Text(
+                    accounts.isEmpty
+                        ? 'Add your first account'
+                        : 'Add transaction',
+                  ),
+                  onPressed: () => context.push(
+                    accounts.isEmpty
+                        ? Routes.newAccount
+                        : Routes.newTransaction(),
+                  ),
+                ),
+              )
+            else ...[
+              _Totals(income: earned, spent: spent, currency: base),
+              const SizedBox(height: Spacing.md),
+              if (cats.isNotEmpty)
+                _SpendingCard(
+                  cats: cats,
+                  total: spent,
+                  currency: base,
+                  label: range.label,
+                ),
+              const SizedBox(height: Spacing.md),
+              if (flow.value case final months?)
+                _FlowCard(months: months, currency: base),
             ],
-            selected: {_period},
-            onSelectionChanged: (s) => setState(() => _period = s.single),
-          ),
-          const SizedBox(height: Spacing.lg),
-          if (profile?.recalculating ?? false)
-            const RecalculatingBanner()
-          else if (spending.isLoading && !spending.hasValue)
-            const Padding(
-              padding: EdgeInsets.all(Spacing.xl),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (spent == 0 && earned == 0)
-            EmptyState(
-              mascot: PandaMood.thinking,
-              icon: HugeIcons.strokeRoundedPieChart,
-              title: 'Nothing to show yet',
-              message:
-                  'No income or spending ${range.label}. Charts appear once you add transactions.',
-              action: FilledButton.icon(
-                icon: AppIcon(
-                  accounts.isEmpty
-                      ? HugeIcons.strokeRoundedWallet01
-                      : HugeIcons.strokeRoundedPlusSign,
-                  size: 20,
-                ),
-                label: Text(
-                  accounts.isEmpty
-                      ? 'Add your first account'
-                      : 'Add transaction',
-                ),
-                onPressed: () => context.push(
-                  accounts.isEmpty
-                      ? Routes.newAccount
-                      : Routes.newTransaction(),
-                ),
-              ),
-            )
-          else ...[
-            _Totals(income: earned, spent: spent, currency: base),
-            const SizedBox(height: Spacing.lg),
-            if (cats.isNotEmpty)
-              _SpendingCard(
-                cats: cats,
-                total: spent,
-                currency: base,
-                label: range.label,
-              ),
-            const SizedBox(height: Spacing.lg),
-            if (flow.value case final months?)
-              _FlowCard(months: months, currency: base),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -226,21 +226,27 @@ class _Totals extends StatelessWidget {
         children: [
           Text(label, style: muted),
           const SizedBox(height: 2),
-          AmountText(
-            minor: minor,
-            currency: currency,
-            style: Theme.of(context).textTheme.titleMedium,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: AmountText(
+              minor: minor,
+              currency: currency,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
         ],
       ),
     );
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
+        padding: const EdgeInsets.all(Spacing.md),
         child: Row(
           children: [
             figure('Income', income),
+            const SizedBox(width: Spacing.sm),
             figure('Spent', -spent),
+            const SizedBox(width: Spacing.sm),
             figure('Net', income - spent),
           ],
         ),
@@ -279,69 +285,161 @@ class _SpendingCard extends StatelessWidget {
     ];
     String pct(int v) => total == 0 ? '0%' : '${(v * 100 / total).round()}%';
 
+    Widget buildChart(double width) => SizedBox(
+      width: width,
+      child: DonutChart(
+        values: [for (final r in rows) r.$2],
+        colors: colors,
+        semanticsLabel:
+            'Spending $label: '
+            '${[for (final r in rows) '${r.$1} ${pct(r.$2)}'].join(', ')}',
+        center: Padding(
+          padding: EdgeInsets.all(width * 0.22),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Spent', style: theme.textTheme.bodySmall),
+                Text(
+                  formatMinor(total, currency),
+                  style: theme.textTheme.titleMedium,
+                ),
+                Text(currency, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 18;
+
+    Widget buildLegendRow(int i, {required bool stack}) {
+      final dot = Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: colors[i], shape: BoxShape.circle),
+      );
+      final nameWidget = Text(
+        rows[i].$1,
+        maxLines: stack ? 2 : 1,
+        overflow: TextOverflow.ellipsis,
+      );
+      final amountText = Text(formatMinor(rows[i].$2, currency));
+      final pctText = ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 40),
+        child: Text(
+          pct(rows[i].$2),
+          textAlign: TextAlign.end,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+
+      if (stack) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  dot,
+                  const SizedBox(width: Spacing.md),
+                  Expanded(child: nameWidget),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: amountText,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  pctText,
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            dot,
+            const SizedBox(width: Spacing.md),
+            Expanded(flex: 3, child: nameWidget),
+            const SizedBox(width: Spacing.sm),
+            Flexible(
+              flex: 2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    amountText,
+                    const SizedBox(width: Spacing.xs),
+                    pctText,
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
+        padding: const EdgeInsets.all(Spacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Spending by category', style: theme.textTheme.titleMedium),
-            const SizedBox(height: Spacing.lg),
-            Center(
-              child: SizedBox(
-                width: 180,
-                child: DonutChart(
-                  values: [for (final r in rows) r.$2],
-                  colors: colors,
-                  semanticsLabel:
-                      'Spending $label: '
-                      '${[for (final r in rows) '${r.$1} ${pct(r.$2)}'].join(', ')}',
-                  center: Column(
-                    mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: Spacing.md),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final sideBySide = constraints.maxWidth >= 520;
+                final stackLegend =
+                    !sideBySide && constraints.maxWidth < 320 && largeText;
+                final legendRows = [
+                  for (var i = 0; i < rows.length; i++)
+                    buildLegendRow(i, stack: stackLegend),
+                ];
+                if (sideBySide) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text('Spent', style: theme.textTheme.bodySmall),
-                      Text(
-                        formatMinor(total, currency),
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      Text(currency, style: theme.textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: Spacing.lg),
-            for (var i = 0; i < rows.length; i++)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: colors[i],
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.md),
-                    Expanded(
-                      child: Text(rows[i].$1, overflow: TextOverflow.ellipsis),
-                    ),
-                    Text(formatMinor(rows[i].$2, currency)),
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        pct(rows[i].$2),
-                        textAlign: TextAlign.end,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      buildChart(160),
+                      const SizedBox(width: Spacing.lg),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: legendRows,
                         ),
                       ),
-                    ),
+                    ],
+                  );
+                }
+                return Column(
+                  children: [
+                    Center(child: buildChart(156)),
+                    const SizedBox(height: Spacing.md),
+                    ...legendRows,
                   ],
-                ),
-              ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -377,7 +475,7 @@ class _FlowCard extends StatelessWidget {
     );
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
+        padding: const EdgeInsets.all(Spacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -387,7 +485,7 @@ class _FlowCard extends StatelessWidget {
               spacing: Spacing.lg,
               children: [key(fin.income, 'In'), key(fin.expense, 'Out')],
             ),
-            const SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.md),
             PairedBarChart(
               labels: [for (final m in months) name(m.month)],
               first: [for (final m in months) m.incomeMinor],

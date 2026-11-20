@@ -9,6 +9,7 @@ import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/panda_mascot.dart';
+import '../../../core/widgets/responsive_layout.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/presentation/day_labels.dart';
@@ -171,16 +172,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
     final hasActiveFilter = _dateFilter.isActive || _query.trim().isNotEmpty;
     final theme = Theme.of(context);
+    final hPad = ResponsiveLayout.horizontalPadding(context);
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Spacing.lg,
-            Spacing.sm,
-            Spacing.lg,
-            Spacing.xs,
-          ),
+          padding: EdgeInsets.fromLTRB(hPad, Spacing.sm, hPad, Spacing.xs),
           child: TextField(
             controller: _searchController,
             onChanged: (value) => setState(() => _query = value),
@@ -203,10 +200,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.lg,
-            vertical: Spacing.xs,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: Spacing.xs),
           child: Row(
             children: [
               for (final preset in const [
@@ -262,12 +256,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ),
         if (hasActiveFilter && result.items.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.lg,
-              Spacing.xs,
-              Spacing.lg,
-              Spacing.xs,
-            ),
+            padding: EdgeInsets.fromLTRB(hPad, Spacing.xs, hPad, Spacing.xs),
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -364,17 +353,19 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         onPressed: () => context.push(Routes.newTransaction()),
         child: const AppIcon(HugeIcons.strokeRoundedPlusSign),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(syncControllerProvider.notifier).syncNow(),
-        child: transactions.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Could not load: $e')),
-          data: (list) => list.isEmpty
-              ? ListView(
-                  // Scrollable, so pull-to-refresh works on the empty state.
-                  children: const [EmptyTransactionsStage()],
-                )
-              : _buildLoadedBody(context, list),
+      body: ResponsiveBody(
+        child: RefreshIndicator(
+          onRefresh: () => ref.read(syncControllerProvider.notifier).syncNow(),
+          child: transactions.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Could not load: $e')),
+            data: (list) => list.isEmpty
+                ? ListView(
+                    // Scrollable, so pull-to-refresh works on the empty state.
+                    children: const [EmptyTransactionsStage()],
+                  )
+                : _buildLoadedBody(context, list),
+          ),
         ),
       ),
     );
@@ -422,6 +413,7 @@ class _GroupedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final hPad = ResponsiveLayout.horizontalPadding(context);
     final rows = <Widget>[];
     String? day;
     for (final t in transactions) {
@@ -429,12 +421,7 @@ class _GroupedList extends StatelessWidget {
         day = t.localDate;
         rows.add(
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.lg,
-              Spacing.lg,
-              Spacing.lg,
-              Spacing.xs,
-            ),
+            padding: EdgeInsets.fromLTRB(hPad, Spacing.md, hPad, Spacing.xs),
             child: Text(
               dayLabel(day, now),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
