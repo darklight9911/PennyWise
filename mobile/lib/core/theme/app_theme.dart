@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../widgets/responsive_layout.dart';
 import 'app_colors.dart';
 import 'finance_colors.dart';
 
@@ -98,6 +99,7 @@ abstract final class AppTheme {
     );
 
     return base.copyWith(
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       textTheme: base.textTheme
           .copyWith(bodyLarge: AppTypography.body)
           .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface),
@@ -107,6 +109,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        toolbarHeight: 52,
       ),
       cardTheme: CardThemeData(
         color: scheme.surface,
@@ -127,6 +130,36 @@ abstract final class AppTheme {
           ),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.button),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.button),
+          ),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          visualDensity: const VisualDensity(vertical: -1),
+          tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+      ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
@@ -135,10 +168,50 @@ abstract final class AppTheme {
         backgroundColor: scheme.surface,
         indicatorColor: scheme.secondaryContainer,
         surfaceTintColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: scheme.surface,
+        indicatorColor: scheme.secondaryContainer,
+        labelType: NavigationRailLabelType.all,
+        minWidth: 76,
+      ),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: Spacing.lg),
+        minVerticalPadding: 6,
+        horizontalTitleGap: Spacing.md,
+        minTileHeight: 52,
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm,
+          vertical: 4,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        constraints: const BoxConstraints(maxWidth: ContentWidths.form),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.card)),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        constraints: const BoxConstraints(maxWidth: ContentWidths.form),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.card),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surface,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.md,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.button),
           borderSide: BorderSide(color: outline),

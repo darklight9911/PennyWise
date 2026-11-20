@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/finance_colors.dart';
 import '../utils/money.dart';
+import 'responsive_layout.dart';
 
 /// Shows a money amount with a +/− sign, tabular digits and the right colour.
 ///
@@ -55,10 +58,10 @@ class TrailingAmount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxWidth =
+        math.min(MediaQuery.sizeOf(context).width, ContentWidths.content) * 0.4;
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width * 0.4,
-      ),
+      constraints: BoxConstraints(maxWidth: maxWidth),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerRight,

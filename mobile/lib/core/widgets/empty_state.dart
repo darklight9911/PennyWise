@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'app_icon.dart';
 import '../theme/app_theme.dart';
 import 'panda_mascot.dart';
+import 'responsive_layout.dart';
 
 /// Centered icon (or Penny) + title + message, for screens with no data yet.
 class EmptyState extends StatelessWidget {
@@ -34,30 +35,37 @@ class EmptyState extends StatelessWidget {
       color: theme.colorScheme.primary,
     );
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (mascot case final mood?)
-              PandaMascot(mood: mood, size: 160, fallback: iconWidget)
-            else
-              iconWidget,
-            const SizedBox(height: Spacing.lg),
-            Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: ContentWidths.narrow),
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (mascot case final mood?)
+                PandaMascot(mood: mood, size: 120, fallback: iconWidget)
+              else
+                iconWidget,
+              const SizedBox(height: Spacing.md),
+              Text(
+                title,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
               ),
-            ),
-            if (action != null) ...[
-              const SizedBox(height: Spacing.xl),
-              action!,
+              const SizedBox(height: Spacing.sm),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (action != null) ...[
+                const SizedBox(height: Spacing.lg),
+                action!,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
