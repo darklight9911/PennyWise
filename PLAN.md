@@ -298,6 +298,12 @@ Rules:
 - Spacing scale: 4, 8, 12, 16, 24, 32. Card radius 16, button radius 12.
 - Built with Material 3 `ThemeData`, using a `ColorScheme` filled from the tokens above (not generated from a seed colour).
 
+### Compact & responsive layout
+- **Breakpoints** (`mobile/lib/core/widgets/responsive_layout.dart`): `< 360 dp` narrow phone (`12 dp` horizontal inset vs `16 dp`), `< 600 dp` phone, `>= 720 dp` adaptive `AppShell` switching from compact `NavigationBar` to side `NavigationRail`.
+- **Constrained content widths**: wrap every screen body in `ResponsiveBody` (`440 dp` narrow auth/PIN/empty stages, `560 dp` forms/dialogs/bottom sheets, `720 dp` primary lists and dashboards) so wide viewports never stretch edge-to-edge.
+- **Compact density with accessible targets**: tighten `AppBar` (`52 dp`), `ListTile` (`52 dp` min tile height), `InputDecoration` (`isDense: true`), chips, buttons, and card padding (`12–16 dp`) while keeping `MaterialTapTargetSize.padded` (`>= 48 dp` tap targets).
+- **Overflow-safe responsiveness**: wrap figures with `FittedBox(fit: BoxFit.scaleDown)` and use `LayoutBuilder` / `Wrap` to stack multi-column rows or legends when narrow, ensuring zero overflows down to `320 px` at `2.0x` text scale.
+
 ---
 
 ## 8. Milestones

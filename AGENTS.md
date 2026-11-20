@@ -81,6 +81,24 @@ Before suggesting new work, read PLAN.md section 8 and the latest
 - Months, budgets and reports use `local_date`, never the UTC date.
 - Receipts never pass through the API: presigned R2 PUT, then a HEAD check.
 - No user enumeration on auth routes; rate limits on every route.
+- **Compact & responsive UI**: every screen must stay compact and responsive
+  across narrow phones (`320 px`), standard phones, tablets, and wide
+  desktop/web viewports:
+  - Always wrap screen bodies in `ResponsiveBody`
+    (`lib/core/widgets/responsive_layout.dart`: `ContentWidths.content` = 720 dp
+    for primary/list/detail screens, `ContentWidths.form` = 560 dp for forms
+    and sheets, `ContentWidths.narrow` = 440 dp for auth/PIN/empty stages) and
+    use `ResponsiveLayout.horizontalPadding(context)` (`12 dp` below `360 dp`,
+    `16 dp` otherwise). Never stretch lists, cards, or inputs edge-to-edge on
+    wide viewports.
+  - Keep spacing and component heights compact (`AppTheme` density tokens,
+    `Spacing.sm`/`md`/`lg`, no oversized mascots or bloated nested cards)
+    while preserving `>= 48 dp` tap targets and WCAG contrast (`a11y_test.dart`).
+  - Adapt multi-column rows and figures (`LayoutBuilder`, `Wrap`,
+    `FittedBox(fit: BoxFit.scaleDown)`) so nothing overflows at `320 px` width
+    or `2.0x` text scale. `AppShell` switches to `NavigationRail` at `>= 720 dp`.
+  - Keep `mobile/test/core/responsive_layout_test.dart` and
+    `mobile/test/a11y/a11y_test.dart` passing on every UI change.
 
 ## Layout
 
