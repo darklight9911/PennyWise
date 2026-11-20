@@ -2,15 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../core/widgets/app_icon.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currencies.dart';
-import '../../auth/application/auth_controller.dart';
-import '../../currency/presentation/main_currency_dialog.dart';
+import '../../../core/widgets/app_icon.dart';
 import '../../app_lock/application/app_lock.dart';
 import '../../app_lock/application/biometrics.dart';
-import '../application/theme_mode.dart';
+import '../../auth/application/auth_controller.dart';
+import '../../currency/presentation/main_currency_dialog.dart';
 import 'delete_account_dialog.dart';
 import 'verify_email_card.dart';
 
@@ -39,31 +39,6 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
     if (ok == true) await ref.read(authControllerProvider.notifier).logout();
-  }
-
-  Future<void> _pickTheme(BuildContext context, WidgetRef ref) async {
-    final picked = await showDialog<ThemeMode>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Appearance'),
-        children: [
-          RadioGroup<ThemeMode>(
-            groupValue: ref.read(themeModeProvider),
-            onChanged: (m) => Navigator.pop(context, m),
-            child: Column(
-              children: [
-                for (final m in ThemeMode.values)
-                  RadioListTile<ThemeMode>(
-                    value: m,
-                    title: Text(themeModeLabel(m)),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-    if (picked != null) await ref.read(themeModeProvider.notifier).set(picked);
   }
 
   Future<void> _confirmErase(BuildContext context, WidgetRef ref) async {
@@ -97,6 +72,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final auth = ref.watch(authControllerProvider);
     final user = auth is SignedIn ? auth.user : null;
     final profile = auth.profile;
@@ -129,26 +105,83 @@ class SettingsScreen extends ConsumerWidget {
                 showCreate: false,
               ),
             ),
-          if (user != null && !user.emailVerified)
+          if (user != null) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 Spacing.lg,
-                Spacing.sm,
+                Spacing.md,
                 Spacing.lg,
-                Spacing.sm,
+                Spacing.xs,
               ),
-              child: VerifyEmailCard(user: user),
-            ),
-          if (user != null)
-            ListTile(
-              leading: const AppIcon(HugeIcons.strokeRoundedUserCircle),
-              title: Text(user.displayName),
-              subtitle: Text(
-                user.emailVerified
-                    ? user.email
-                    : '${user.email} · not confirmed',
+              child: Text(
+                'Profile',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primary.withValues(
+                          alpha: 0.12,
+                        ),
+                        foregroundColor: theme.colorScheme.primary,
+                        child: Text(
+                          user.displayName.isNotEmpty
+                              ? user.displayName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(
+                        user.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.emailVerified
+                                ? user.email
+                                : '${user.email} · not confirmed',
+                          ),
+                          const SizedBox(height: Spacing.xs),
+                          _EmailVerificationBadge(verified: user.emailVerified),
+                        ],
+                      ),
+                    ),
+                    if (!user.emailVerified)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Spacing.md,
+                          0,
+                          Spacing.md,
+                          Spacing.md,
+                        ),
+                        child: VerifyEmailCard(user: user),
+                      ),
+                    const Divider(height: 1),
+                    ListTile(
+                      dense: true,
+                      leading: const AppIcon(HugeIcons.strokeRoundedClock01),
+                      title: const Text('Time zone'),
+                      subtitle: Text(profile?.timezone ?? '—'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
             title: const Text('Main currency'),
@@ -166,18 +199,12 @@ class SettingsScreen extends ConsumerWidget {
                 ? null
                 : () => showMainCurrencyDialog(context, profile.baseCurrency),
           ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedClock01),
-            title: const Text('Time zone'),
-            subtitle: Text(profile?.timezone ?? '—'),
-          ),
-          ListTile(
-            leading: const AppIcon(HugeIcons.strokeRoundedPaintBrush02),
-            title: const Text('Appearance'),
-            subtitle: Text(themeModeLabel(ref.watch(themeModeProvider))),
-            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-            onTap: () => _pickTheme(context, ref),
-          ),
+          if (user == null)
+            ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedClock01),
+              title: const Text('Time zone'),
+              subtitle: Text(profile?.timezone ?? '—'),
+            ),
           _AppLockTiles(),
           const Divider(),
           ListTile(
@@ -249,6 +276,49 @@ class SettingsScreen extends ConsumerWidget {
                 hasPassword: user.hasPassword,
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmailVerificationBadge extends StatelessWidget {
+  const _EmailVerificationBadge({required this.verified});
+
+  final bool verified;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = verified ? AppColors.incomeText : theme.colorScheme.error;
+    final bg = (verified ? AppColors.income : theme.colorScheme.error)
+        .withValues(alpha: 0.12);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
+          AppIcon(
+            verified
+                ? HugeIcons.strokeRoundedCheckmarkCircle02
+                : HugeIcons.strokeRoundedAlertCircle,
+            size: 14,
+            color: color,
+          ),
+          Text(
+            verified ? 'Confirmed' : 'Not confirmed',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
         ],
       ),
     );

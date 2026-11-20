@@ -21,6 +21,7 @@ import '../../ledger/presentation/transaction_tile.dart';
 import '../../sync/sync_controller.dart';
 import '../../transactions/presentation/empty_transactions_stage.dart';
 import '../domain/penny_greeting.dart';
+import 'theme_toggle.dart';
 
 /// Home screen: total balance, this month's money in and out, accounts
 /// and the latest transactions. All from the local database (works offline).
@@ -82,6 +83,10 @@ class DashboardScreen extends ConsumerWidget {
               ? 'pennyWise'
               : 'Hi, ${profile.name}',
         ),
+        actions: const [
+          ThemeToggle(),
+          SizedBox(width: Spacing.sm),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {

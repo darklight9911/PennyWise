@@ -13,30 +13,50 @@ void main() {
   });
 
   Brightness brightness(WidgetTester tester) =>
-      Theme.of(tester.element(find.text('Settings').first)).brightness;
+      Theme.of(tester.element(find.byKey(const ValueKey('theme_toggle'))))
+          .brightness;
 
-  testWidgets('pick dark mode; it is remembered', (tester) async {
-    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
-    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
-    await pumpApp(tester, h);
-    await logIn(tester, 'ann@example.com', pw);
-    await tapOn(tester, find.text('Settings'));
-    expect(find.text('Same as phone'), findsOneWidget);
-    expect(brightness(tester), Brightness.light);
+  testWidgets(
+    'toggle dark mode on dashboard; it is remembered and removed from settings',
+    (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      await pumpApp(tester, h);
+      await logIn(tester, 'ann@example.com', pw);
 
-    await tapOn(tester, find.text('Appearance'));
-    await tapOn(tester, find.text('Dark'));
-    expect(brightness(tester), Brightness.dark);
-    expect(h.prefs.values['theme_mode'], 'dark');
+      // Initial state: light mode on Dashboard
+      expect(brightness(tester), Brightness.light);
+      expect(find.byKey(const ValueKey('theme_toggle')), findsOneWidget);
 
-    // A fresh start reads the saved choice.
-    await tester.pumpWidget(const SizedBox());
-    await pumpApp(tester, h);
-    expect(
-      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
-      ThemeMode.dark,
-    );
-    expect(find.byType(PennyWiseApp), findsOneWidget);
-    await finish(tester);
-  });
+      // Toggle to dark mode directly on Dashboard
+      await tapOn(tester, find.byKey(const ValueKey('theme_toggle')));
+      expect(brightness(tester), Brightness.dark);
+      expect(h.prefs.values['theme_mode'], 'dark');
+
+      // Toggle back to light mode on Dashboard
+      await tapOn(tester, find.byKey(const ValueKey('theme_toggle')));
+      expect(brightness(tester), Brightness.light);
+      expect(h.prefs.values['theme_mode'], 'light');
+
+      // Toggle to dark mode again
+      await tapOn(tester, find.byKey(const ValueKey('theme_toggle')));
+      expect(brightness(tester), Brightness.dark);
+      expect(h.prefs.values['theme_mode'], 'dark');
+
+      // Appearance is removed from Settings
+      await tapOn(tester, find.text('Settings'));
+      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Appearance'), findsNothing);
+
+      // A fresh start reads the saved choice.
+      await tester.pumpWidget(const SizedBox());
+      await pumpApp(tester, h);
+      expect(
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+        ThemeMode.dark,
+      );
+      expect(find.byType(PennyWiseApp), findsOneWidget);
+      await finish(tester);
+    },
+  );
 }
