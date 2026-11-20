@@ -6,6 +6,7 @@ on:
     paths: ["mobile/**", ".github/workflows/mobile.yml"]
   pull_request:
     paths: ["mobile/**", ".github/workflows/mobile.yml"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -68,8 +69,14 @@ jobs:
             echo "keyPassword=$KEY_PASSWORD"
           } > android/key.properties
       - run: flutter build appbundle --release
+      - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
           path: mobile/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
