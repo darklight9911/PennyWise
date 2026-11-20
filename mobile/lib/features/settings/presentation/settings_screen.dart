@@ -12,6 +12,7 @@ import '../../app_lock/application/biometrics.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../currency/presentation/main_currency_dialog.dart';
 import 'delete_account_dialog.dart';
+import 'profile_modal.dart';
 import 'verify_email_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -158,6 +159,14 @@ class SettingsScreen extends ConsumerWidget {
                           _EmailVerificationBadge(verified: user.emailVerified),
                         ],
                       ),
+                      trailing: const AppIcon(
+                        HugeIcons.strokeRoundedArrowRight01,
+                      ),
+                      onTap: () => showProfileModal(
+                        context,
+                        user: user,
+                        profile: profile,
+                      ),
                     ),
                     if (!user.emailVerified)
                       Padding(
@@ -175,6 +184,14 @@ class SettingsScreen extends ConsumerWidget {
                       leading: const AppIcon(HugeIcons.strokeRoundedClock01),
                       title: const Text('Time zone'),
                       subtitle: Text(profile?.timezone ?? '—'),
+                      trailing: const AppIcon(
+                        HugeIcons.strokeRoundedArrowRight01,
+                      ),
+                      onTap: () => showProfileModal(
+                        context,
+                        user: user,
+                        profile: profile,
+                      ),
                     ),
                   ],
                 ),
@@ -204,6 +221,9 @@ class SettingsScreen extends ConsumerWidget {
               leading: const AppIcon(HugeIcons.strokeRoundedClock01),
               title: const Text('Time zone'),
               subtitle: Text(profile?.timezone ?? '—'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () =>
+                  showProfileModal(context, user: null, profile: profile),
             ),
           _AppLockTiles(),
           const Divider(),
