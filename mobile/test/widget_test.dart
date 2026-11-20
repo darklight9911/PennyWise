@@ -307,6 +307,11 @@ void main() {
     await tapOn(tester, find.widgetWithText(FilledButton, 'Log out'));
 
     // Still in Settings, now without an account.
+    await tester.scrollUntilVisible(
+      find.text('Erase data on this phone'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('Erase data on this phone'), findsOneWidget);
     expect(find.text('Log out'), findsNothing);
     expect(h.store.tokens, isNull);
@@ -320,12 +325,14 @@ void main() {
     await pumpApp(tester, h);
     await logIn(tester, 'ann@example.com', pw);
     await tapOn(tester, find.text('Settings'));
+    await tapOn(tester, find.text('Profile'));
     expect(find.text('Confirm your email'), findsOneWidget);
 
     h.links.add(Uri.parse('pennywise://verify-email?token=good-token'));
     await settle(tester);
     expect(find.text('Email confirmed. Thank you!'), findsOneWidget);
     expect(find.text('Confirm your email'), findsNothing);
+    expect(find.text('Confirmed email'), findsOneWidget);
     await finish(tester);
   });
 
@@ -333,6 +340,7 @@ void main() {
     await pumpApp(tester, h);
     await logIn(tester, 'ann@example.com', pw);
     await tapOn(tester, find.text('Settings'));
+    await tapOn(tester, find.text('Profile'));
     await tapOn(tester, find.text('Send the link again'));
     expect(find.text('We sent a new link to ann@example.com.'), findsOneWidget);
     expect(h.backend.callCount('/resend-verification'), 1);

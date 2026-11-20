@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/router/routes.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currencies.dart';
 import '../../../core/widgets/app_icon.dart';
@@ -13,7 +12,6 @@ import '../../auth/application/auth_controller.dart';
 import '../../currency/presentation/main_currency_dialog.dart';
 import 'delete_account_dialog.dart';
 import 'profile_modal.dart';
-import 'verify_email_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -73,7 +71,6 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final auth = ref.watch(authControllerProvider);
     final user = auth is SignedIn ? auth.user : null;
     final profile = auth.profile;
@@ -106,99 +103,19 @@ class SettingsScreen extends ConsumerWidget {
                 showCreate: false,
               ),
             ),
-          if (user != null) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.lg,
-                Spacing.md,
-                Spacing.lg,
-                Spacing.xs,
-              ),
-              child: Text(
-                'Profile',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
+          ListTile(
+            leading: const AppIcon(HugeIcons.strokeRoundedUser),
+            title: const Text('Profile'),
+            subtitle: Text(
+              user != null
+                  ? (user.emailVerified
+                        ? user.email
+                        : '${user.email} · not confirmed')
+                  : 'Offline guest',
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primary.withValues(
-                          alpha: 0.12,
-                        ),
-                        foregroundColor: theme.colorScheme.primary,
-                        child: Text(
-                          user.displayName.isNotEmpty
-                              ? user.displayName[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      title: Text(
-                        user.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.emailVerified
-                                ? user.email
-                                : '${user.email} · not confirmed',
-                          ),
-                          const SizedBox(height: Spacing.xs),
-                          _EmailVerificationBadge(verified: user.emailVerified),
-                        ],
-                      ),
-                      trailing: const AppIcon(
-                        HugeIcons.strokeRoundedArrowRight01,
-                      ),
-                      onTap: () => showProfileModal(
-                        context,
-                        user: user,
-                        profile: profile,
-                      ),
-                    ),
-                    if (!user.emailVerified)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          Spacing.md,
-                          0,
-                          Spacing.md,
-                          Spacing.md,
-                        ),
-                        child: VerifyEmailCard(user: user),
-                      ),
-                    const Divider(height: 1),
-                    ListTile(
-                      dense: true,
-                      leading: const AppIcon(HugeIcons.strokeRoundedClock01),
-                      title: const Text('Time zone'),
-                      subtitle: Text(profile?.timezone ?? '—'),
-                      trailing: const AppIcon(
-                        HugeIcons.strokeRoundedArrowRight01,
-                      ),
-                      onTap: () => showProfileModal(
-                        context,
-                        user: user,
-                        profile: profile,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: Spacing.sm),
-          ],
+            trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+            onTap: () => showProfileModal(context),
+          ),
           ListTile(
             leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
             title: const Text('Main currency'),
@@ -216,15 +133,6 @@ class SettingsScreen extends ConsumerWidget {
                 ? null
                 : () => showMainCurrencyDialog(context, profile.baseCurrency),
           ),
-          if (user == null)
-            ListTile(
-              leading: const AppIcon(HugeIcons.strokeRoundedClock01),
-              title: const Text('Time zone'),
-              subtitle: Text(profile?.timezone ?? '—'),
-              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
-              onTap: () =>
-                  showProfileModal(context, user: null, profile: profile),
-            ),
           _AppLockTiles(),
           const Divider(),
           ListTile(
@@ -296,49 +204,6 @@ class SettingsScreen extends ConsumerWidget {
                 hasPassword: user.hasPassword,
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmailVerificationBadge extends StatelessWidget {
-  const _EmailVerificationBadge({required this.verified});
-
-  final bool verified;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = verified ? AppColors.incomeText : theme.colorScheme.error;
-    final bg = (verified ? AppColors.income : theme.colorScheme.error)
-        .withValues(alpha: 0.12);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 4,
-        children: [
-          AppIcon(
-            verified
-                ? HugeIcons.strokeRoundedCheckmarkCircle02
-                : HugeIcons.strokeRoundedAlertCircle,
-            size: 14,
-            color: color,
-          ),
-          Text(
-            verified ? 'Confirmed' : 'Not confirmed',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
         ],
       ),
     );

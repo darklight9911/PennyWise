@@ -1,20 +1,16 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currencies.dart';
 import '../../../core/widgets/app_icon.dart';
-import '../../auth/domain/app_user.dart';
-import '../../auth/domain/profile.dart';
+import '../../auth/application/auth_controller.dart';
 import 'verify_email_card.dart';
 
 /// Shows a structured modal bottom sheet with the user's profile details:
 /// email address, confirmation status, time zone, main currency, and sign-in info.
-Future<void> showProfileModal(
-  BuildContext context, {
-  required AppUser? user,
-  required Profile? profile,
-}) {
+Future<void> showProfileModal(BuildContext context) {
   final theme = Theme.of(context);
   return showModalBottomSheet<void>(
     context: context,
@@ -26,19 +22,19 @@ Future<void> showProfileModal(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.card)),
     ),
-    builder: (context) => _ProfileModalSheet(user: user, profile: profile),
+    builder: (context) => const _ProfileModalSheet(),
   );
 }
 
-class _ProfileModalSheet extends StatelessWidget {
-  const _ProfileModalSheet({required this.user, required this.profile});
-
-  final AppUser? user;
-  final Profile? profile;
+class _ProfileModalSheet extends ConsumerWidget {
+  const _ProfileModalSheet();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final auth = ref.watch(authControllerProvider);
+    final user = auth is SignedIn ? auth.user : null;
+    final profile = auth.profile;
     final isGuest = user == null;
 
     return SingleChildScrollView(
@@ -80,8 +76,8 @@ class _ProfileModalSheet extends StatelessWidget {
                   foregroundColor: theme.colorScheme.primary,
                   child: user != null
                       ? Text(
-                          user!.displayName.isNotEmpty
-                              ? user!.displayName[0].toUpperCase()
+                          user.displayName.isNotEmpty
+                              ? user.displayName[0].toUpperCase()
                               : '?',
                           style: const TextStyle(
                             fontSize: 32,
@@ -92,8 +88,8 @@ class _ProfileModalSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: Spacing.sm),
                 Text(
-                  user?.displayName.isNotEmpty == true
-                      ? user!.displayName
+                  user != null && user.displayName.isNotEmpty
+                      ? user.displayName
                       : (isGuest ? 'Guest User' : 'pennyWise User'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
@@ -134,20 +130,20 @@ class _ProfileModalSheet extends StatelessWidget {
                   subtitle: Text(user?.email ?? 'No email (offline guest)'),
                   trailing: user != null
                       ? AppIcon(
-                          user!.emailVerified
+                          user.emailVerified
                               ? HugeIcons.strokeRoundedCheckmarkCircle02
                               : HugeIcons.strokeRoundedAlertCircle,
-                          color: user!.emailVerified
+                          color: user.emailVerified
                               ? AppColors.incomeText
                               : theme.colorScheme.error,
                         )
                       : null,
                 ),
-                if (user != null && !user!.emailVerified) ...[
+                if (user != null && !user.emailVerified) ...[
                   const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.all(Spacing.md),
-                    child: VerifyEmailCard(user: user!),
+                    child: VerifyEmailCard(user: user),
                   ),
                 ],
               ],
@@ -184,9 +180,7 @@ class _ProfileModalSheet extends StatelessWidget {
                   leading: const AppIcon(HugeIcons.strokeRoundedMoney03),
                   title: const Text('Main currency'),
                   subtitle: Text(
-                    profile != null
-                        ? currencyLabel(profile!.baseCurrency)
-                        : '—',
+                    profile != null ? currencyLabel(profile.baseCurrency) : '—',
                   ),
                 ),
               ],
@@ -220,7 +214,7 @@ class _ProfileModalSheet extends StatelessWidget {
                     ),
                     title: const Text('Sign-in method'),
                     subtitle: Text(
-                      user!.hasPassword ? 'Password' : 'Google Account',
+                      user.hasPassword ? 'Password' : 'Google Account',
                     ),
                   ),
                 ],
