@@ -85,6 +85,27 @@ type Device struct {
 	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
 }
 
+type Due struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	Direction        string             `json:"direction"`
+	Kind             string             `json:"kind"`
+	Person           string             `json:"person"`
+	AmountMinor      int64              `json:"amount_minor"`
+	Currency         string             `json:"currency"`
+	AccountID        uuid.NullUUID      `json:"account_id"`
+	CategoryID       uuid.NullUUID      `json:"category_id"`
+	StartDate        pgtype.Date        `json:"start_date"`
+	DueDate          pgtype.Date        `json:"due_date"`
+	RemindDaysBefore pgtype.Int4        `json:"remind_days_before"`
+	Note             string             `json:"note"`
+	ClosedAt         pgtype.Timestamptz `json:"closed_at"`
+	Version          int64              `json:"version"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type EmailToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -221,6 +242,7 @@ type Transaction struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	DueID               uuid.NullUUID      `json:"due_id"`
 }
 
 type User struct {

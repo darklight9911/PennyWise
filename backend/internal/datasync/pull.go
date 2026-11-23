@@ -29,7 +29,7 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'color', color, 'sort_order', sort_order)
       FROM categories WHERE user_id = $1 AND version > $2 AND version <= $3
     UNION ALL
-    SELECT 'transaction', 3, id, version, updated_at, deleted_at,
+    SELECT 'transaction', 4, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'account_id', account_id, 'category_id', category_id, 'kind', kind,
                'amount_minor', amount_minor, 'currency', currency,
@@ -39,10 +39,22 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'transfer_amount_minor', transfer_amount_minor,
                'occurred_at', occurred_at, 'local_date', to_char(local_date, 'YYYY-MM-DD'),
                'note', note, 'recurring_id', recurring_id,
-               'occurrence_date', to_char(occurrence_date, 'YYYY-MM-DD'))
+               'occurrence_date', to_char(occurrence_date, 'YYYY-MM-DD'),
+               'due_id', due_id)
       FROM transactions WHERE user_id = $1 AND version > $2 AND version <= $3
     UNION ALL
-    SELECT 'budget', 4, id, version, updated_at, deleted_at,
+    SELECT 'due', 3, id, version, updated_at, deleted_at,
+           jsonb_build_object(
+               'direction', direction, 'kind', kind, 'person', person,
+               'amount_minor', amount_minor, 'currency', currency,
+               'account_id', account_id, 'category_id', category_id,
+               'start_date', to_char(start_date, 'YYYY-MM-DD'),
+               'due_date', to_char(due_date, 'YYYY-MM-DD'),
+               'remind_days_before', remind_days_before, 'note', note,
+               'closed_at', closed_at)
+      FROM dues WHERE user_id = $1 AND version > $2 AND version <= $3
+    UNION ALL
+    SELECT 'budget', 5, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'category_id', category_id, 'amount_minor', amount_minor,
                'period', period, 'alert_thresholds', alert_thresholds)
@@ -58,14 +70,14 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
                'remind_days_before', remind_days_before, 'active', active)
       FROM recurring_rules WHERE user_id = $1 AND version > $2 AND version <= $3
     UNION ALL
-    SELECT 'goal', 5, id, version, updated_at, deleted_at,
+    SELECT 'goal', 6, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'name', name, 'target_minor', target_minor,
                'deadline', to_char(deadline, 'YYYY-MM-DD'),
                'icon', icon, 'color', color, 'archived', archived)
       FROM goals WHERE user_id = $1 AND version > $2 AND version <= $3
     UNION ALL
-    SELECT 'goal_contribution', 6, id, version, updated_at, deleted_at,
+    SELECT 'goal_contribution', 7, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'goal_id', goal_id, 'amount_minor', amount_minor,
                'local_date', to_char(local_date, 'YYYY-MM-DD'), 'note', note)
@@ -73,7 +85,7 @@ SELECT entity, id, version, updated_at, deleted_at, data FROM (
     UNION ALL
     -- Read-only for phones (the receipts API writes them). Only files the
     -- API has seen in storage, and tombstones.
-    SELECT 'receipt', 7, id, version, updated_at, deleted_at,
+    SELECT 'receipt', 8, id, version, updated_at, deleted_at,
            jsonb_build_object(
                'transaction_id', transaction_id, 'content_type', content_type,
                'size_bytes', size_bytes)

@@ -719,3 +719,164 @@ func TestRecurringRulesAndOccurrences(t *testing.T) {
 		}
 	}
 }
+
+func TestDuesAndLoanPayments(t *testing.T) {
+	s := testService(t)
+	ann, bo := newUser(t, s, "USD"), newUser(t, s, "USD")
+	bank, eur, rent, salary := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	push(t, s, ann,
+		ch(EntityAccount, bank, t0, account("Bank", "USD")),
+		ch(EntityAccount, eur, t0, account("Euro", "EUR")),
+		ch(EntityCategory, rent, t0, category("Rent", "expense")),
+		ch(EntityCategory, salary, t0, category("Salary", "income")),
+	)
+	due := func(mod func(map[string]any)) map[string]any {
+		d := map[string]any{
+			"direction": "owed_to_me", "kind": "loan", "person": " Sam ", "amount_minor": 50000,
+			"currency": "USD", "account_id": bank, "category_id": nil, "start_date": "2026-11-01",
+			"due_date": "2026-12-01", "remind_days_before": 0, "note": "", "closed_at": nil,
+		}
+		if mod != nil {
+			mod(d)
+		}
+		return d
+	}
+	loanPay := func(kind string, dueID any) map[string]any {
+		return map[string]any{
+			"account_id": bank, "kind": kind, "amount_minor": 20000, "currency": "USD",
+			"occurred_at": t0, "local_date": "2026-11-15", "due_id": dueID,
+		}
+	}
+
+	// A loan and its first payment in one push, child sent first: the
+	// server applies the due before the transaction.
+	loan, lent := uuid.New(), uuid.New()
+	r := push(t, s, ann,
+		ch(EntityTransaction, lent, t0, loanPay("loan_out", loan)),
+		ch(EntityDue, loan, t0, due(nil)),
+	)
+	for id, st := range statuses(r) {
+		if st != StatusApplied {
+			t.Fatalf("%s: %s %v", id, st, r.Results)
+		}
+	}
+	if r.Results[0].Entity != EntityDue {
+		t.Fatalf("results order = %v, want the due first", r.Results)
+	}
+
+	bill := uuid.New()
+	bad := map[string]map[string]any{
+		"direction":        due(func(d map[string]any) { d["direction"] = "maybe" }),
+		"kind":             due(func(d map[string]any) { d["kind"] = "gift" }),
+		"empty person":     due(func(d map[string]any) { d["person"] = "  " }),
+		"zero amount":      due(func(d map[string]any) { d["amount_minor"] = 0 }),
+		"account currency": due(func(d map[string]any) { d["account_id"] = eur }),
+		"loan category":    due(func(d map[string]any) { d["category_id"] = rent }),
+		"bill wrong kind":  due(func(d map[string]any) { d["kind"] = "bill"; d["category_id"] = rent }),
+		"remind 31":        due(func(d map[string]any) { d["remind_days_before"] = 31 }),
+		"bad due date":     due(func(d map[string]any) { d["due_date"] = "1/12/2026" }),
+		"long note":        due(func(d map[string]any) { d["note"] = string(make([]byte, 501)) }),
+	}
+	changes := []Change{ch(EntityDue, bill, t0, due(func(d map[string]any) {
+		d["direction"], d["kind"], d["category_id"], d["remind_days_before"] = "i_owe", "bill", rent, nil
+	}))}
+	ids := map[string]uuid.UUID{}
+	for name, d := range bad {
+		ids[name] = uuid.New()
+		changes = append(changes, ch(EntityDue, ids[name], t0, d))
+	}
+	r = push(t, s, ann, changes...)
+	if statuses(r)[bill] != StatusApplied {
+		t.Fatalf("valid bill: %v", r.Results)
+	}
+	for name, id := range ids {
+		if statuses(r)[id] != StatusRejected {
+			t.Errorf("due %s accepted", name)
+		}
+	}
+
+	// Transactions that point at dues.
+	billPay := expense(bank, rent, 30000, "USD")
+	billPay["due_id"] = bill
+	cases := []struct {
+		name     string
+		data     map[string]any
+		wantCode string
+	}{
+		{"repayment received", loanPay("loan_in", loan), ""},
+		{"bill payment", billPay, ""},
+		{"loan without due", loanPay("loan_in", nil), "invalid"},
+		{"loan with category", func() map[string]any { d := loanPay("loan_in", loan); d["category_id"] = salary; return d }(), "invalid"},
+		{"loan with transfer", func() map[string]any {
+			d := loanPay("loan_out", loan)
+			d["transfer_account_id"], d["transfer_amount_minor"] = eur, 100
+			return d
+		}(), "invalid"},
+		{"unknown due", loanPay("loan_in", uuid.New()), "reference_not_found"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id := uuid.New()
+			r := push(t, s, ann, ch(EntityTransaction, id, t0, tc.data))
+			if got := errCodes(r)[id]; got != tc.wantCode {
+				t.Fatalf("code = %q, want %q (%+v)", got, tc.wantCode, r.Results[0].Error)
+			}
+		})
+	}
+
+	// Bo cannot see or pay into Ann's due, nor overwrite it.
+	boBank := uuid.New()
+	push(t, s, bo, ch(EntityAccount, boBank, t0, account("Bank", "USD")))
+	steal := uuid.New()
+	pay := loanPay("loan_in", loan)
+	pay["account_id"] = boBank
+	r = push(t, s, bo, ch(EntityTransaction, steal, t0, pay), ch(EntityDue, loan, t0.Add(time.Hour), due(func(d map[string]any) { d["account_id"] = nil })))
+	if errCodes(r)[steal] != "reference_not_found" || errCodes(r)[loan] != "id_taken" {
+		t.Fatalf("Bo's push: %v", errCodes(r))
+	}
+
+	// Forgive the rest: closed_at round-trips.
+	closed := time.Date(2026, 11, 20, 8, 30, 0, 0, time.UTC)
+	r = push(t, s, ann, ch(EntityDue, loan, t0.Add(time.Hour), due(func(d map[string]any) { d["closed_at"] = closed })))
+	if statuses(r)[loan] != StatusApplied {
+		t.Fatalf("close loan: %v", r.Results)
+	}
+
+	p := pull(t, s, ann, 0)
+	for _, c := range p.Changes {
+		var d map[string]any
+		_ = json.Unmarshal(c.Data, &d)
+		switch c.ID {
+		case loan:
+			at, err := time.Parse(time.RFC3339, fmt.Sprint(d["closed_at"]))
+			if d["person"] != "Sam" || d["due_date"] != "2026-12-01" || d["remind_days_before"] != 0.0 ||
+				d["category_id"] != nil || err != nil || !at.Equal(closed) {
+				t.Fatalf("pulled loan = %v", d)
+			}
+		case bill:
+			if d["remind_days_before"] != nil || d["category_id"] != rent.String() || d["closed_at"] != nil {
+				t.Fatalf("pulled bill = %v", d)
+			}
+		case lent:
+			if d["kind"] != "loan_out" || d["due_id"] != loan.String() || d["category_id"] != nil {
+				t.Fatalf("pulled loan payment = %v", d)
+			}
+		}
+	}
+	// Within one push, a due is pulled before its payment.
+	due2, pay2 := uuid.New(), uuid.New()
+	r = push(t, s, ann, ch(EntityTransaction, pay2, t0, loanPay("loan_in", due2)), ch(EntityDue, due2, t0, due(nil)))
+	p = pull(t, s, ann, r.Version-1)
+	got := []string{}
+	for _, c := range p.Changes {
+		got = append(got, c.Entity)
+	}
+	if fmt.Sprint(got) != "[due transaction]" {
+		t.Fatalf("pull order = %v (due before its payments)", got)
+	}
+
+	// Deleting the user removes dues and loan payments together.
+	if _, err := s.pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, ann); err != nil {
+		t.Fatalf("delete user with dues: %v", err)
+	}
+}

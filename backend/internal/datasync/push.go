@@ -151,6 +151,8 @@ func (s *Service) applyOne(ctx context.Context, tx pgx.Tx, userID uuid.UUID, ver
 		ok, cerr, err = upsertGoal(ctx, sp, row, ch.Data)
 	case EntityGoalContrib:
 		ok, cerr, err = upsertContribution(ctx, sp, row, ch.Data)
+	case EntityDue:
+		ok, cerr, err = upsertDue(ctx, sp, row, ch.Data)
 	default:
 		cerr = reject("invalid", "entity", "unknown entity "+ch.Entity)
 	}
@@ -300,8 +302,8 @@ const upsertTransactionSQL = `
 INSERT INTO transactions (id, user_id, account_id, category_id, kind, amount_minor, currency,
                           fx_rate_to_base, fx_rate_source, amount_base_minor,
                           transfer_account_id, transfer_amount_minor, occurred_at, local_date,
-                          note, version, updated_at, deleted_at, recurring_id, occurrence_date)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+                          note, version, updated_at, deleted_at, recurring_id, occurrence_date, due_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 ON CONFLICT (id) DO UPDATE SET
     account_id = EXCLUDED.account_id, category_id = EXCLUDED.category_id, kind = EXCLUDED.kind,
     amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
@@ -311,7 +313,8 @@ ON CONFLICT (id) DO UPDATE SET
     transfer_amount_minor = EXCLUDED.transfer_amount_minor,
     occurred_at = EXCLUDED.occurred_at, local_date = EXCLUDED.local_date, note = EXCLUDED.note,
     version = EXCLUDED.version, updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at,
-    recurring_id = EXCLUDED.recurring_id, occurrence_date = EXCLUDED.occurrence_date
+    recurring_id = EXCLUDED.recurring_id, occurrence_date = EXCLUDED.occurrence_date,
+    due_id = EXCLUDED.due_id
 WHERE transactions.user_id = EXCLUDED.user_id AND transactions.updated_at < EXCLUDED.updated_at
 RETURNING id`
 
@@ -346,7 +349,7 @@ func upsertTransaction(ctx context.Context, tx pgx.Tx, r rowMeta, base string, d
 		if targetCurrency == d.Currency && *d.TransferAmountMinor != d.AmountMinor {
 			return false, reject("invalid", "transfer_amount_minor", "same-currency transfers must receive the amount sent"), nil
 		}
-	} else {
+	} else if !loanKinds[d.Kind] {
 		var kind string
 		err := tx.QueryRow(ctx, `SELECT kind FROM categories WHERE id = $1 AND user_id = $2`, *d.CategoryID, r.userID).Scan(&kind)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -357,6 +360,18 @@ func upsertTransaction(ctx context.Context, tx pgx.Tx, r rowMeta, base string, d
 		}
 		if kind != d.Kind {
 			return false, reject("invalid", "category_id", "category kind must match ("+d.Kind+")"), nil
+		}
+	}
+
+	if d.DueID != nil {
+		var owned bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM dues WHERE id = $1 AND user_id = $2)`,
+			*d.DueID, r.userID).Scan(&owned); err != nil {
+			return false, nil, err
+		}
+		if !owned {
+			return false, reject("reference_not_found", "due_id", "due not found"), nil
 		}
 	}
 
@@ -399,7 +414,7 @@ func upsertTransaction(ctx context.Context, tx pgx.Tx, r rowMeta, base string, d
 	return execUpsert(ctx, tx, upsertTransactionSQL, r.id, r.userID, d.AccountID, d.CategoryID, d.Kind,
 		d.AmountMinor, d.Currency, rate, source, baseAmount, d.TransferAccountID, d.TransferAmountMinor,
 		d.OccurredAt, d.LocalDate, d.Note, r.version, r.updatedAt, r.deletedAt,
-		d.RecurringID, d.OccurrenceDate)
+		d.RecurringID, d.OccurrenceDate, d.DueID)
 }
 
 func accountCurrency(ctx context.Context, tx pgx.Tx, id, userID uuid.UUID) (string, bool, error) {
@@ -549,6 +564,72 @@ func upsertContribution(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) 
 		d.LocalDate, d.Note, r.version, r.updatedAt, r.deletedAt)
 }
 
+// --- dues ---
+
+const upsertDueSQL = `
+INSERT INTO dues (id, user_id, direction, kind, person, amount_minor, currency, account_id,
+                  category_id, start_date, due_date, remind_days_before, note, closed_at,
+                  version, updated_at, deleted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+ON CONFLICT (id) DO UPDATE SET
+    direction = EXCLUDED.direction, kind = EXCLUDED.kind, person = EXCLUDED.person,
+    amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
+    account_id = EXCLUDED.account_id, category_id = EXCLUDED.category_id,
+    start_date = EXCLUDED.start_date, due_date = EXCLUDED.due_date,
+    remind_days_before = EXCLUDED.remind_days_before, note = EXCLUDED.note,
+    closed_at = EXCLUDED.closed_at, version = EXCLUDED.version,
+    updated_at = EXCLUDED.updated_at, deleted_at = EXCLUDED.deleted_at
+WHERE dues.user_id = EXCLUDED.user_id AND dues.updated_at < EXCLUDED.updated_at
+RETURNING id`
+
+func upsertDue(ctx context.Context, tx pgx.Tx, r rowMeta, data []byte) (bool, *ChangeError, error) {
+	var d DueData
+	if cerr := decodeStrict(data, &d); cerr != nil {
+		return false, cerr, nil
+	}
+	if cerr := validateDue(&d); cerr != nil {
+		return false, cerr, nil
+	}
+	if d.AccountID != nil {
+		cur, found, err := accountCurrency(ctx, tx, *d.AccountID, r.userID)
+		if err != nil {
+			return false, nil, err
+		}
+		if !found {
+			return false, reject("reference_not_found", "account_id", "account not found"), nil
+		}
+		if cur != d.Currency {
+			return false, reject("invalid", "currency", "currency must match the account's currency ("+cur+")"), nil
+		}
+	}
+	if d.CategoryID != nil {
+		// A bill I owe is paid with an expense; a bill owed to me with income.
+		want := "expense"
+		if d.Direction == "owed_to_me" {
+			want = "income"
+		}
+		var kind string
+		err := tx.QueryRow(ctx, `SELECT kind FROM categories WHERE id = $1 AND user_id = $2`, *d.CategoryID, r.userID).Scan(&kind)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, reject("reference_not_found", "category_id", "category not found"), nil
+		}
+		if err != nil {
+			return false, nil, err
+		}
+		if kind != want {
+			return false, reject("invalid", "category_id", "category kind must be "+want+" for this bill"), nil
+		}
+	}
+	var closedAt *time.Time
+	if d.ClosedAt != nil {
+		c := d.ClosedAt.UTC()
+		closedAt = &c
+	}
+	return execUpsert(ctx, tx, upsertDueSQL, r.id, r.userID, d.Direction, d.Kind, d.Person,
+		d.AmountMinor, d.Currency, d.AccountID, d.CategoryID, d.StartDate, d.DueDate,
+		d.RemindDaysBefore, d.Note, closedAt, r.version, r.updatedAt, r.deletedAt)
+}
+
 // --- helpers ---
 
 // execUpsert runs an INSERT ... ON CONFLICT ... RETURNING id. It reports
@@ -568,7 +649,7 @@ func execUpsert(ctx context.Context, tx pgx.Tx, sql string, args ...any) (bool, 
 var tables = map[string]string{
 	EntityAccount: "accounts", EntityCategory: "categories", EntityTransaction: "transactions",
 	EntityBudget: "budgets", EntityRecurring: "recurring_rules", EntityGoal: "goals",
-	EntityGoalContrib: "goal_contributions",
+	EntityGoalContrib: "goal_contributions", EntityDue: "dues",
 }
 
 func ownedByUser(ctx context.Context, tx pgx.Tx, entity string, id, userID uuid.UUID) (bool, error) {

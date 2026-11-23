@@ -19,7 +19,8 @@ var (
 	accountTypes     = map[string]bool{"cash": true, "bank": true, "card": true, "ewallet": true, "savings": true, "other": true}
 	categoryKinds    = map[string]bool{"income": true, "expense": true}
 	transferKind     = "transfer"
-	transactionKinds = map[string]bool{"income": true, "expense": true, transferKind: true}
+	loanKinds        = map[string]bool{"loan_in": true, "loan_out": true}
+	transactionKinds = map[string]bool{"income": true, "expense": true, transferKind: true, "loan_in": true, "loan_out": true}
 )
 
 // decodeStrict parses data into dst, rejecting unknown fields
@@ -66,7 +67,7 @@ func validateCategory(d *CategoryData) *ChangeError {
 
 func validateTransaction(d *TransactionData) *ChangeError {
 	if !transactionKinds[d.Kind] {
-		return reject("invalid", "kind", "kind must be income, expense or transfer")
+		return reject("invalid", "kind", "kind must be income, expense, transfer, loan_in or loan_out")
 	}
 	if d.AmountMinor <= 0 || d.AmountMinor > maxAmountMinor {
 		return reject("invalid", "amount_minor", "amount must be positive (the kind says in or out)")
@@ -101,6 +102,21 @@ func validateTransaction(d *TransactionData) *ChangeError {
 		}
 		if d.CategoryID != nil {
 			return reject("invalid", "category_id", "a transfer has no category")
+		}
+		if d.DueID != nil {
+			return reject("invalid", "due_id", "a transfer cannot pay a due")
+		}
+		return nil
+	}
+	if loanKinds[d.Kind] {
+		if d.DueID == nil {
+			return reject("invalid", "due_id", "loan payments need a due")
+		}
+		if d.CategoryID != nil {
+			return reject("invalid", "category_id", "loan payments have no category")
+		}
+		if d.TransferAccountID != nil || d.TransferAmountMinor != nil {
+			return reject("invalid", "transfer_account_id", "only transfers have a target account")
 		}
 		return nil
 	}
@@ -228,6 +244,46 @@ func validateContribution(d *GoalContributionData) *ChangeError {
 	}
 	if !validDate(d.LocalDate) {
 		return reject("invalid", "local_date", "local_date must be YYYY-MM-DD")
+	}
+	if utf8.RuneCountInString(d.Note) > 500 {
+		return reject("invalid", "note", "note must be at most 500 characters")
+	}
+	return nil
+}
+
+var (
+	dueDirections = map[string]bool{"i_owe": true, "owed_to_me": true}
+	dueKinds      = map[string]bool{"loan": true, "bill": true}
+)
+
+func validateDue(d *DueData) *ChangeError {
+	if !dueDirections[d.Direction] {
+		return reject("invalid", "direction", "direction must be i_owe or owed_to_me")
+	}
+	if !dueKinds[d.Kind] {
+		return reject("invalid", "kind", "kind must be loan or bill")
+	}
+	d.Person = strings.TrimSpace(d.Person)
+	if n := utf8.RuneCountInString(d.Person); n < 1 || n > 60 {
+		return reject("invalid", "person", "person must be 1 to 60 characters")
+	}
+	if d.AmountMinor <= 0 || d.AmountMinor > maxAmountMinor {
+		return reject("invalid", "amount_minor", "amount must be positive")
+	}
+	if _, err := money.Exponent(d.Currency); err != nil {
+		return reject("invalid", "currency", "currency must be a 3-letter ISO 4217 code")
+	}
+	if d.Kind == "loan" && d.CategoryID != nil {
+		return reject("invalid", "category_id", "loans have no category")
+	}
+	if !validDate(d.StartDate) {
+		return reject("invalid", "start_date", "start_date must be YYYY-MM-DD")
+	}
+	if d.DueDate != nil && !validDate(*d.DueDate) {
+		return reject("invalid", "due_date", "due_date must be YYYY-MM-DD")
+	}
+	if r := d.RemindDaysBefore; r != nil && (*r < 0 || *r > 30) {
+		return reject("invalid", "remind_days_before", "reminders can be 0 to 30 days before")
 	}
 	if utf8.RuneCountInString(d.Note) > 500 {
 		return reject("invalid", "note", "note must be at most 500 characters")

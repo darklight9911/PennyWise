@@ -27,13 +27,14 @@ const (
 	EntityRecurring   = "recurring_rule"
 	EntityGoal        = "goal"
 	EntityGoalContrib = "goal_contribution"
+	EntityDue         = "due"
 	// EntityReceipt is pulled only; the receipts API writes receipts.
 	EntityReceipt = "receipt"
 )
 
 var entityOrder = map[string]int{
-	EntityAccount: 0, EntityCategory: 1, EntityRecurring: 2, EntityTransaction: 3,
-	EntityBudget: 4, EntityGoal: 5, EntityGoalContrib: 6,
+	EntityAccount: 0, EntityCategory: 1, EntityRecurring: 2, EntityDue: 3,
+	EntityTransaction: 4, EntityBudget: 5, EntityGoal: 6, EntityGoalContrib: 7,
 }
 
 // Limits. PullLimit must be larger than MaxPushChanges so a page always
@@ -155,6 +156,9 @@ type TransactionData struct {
 	// A rate the user typed (1 unit of currency = this much base currency),
 	// for currencies without a daily rate. Ignored for the base currency.
 	ManualFxRate *string `json:"manual_fx_rate,omitempty"`
+	// The due this transaction pays (part of). Required for loan_in and
+	// loan_out; optional for income and expense (bill payments).
+	DueID *uuid.UUID `json:"due_id"`
 }
 
 // BudgetData is the editable part of a budget. The amount is in the user's
@@ -199,4 +203,23 @@ type GoalContributionData struct {
 	AmountMinor int64     `json:"amount_minor"`
 	LocalDate   string    `json:"local_date"`
 	Note        string    `json:"note"`
+}
+
+// DueData is money the user owes (i_owe) or is owed (owed_to_me): a loan
+// (paid with loan_in/loan_out transactions) or a bill (paid with ordinary
+// income/expense). Payments link back through TransactionData.DueID.
+type DueData struct {
+	Direction   string     `json:"direction"` // i_owe or owed_to_me
+	Kind        string     `json:"kind"`      // loan or bill
+	Person      string     `json:"person"`
+	AmountMinor int64      `json:"amount_minor"`
+	Currency    string     `json:"currency"`
+	AccountID   *uuid.UUID `json:"account_id"`
+	CategoryID  *uuid.UUID `json:"category_id"` // bills only
+	StartDate   string     `json:"start_date"`
+	DueDate     *string    `json:"due_date"`
+	// nil = no reminder, 0 = on the due date, up to 30 days before.
+	RemindDaysBefore *int32     `json:"remind_days_before"`
+	Note             string     `json:"note"`
+	ClosedAt         *time.Time `json:"closed_at"`
 }
