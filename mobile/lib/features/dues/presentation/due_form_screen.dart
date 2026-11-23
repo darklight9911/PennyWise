@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,7 @@ import '../../currency/presentation/currency_picker_sheet.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
 import '../../recurring/domain/recurrence.dart';
+import '../application/due_reminders.dart';
 import 'due_style.dart';
 
 const _reminderChoices = <int?>[null, 0, 1, 3, 7];
@@ -139,6 +142,10 @@ class _DueFormScreenState extends ConsumerState<DueFormScreen> {
       return;
     }
     final amount = parseAmount(_amount.text, currency).minor!;
+    if (_dueDate != null && _remind != null) {
+      // The phone asks once; after that this does nothing.
+      unawaited(ref.read(reminderPlatformProvider).requestPermission());
+    }
     setState(() => _saving = true);
     try {
       final store = await ref.read(ledgerStoreProvider.future);
@@ -470,7 +477,12 @@ class _DueFormScreenState extends ConsumerState<DueFormScreen> {
                             ),
                       onTap: () async {
                         final d = await _pickDate(_dueDate, notBefore: _start);
-                        if (d != null) setState(() => _dueDate = d);
+                        if (d == null) return;
+                        setState(() {
+                          // A first due date gets the usual reminder.
+                          if (_dueDate == null) _remind ??= 1;
+                          _dueDate = d;
+                        });
                       },
                     ),
                     if (_dueDate != null) ...[

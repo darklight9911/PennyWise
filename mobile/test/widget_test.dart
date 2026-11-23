@@ -383,6 +383,7 @@ void main() {
         find.text('Password changed. Log in with your new password.'),
         findsOneWidget,
       );
+      await finish(tester); // due reminders read the (guest) data
     },
   );
 

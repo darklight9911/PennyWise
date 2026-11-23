@@ -24,6 +24,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications needs java.time on older Androids.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -80,4 +82,5 @@ dependencies {
     // AppCompat themes (styles.xml): local_auth's prompt needs them on
     // Android 8 and older.
     implementation("androidx.appcompat:appcompat:1.7.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

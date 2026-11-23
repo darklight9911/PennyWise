@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:pennywise/core/config/app_config.dart';
+import 'package:pennywise/features/dues/application/due_reminders.dart';
 import 'package:pennywise/features/app_lock/application/app_lock.dart';
 import 'package:pennywise/features/app_lock/application/biometrics.dart';
 import 'package:pennywise/core/storage/device_prefs.dart';
@@ -74,6 +75,10 @@ class TestHarness {
 
   static const config = AppConfig(apiBaseUrl: 'http://fake.test');
 
+  /// Notifications the "phone" would show (due reminders).
+  final reminders = FakeReminderPlatform();
+  DateTime reminderNow = DateTime(2026, 11, 1, 8);
+
   /// Fingerprint / face on the "phone".
   final biometrics = FakeBiometrics();
 
@@ -110,6 +115,8 @@ class TestHarness {
     }),
     receiptFilesProvider.overrideWithValue(receiptFiles),
     devicePrefsProvider.overrideWithValue(prefs),
+    reminderPlatformProvider.overrideWithValue(reminders),
+    reminderClockProvider.overrideWithValue(() => reminderNow),
     biometricsProvider.overrideWithValue(biometrics),
     lockClockProvider.overrideWithValue(() => clock),
     uploadDioProvider.overrideWithValue(Dio()..httpClientAdapter = backend),
@@ -161,4 +168,26 @@ class FakeBiometrics implements Biometrics {
     prompts++;
     return willSucceed;
   }
+}
+
+class FakeReminderPlatform implements ReminderPlatform {
+  final scheduled = <int, PlannedReminder>{};
+  int permissionAsks = 0;
+  void Function(String dueId)? onOpen;
+
+  @override
+  Future<void> init(void Function(String dueId) onOpen) async =>
+      this.onOpen = onOpen;
+
+  @override
+  Future<bool> requestPermission() async {
+    permissionAsks++;
+    return true;
+  }
+
+  @override
+  Future<void> cancelAll() async => scheduled.clear();
+
+  @override
+  Future<void> schedule(PlannedReminder r) async => scheduled[r.id] = r;
 }

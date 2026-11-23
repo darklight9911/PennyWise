@@ -5,6 +5,7 @@ import 'core/router/app_router.dart';
 import 'core/router/deep_links.dart';
 import 'core/theme/app_theme.dart';
 import 'features/app_lock/presentation/lock_gate.dart';
+import 'features/dues/application/due_reminders.dart';
 import 'features/settings/application/theme_mode.dart';
 import 'features/sync/sync_controller.dart';
 
@@ -15,6 +16,7 @@ class PennyWiseApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(deepLinkHandlerProvider); // start listening for email links
     ref.watch(syncControllerProvider); // sync at login, on changes, on resume
+    ref.watch(dueRemindersProvider); // keep due reminders scheduled
     return MaterialApp.router(
       title: 'pennyWise',
       debugShowCheckedModeBanner: false,
