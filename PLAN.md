@@ -16,6 +16,7 @@ Target: publish on the Google Play Store (App Store later).
 | **Budgets** | Monthly (or weekly) limit per category or overall. Push alerts at 80% and 100%. |
 | **Goals** | Savings goals with a target amount, a deadline and contributions. Progress bar. |
 | **Recurring** | Recurring bills, subscriptions and salary (daily, weekly, monthly, yearly). Reminders before the due date. |
+| **Dues** | Money the user owes and money owed to them, per person. A **loan** (lent or borrowed money) moves account balances with `loan_in` / `loan_out` transactions but is never income or spending; a **bill** is paid as an expense or received as income in its category. Part payments, "Mark paid / received", forgive the rest, due date and a reminder shown as a phone notification (works offline and without an account). Payments are ordinary transactions linked by `transactions.due_id`. |
 | **Reports** | Spending by category (pie), income vs expense (bar), trend over time (line), cash flow per month. |
 | **Export** | CSV and PDF export for a date range, made on the phone (offline, no account needed) and shared through the system share sheet. |
 | **Multi-currency** | Base currency per user. Daily exchange rates from Frankfurter (ECB data, about 30 currencies). For a currency Frankfurter does not cover, the user types the rate by hand on the transaction. Totals converted to the base currency. |
@@ -320,6 +321,7 @@ Rules:
 | 6 ✅ | Multi-currency | exchange_rates (Frankfurter, every 6 h, backfill), base amounts by the rate of the day or a typed rate, fill job, base-currency change job, GET /v1/fx/rates; phone: main-currency change with "Recalculating totals" banner, typed rate on foreign transactions, totals in every currency, total balance converted at today's rate | 1 week |
 | 7 ✅ | Reports + export | /v1/reports (summary, by category, trend), CSV and PDF export jobs into R2; phone: Reports screen (totals, spending ring, 6-month in/out bars, offline from the local database) and Export screen | 1 week |
 | 8 ✅ | Polish + security | Audit log, per-IP and per-user rate limits on every route, account deletion (API + phone + erase job); phone: app lock (PIN, fingerprint or face, locks after 30 s away), dark mode (contrast-checked), accessibility tests (tap targets, labels, contrast, double text size) | 1 week |
+| 8b 🟡 | Dues | **Phone done:** database v7 (`dues`, `transactions.due_id`, kinds `loan_in`/`loan_out`), store, sync (pull order: due 3 before transaction 4), Dues list/form/detail, part payments, forgive/reopen, dashboard card, exports, phone notifications for reminders (`flutter_local_notifications`). **Server:** migration 00010, sync, reports and exports for dues (in progress in its own session). Reminders still need a real-phone check | 1 week |
 | 9 🟡 | Release | **Done:** production compose with Caddy HTTPS, backups, release signing, privacy and deletion pages, docs/RELEASE.md. **Open (owner):** email provider, domain, Play Console steps, closed test | 1–2 weeks |
 
 Total: about 12–13 weeks for one developer (sum of the rows above, 5 working days a week).

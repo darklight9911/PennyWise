@@ -75,6 +75,15 @@ Before suggesting new work, read PLAN.md section 8 and the latest
   outbox. Row IDs are client UUIDv7, deletes are soft, sync versions are
   per user (`users.sync_version`), push is idempotent, last write wins.
 - Recurring occurrences use `UUIDv5(rule_id:date)` on phone and server.
+- Dues: payments are ordinary transactions with `due_id`. Bills are paid
+  as `expense` / received as `income`; loans use kinds `loan_in` /
+  `loan_out`, which change balances but never income/spending totals,
+  reports or budgets (filter on `kind IN ('income','expense')`, not
+  `<> 'transfer'`). Sync order (server `entityOrder`/pull ord, phone fake
+  backend): account 0, category 1, recurring_rule 2, due 3, transaction 4,
+  budget 5, goal 6, goal_contribution 7, receipt 8. Phones send `due_id`
+  only when set. Due reminders are local phone notifications
+  (`lib/features/dues/application/due_reminders.dart`), not server push.
 - Never wipe guest data on sign-in (`LocalDatabase.claimFor` hands it to
   the account); keep the phone's default categories in step with
   `backend/internal/datasync/defaults.go`.
