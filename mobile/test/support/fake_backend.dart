@@ -490,10 +490,12 @@ class FakeBackend implements HttpClientAdapter {
       'account': 0,
       'category': 1,
       'recurring_rule': 2,
-      'transaction': 3,
-      'budget': 4,
-      'goal': 5,
-      'goal_contribution': 6,
+      'due': 3,
+      'transaction': 4,
+      'budget': 5,
+      'goal': 6,
+      'goal_contribution': 7,
+      'receipt': 8,
     };
     final rows =
         serverRows.values

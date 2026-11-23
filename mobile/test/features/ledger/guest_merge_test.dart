@@ -91,6 +91,28 @@ void main() {
     expect(q.queuedUpdatedAt, moved.updatedAt);
   });
 
+  test("a guest bill follows its joined category", () async {
+    await accountCategory('acct-groceries', 'Groceries');
+    final guestCat = await store.createCategory(
+      name: 'Groceries',
+      kind: 'expense',
+    );
+    final due = await store.createDue(
+      direction: DueDirection.iOwe,
+      kind: DueKind.bill,
+      person: 'Corner shop',
+      amountMinor: 1200,
+      currency: 'EUR',
+      startDate: '2026-11-19',
+      categoryId: guestCat.id,
+    );
+    await store.mergeGuestData(toCurrency: 'EUR');
+    final moved = (await store.getDue(due.id))!;
+    expect(moved.categoryId, 'acct-groceries');
+    expect(moved.amountMinor, 1200, reason: 'dues keep their own currency');
+    expect((await outbox(Entity.due)).single.queuedUpdatedAt, moved.updatedAt);
+  });
+
   test('different names are kept apart', () async {
     await accountCategory('acct-food', 'Food & dining');
     final guestCat = await store.createCategory(

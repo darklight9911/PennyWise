@@ -487,4 +487,68 @@ void main() {
     final local = await store.getTransaction(t.id);
     expect((local!.amountBaseMinor, local.fxRateSource), (1080, 'auto'));
   });
+
+  test('dues and their payments go up and come back', () async {
+    final cash = await store.createAccount(
+      name: 'Cash',
+      type: 'cash',
+      currency: 'USD',
+    );
+    final due = await store.createDue(
+      direction: DueDirection.owedToMe,
+      kind: DueKind.loan,
+      person: 'Rahim',
+      amountMinor: 30000,
+      currency: 'USD',
+      startDate: '2026-11-10',
+      dueDate: '2026-12-01',
+      remindDaysBefore: 2,
+      accountId: cash.id,
+      moneyMovedNow: true,
+    );
+    final pay = await store.recordDuePayment(
+      due,
+      amountMinor: 10000,
+      accountId: cash.id,
+      date: DateTime.utc(2026, 11, 20, 12),
+    );
+    await engine.sync();
+    final row = onServer(Entity.due, due.id)!;
+    expect(row.data['person'], 'Rahim');
+    expect(row.data['remind_days_before'], 2);
+    expect(onServer(Entity.transaction, pay.id)!.data['due_id'], due.id);
+    expect(onServer(Entity.transaction, pay.id)!.data['kind'], TxKind.loanIn);
+
+    // Another phone forgives the rest.
+    h.backend.serverWrite(email, Entity.due, due.id, {
+      ...row.data,
+      'closed_at': '2026-11-25T10:00:00.000Z',
+    }, updatedAt: row.updatedAt.add(const Duration(minutes: 1)));
+    await engine.sync();
+    final back = (await store.watchDues().first).single;
+    expect((back.forgiven, back.leftMinor), (true, 0));
+    expect((await store.getTransaction(pay.id))!.dueId, due.id);
+  });
+
+  test('ordinary transactions carry no due_id', () async {
+    final cash = await store.createAccount(
+      name: 'Cash',
+      type: 'cash',
+      currency: 'USD',
+    );
+    final food = await store.createCategory(name: 'Food', kind: 'expense');
+    final t = await store.createTransaction(
+      kind: TxKind.expense,
+      accountId: cash.id,
+      amountMinor: 100,
+      currency: 'USD',
+      occurredAt: DateTime.utc(2026, 11, 15, 12),
+      categoryId: food.id,
+    );
+    await engine.sync();
+    expect(
+      onServer(Entity.transaction, t.id)!.data.containsKey('due_id'),
+      isFalse,
+    );
+  });
 }

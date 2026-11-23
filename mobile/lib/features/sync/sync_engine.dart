@@ -252,6 +252,8 @@ class SyncEngine {
             'recurring_id': t.recurringId,
             'occurrence_date': t.occurrenceDate,
             // A rate the user typed; daily rates are the server's job.
+            // Only when set, so servers without dues still take the rest.
+            if (t.dueId != null) 'due_id': t.dueId,
             if (t.fxRateSource == 'manual' && t.fxRateToBase != null)
               'manual_fx_rate': t.fxRateToBase,
           }),
@@ -290,6 +292,28 @@ class SyncEngine {
             'end_date': r.endDate,
             'remind_days_before': r.remindDaysBefore,
             'active': r.active,
+          }),
+        );
+      case Entity.due:
+        final x = await (db.select(
+          db.dues,
+        )..where((r) => r.id.equals(id))).getSingleOrNull();
+        if (x == null) return null;
+        return (
+          updatedAt: x.updatedAt,
+          json: wrap(x.updatedAt, x.deletedAt, {
+            'direction': x.direction,
+            'kind': x.kind,
+            'person': x.person,
+            'amount_minor': x.amountMinor,
+            'currency': x.currency,
+            'account_id': x.accountId,
+            'category_id': x.categoryId,
+            'start_date': x.startDate,
+            'due_date': x.dueDate,
+            'remind_days_before': x.remindDaysBefore,
+            'note': x.note,
+            'closed_at': x.closedAt == null ? null : _iso(x.closedAt!),
           }),
         );
       case Entity.goal:
@@ -429,6 +453,7 @@ class SyncEngine {
                 amountBaseMinor: Value(d['amount_base_minor'] as int?),
                 fxRateToBase: Value(d['fx_rate_to_base'] as String?),
                 fxRateSource: Value(d['fx_rate_source'] as String?),
+                dueId: Value(d['due_id'] as String?),
                 transferAccountId: Value(d['transfer_account_id'] as String?),
                 transferAmountMinor: Value(d['transfer_amount_minor'] as int?),
                 occurredAt: DateTime.parse(d['occurred_at'] as String),
@@ -478,6 +503,33 @@ class SyncEngine {
                 endDate: Value(d['end_date'] as String?),
                 remindDaysBefore: Value(d['remind_days_before'] as int? ?? 0),
                 active: Value(d['active'] as bool? ?? true),
+                updatedAt: updatedAt,
+                deletedAt: Value(deletedAt),
+                serverVersion: Value(version),
+              ),
+            );
+      case Entity.due:
+        await db
+            .into(db.dues)
+            .insertOnConflictUpdate(
+              DuesCompanion.insert(
+                id: id,
+                direction: d['direction'] as String,
+                kind: d['kind'] as String,
+                person: d['person'] as String,
+                amountMinor: d['amount_minor'] as int,
+                currency: d['currency'] as String,
+                accountId: Value(d['account_id'] as String?),
+                categoryId: Value(d['category_id'] as String?),
+                startDate: d['start_date'] as String,
+                dueDate: Value(d['due_date'] as String?),
+                remindDaysBefore: Value(d['remind_days_before'] as int?),
+                note: Value(d['note'] as String? ?? ''),
+                closedAt: Value(
+                  d['closed_at'] == null
+                      ? null
+                      : DateTime.parse(d['closed_at'] as String),
+                ),
                 updatedAt: updatedAt,
                 deletedAt: Value(deletedAt),
                 serverVersion: Value(version),

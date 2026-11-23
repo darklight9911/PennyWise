@@ -1416,6 +1416,14 @@ class LedgerStore {
         );
         await _queue(Entity.recurringRule, r.id, at);
       }
+      for (final x in await (db.select(
+        db.dues,
+      )..where((x) => x.categoryId.equals(from))).get()) {
+        await (db.update(db.dues)..where((y) => y.id.equals(x.id))).write(
+          DuesCompanion(categoryId: Value(to), updatedAt: Value(at)),
+        );
+        await _queue(Entity.due, x.id, at);
+      }
       // The guest copy never reached the server: remove it for good.
       await (db.delete(db.categories)..where((c) => c.id.equals(from))).go();
       await (db.delete(db.outbox)..where(
