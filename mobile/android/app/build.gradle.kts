@@ -18,7 +18,10 @@ val hasUploadKey = keyProperties.getProperty("storeFile") != null
 
 android {
     namespace = "com.pennywise.pennywise"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications and androidx.core 1.19 need API 37 to
+    // compile against. Only the compile SDK changes: minSdk and targetSdk
+    // (which devices, and runtime behaviour) stay Flutter's.
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
