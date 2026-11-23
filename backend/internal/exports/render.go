@@ -37,18 +37,20 @@ type row struct {
 	ToAccount   *string
 	ToCurrency  *string
 	ToAmount    *int64
+	Person      *string // the due's person, for loan payments
 }
 
 func loadRows(ctx context.Context, q fx.Querier, userID uuid.UUID, r reports.Range, limit int) ([]row, error) {
 	rows, err := q.Query(ctx, `
 		SELECT t.local_date, t.kind, a.name, COALESCE(pc.name || ' › ' || c.name, c.name, ''), t.note,
 		       t.amount_minor, t.currency, t.amount_base_minor, t.fx_rate_to_base::text, t.fx_rate_source,
-		       ta.name, ta.currency, t.transfer_amount_minor
+		       ta.name, ta.currency, t.transfer_amount_minor, d.person
 		  FROM transactions t
 		  JOIN accounts a ON a.id = t.account_id
 		  LEFT JOIN categories c ON c.id = t.category_id
 		  LEFT JOIN categories pc ON pc.id = c.parent_id
 		  LEFT JOIN accounts ta ON ta.id = t.transfer_account_id
+		  LEFT JOIN dues d ON d.id = t.due_id
 		 WHERE t.user_id = $1 AND t.deleted_at IS NULL AND t.local_date BETWEEN $2 AND $3
 		 ORDER BY t.local_date, t.occurred_at, t.id
 		 LIMIT $4`, userID, r.From, r.To, limit+1)
@@ -58,7 +60,7 @@ func loadRows(ctx context.Context, q fx.Querier, userID uuid.UUID, r reports.Ran
 	list, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (row, error) {
 		var x row
 		return x, r.Scan(&x.Date, &x.Kind, &x.Account, &x.Category, &x.Note, &x.AmountMinor, &x.Currency,
-			&x.BaseMinor, &x.Rate, &x.RateSource, &x.ToAccount, &x.ToCurrency, &x.ToAmount)
+			&x.BaseMinor, &x.Rate, &x.RateSource, &x.ToAccount, &x.ToCurrency, &x.ToAmount, &x.Person)
 	})
 	if err != nil {
 		return nil, err
@@ -86,7 +88,7 @@ func buildCSV(list []row, base string) ([]byte, error) {
 		"to_account", "to_amount", "to_currency"})
 	for _, x := range list {
 		rec := []string{
-			x.Date.Format(time.DateOnly), x.Kind, safeCell(x.Account), safeCell(x.Category), safeCell(x.Note),
+			x.Date.Format(time.DateOnly), x.Kind, safeCell(x.Account), safeCell(categoryLabel(x)), safeCell(x.Note),
 			amount(signed(x.Kind, x.AmountMinor), x.Currency), x.Currency,
 			"", deref(x.Rate), deref(x.RateSource), "", "", "",
 		}
@@ -113,12 +115,29 @@ func safeCell(s string) string {
 	return s
 }
 
-// signed makes spending negative and transfers out negative.
+// signed makes money going out negative: spending, transfers out and
+// loan_out (money lent, or a loan paid back).
 func signed(kind string, v int64) int64 {
-	if kind == "income" {
+	if moneyIn(kind) {
 		return v
 	}
 	return -v
+}
+
+// moneyIn is true for kinds that add to the account: income and loan_in
+// (money borrowed, or a loan repaid to the user).
+func moneyIn(kind string) bool { return kind == "income" || kind == "loan_in" }
+
+// categoryLabel is the category, or for a loan payment "Loan · person"
+// (loans have no category).
+func categoryLabel(x row) string {
+	if x.Kind == "loan_in" || x.Kind == "loan_out" {
+		if x.Person != nil {
+			return "Loan · " + *x.Person
+		}
+		return "Loan"
+	}
+	return x.Category
 }
 
 // amount formats minor units as a plain decimal. Codes were validated on
@@ -163,9 +182,9 @@ func pretty(minor int64, currency string) string {
 
 func signedPretty(kind string, minor int64, currency string) string {
 	switch kind {
-	case "income":
+	case "income", "loan_in":
 		return "+" + pretty(minor, currency)
-	case "expense":
+	case "expense", "loan_out":
 		return "−" + pretty(minor, currency)
 	}
 	return pretty(minor, currency)
@@ -294,7 +313,7 @@ func buildPDF(s statement) []byte {
 			d.box(left, y, right-left, rowH, rgb{0.985, 0.98, 0.97})
 		}
 		ty := y + 11.5
-		category := x.Category
+		category := categoryLabel(x)
 		if x.Kind == "transfer" && x.ToAccount != nil {
 			category = "Transfer to " + *x.ToAccount
 		}

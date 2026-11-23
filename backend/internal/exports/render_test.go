@@ -27,6 +27,10 @@ func sampleRows() []row {
 		{Date: d("2026-02-03"), Kind: "transfer", Account: "Bank", AmountMinor: 5000, Currency: "USD",
 			BaseMinor: p(int64(5000)), ToAccount: p("Savings"), ToCurrency: p("USD"), ToAmount: p(int64(5000))},
 		{Date: d("2026-02-04"), Kind: "expense", Account: "Cash", Category: "Food", AmountMinor: 900, Currency: "BDT"},
+		{Date: d("2026-02-05"), Kind: "loan_out", Account: "Bank", AmountMinor: 20000, Currency: "USD",
+			BaseMinor: p(int64(20000)), Rate: p("1"), RateSource: p("auto"), Person: p("Sam")},
+		{Date: d("2026-02-06"), Kind: "loan_in", Account: "Bank", AmountMinor: 5000, Currency: "USD",
+			BaseMinor: p(int64(5000)), Rate: p("1"), RateSource: p("auto"), Person: p("=Sam")},
 	}
 }
 
@@ -50,6 +54,8 @@ func TestCSV(t *testing.T) {
 		{"2026-02-02", "expense", "Wallet", "Food › Café", `'=HYPERLINK("x")`, "-12.34", "EUR", "-13.50", "1.094", "auto", "", "", ""},
 		{"2026-02-03", "transfer", "Bank", "", "", "-50.00", "USD", "-50.00", "", "", "Savings", "50.00", "USD"},
 		{"2026-02-04", "expense", "Cash", "Food", "", "-9.00", "BDT", "", "", "", "", "", ""},
+		{"2026-02-05", "loan_out", "Bank", "Loan · Sam", "", "-200.00", "USD", "-200.00", "1", "auto", "", "", ""},
+		{"2026-02-06", "loan_in", "Bank", "Loan · =Sam", "", "50.00", "USD", "50.00", "1", "auto", "", "", ""},
 	}
 	for i, w := range want {
 		if strings.Join(recs[i+1], "|") != strings.Join(w, "|") {
@@ -150,7 +156,7 @@ func TestPDFStructureAndText(t *testing.T) {
 		t.Fatalf("pdftotext: %v %s", err, txt)
 	}
 	for _, want := range []string{"pennyWise", "1 Jan 2026 – 31 Mar 2026", "+3,000.00 USD", "Food › Café", "Transfer to Savings",
-		"no rate", fmt.Sprintf("Page 1 of %d", pages), fmt.Sprintf("Page %d of %d", pages, pages), "Lunch 119", "not in the totals yet"} {
+		"Loan · Sam", "200.00 USD", "+50.00 USD", "no rate", fmt.Sprintf("Page 1 of %d", pages), fmt.Sprintf("Page %d of %d", pages, pages), "Lunch 119", "not in the totals yet"} {
 		if !strings.Contains(string(txt), want) {
 			t.Errorf("PDF text has no %q", want)
 		}

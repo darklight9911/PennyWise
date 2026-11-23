@@ -75,7 +75,7 @@ func (s *Service) Summary(ctx context.Context, userID uuid.UUID, r Range) (Summa
 		       count(*) FILTER (WHERE amount_base_minor IS NOT NULL),
 		       count(*) FILTER (WHERE amount_base_minor IS NULL)
 		  FROM transactions
-		 WHERE user_id = $1 AND deleted_at IS NULL AND kind <> 'transfer'
+		 WHERE user_id = $1 AND deleted_at IS NULL AND kind IN ('income', 'expense')
 		   AND local_date BETWEEN $2 AND $3`, userID, r.From, r.To).
 		Scan(&out.IncomeMinor, &out.ExpenseMinor, &out.Count, &out.MissingRate)
 	out.NetMinor = out.IncomeMinor - out.ExpenseMinor
@@ -230,7 +230,7 @@ func (s *Service) Trend(ctx context.Context, userID uuid.UUID, r Range, interval
 		       COALESCE(sum(amount_base_minor) FILTER (WHERE kind = 'income'), 0),
 		       COALESCE(sum(amount_base_minor) FILTER (WHERE kind = 'expense'), 0)
 		  FROM transactions
-		 WHERE user_id = $1 AND deleted_at IS NULL AND kind <> 'transfer'
+		 WHERE user_id = $1 AND deleted_at IS NULL AND kind IN ('income', 'expense')
 		   AND amount_base_minor IS NOT NULL AND local_date BETWEEN $2 AND $3
 		 GROUP BY 1`, userID, r.From, r.To, interval)
 	if err != nil {

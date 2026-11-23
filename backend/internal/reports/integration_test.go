@@ -63,6 +63,16 @@ func newFixture(t *testing.T) *fixture {
 		"account_id": f.usd, "kind": "transfer", "amount_minor": 10000, "currency": "USD",
 		"transfer_account_id": other, "transfer_amount_minor": 10000,
 		"occurred_at": "2026-01-10T10:00:00Z", "local_date": "2026-01-10", "note": ""})
+	// Loans move money but are neither income nor spending either.
+	loan := uuid.New()
+	f.push(datasync.EntityDue, loan, map[string]any{
+		"direction": "owed_to_me", "kind": "loan", "person": "Sam", "amount_minor": 40000,
+		"currency": "USD", "start_date": "2026-01-11"})
+	for _, kind := range []string{"loan_out", "loan_in"} {
+		f.push(datasync.EntityTransaction, uuid.New(), map[string]any{
+			"account_id": f.usd, "kind": kind, "amount_minor": 40000, "currency": "USD", "due_id": loan,
+			"occurred_at": "2026-01-11T10:00:00Z", "local_date": "2026-01-11", "note": ""})
+	}
 	return f
 }
 
