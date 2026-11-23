@@ -277,13 +277,16 @@ class Panda:
         return "".join(out)
 
     def rig(self, height, new_id, prefix="Panda", tint=None, shadow=True, x=0, y=0, extra_front=""):
-        """A rigged panda: returns (rml, ids) with ids for root/head/eyes/armL/armR/body.
+        """A rigged panda: returns (rml, ids) for root/head/eyes/armL/armR/body/restL/restR.
+
+        armL/armR are the art's raised thumbs-up arms; restL/restR the drawn
+        resting arms. Show one pair or the other per pose (opacity).
 
         The root node sits at (x, y) = the panda centre. Child nodes sit at
         their pivots so rotating them turns the part around the joint.
         """
         s = height / self.h
-        ids = {k: new_id() for k in ("root", "head", "eyes", "armL", "armR", "body")}
+        ids = {k: new_id() for k in ("root", "head", "eyes", "armL", "armR", "body", "restL", "restR")}
 
         def pivot_node(part, inner):
             px, py = self.PIVOTS[part]
@@ -301,37 +304,39 @@ class Panda:
         armL = pivot_node("armL", self._shapes(self.PARTS["armL"], s, *(v * height for v in self.PIVOTS["armL"]), prefix, tint))
         armR = pivot_node("armR", self._shapes(self.PARTS["armR"], s, *(v * height for v in self.PIVOTS["armR"]), prefix, tint))
         body = '<Node name="%s body" id="%s">%s</Node>' % (prefix, ids["body"], self._shapes(self.PARTS["body"], s, 0, 0, prefix, tint))
-        back = self._shoulders(height, prefix, tint) + self._shapes(self.PARTS["back"], s, 0, 0, prefix, tint)
+        back = self._shapes(self.PARTS["back"], s, 0, 0, prefix, tint)
+        rest = (self._rest_arm("R", height, ids["restR"], prefix, tint)
+                + self._rest_arm("L", height, ids["restL"], prefix, tint))
         shad = self._shapes(self.PARTS["shadow"], s, 0, 0, prefix, tint) if shadow else ""
         rml = ('<Node x="%s" y="%s" name="%s" id="%s">%s%s%s%s%s%s%s</Node>'
                % (f(x), f(y), prefix, ids["root"], extra_front, head,
-                  body + self._shoulders(height, prefix, tint, front=True), armR, armL, back, shad))
+                  rest + body, armR, armL, back, shad))
         return rml, ids
 
-    # Rounded shoulders, drawn behind the arms. The art cuts the arm root for
-    # its raised pose, which leaves a notch at the collar once an arm hangs
-    # down; these fill it so the shoulder reads as one curve in every pose.
-    SHOULDERS = ((-0.085, -0.045), (0.085, -0.045))
-    SHOULDER_SIZE = (0.13, 0.11)
+    # Resting arms. The art only has raised thumbs-up arms; rotated down they
+    # splay like flippers. These are drawn in the same style instead: a short
+    # rounded teal arm with the dark outline and a shaded paw, hanging from
+    # the shoulder in front of the body. Rotation 0 hangs straight down.
+    REST_PIVOT = (0.098, -0.075)   # right shoulder; the left one is mirrored
+    REST_SIZE = (0.075, 0.2)       # arm width, length (from the shoulder)
 
-    def _shoulders(self, height, prefix, tint, front=False):
-        """Back: outlined, behind the arms (the silhouette). Front: fill only,
-        a little smaller, over the arm root to hide its cut edge."""
+    def _rest_arm(self, side, height, nid, prefix, tint):
         def col(c):
             return color(tint.get(c, c) if tint else c, 1)
-        fur, line = col("#777781"), col("#371B45")
-        w, h = self.SHOULDER_SIZE
-        if front:
-            w, h = w - 0.03, h - 0.03
-        paint = ('<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill>' % fur if front else
-                 '<Stroke thickness="%s" name="S"><SolidColor colorValue="%s" name="C"/></Stroke>'
-                 '<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill>' % (f(0.011 * height), line, fur))
-        out = []
-        for k, (sx, sy) in enumerate(self.SHOULDERS):
-            out.append('<Shape x="%s" y="%s" name="%s shoulder %d%s"><Ellipse width="%s" height="%s" name="P"/>%s</Shape>'
-                       % (f(sx * height), f(sy * height), prefix, k, " cover" if front else "",
-                          f(w * height), f(h * height), paint))
-        return "".join(out)
+        fur, shade, line = col("#777781"), col("#626272"), col("#371B45")
+        w, ln = (v * height for v in self.REST_SIZE)
+        px, py = self.REST_PIVOT
+        px *= -1 if side == "L" else 1
+        t = 0.011 * height
+        paw = ('<Shape x="0" y="%s" name="%s paw %s"><Ellipse width="%s" height="%s" name="P"/>'
+               '<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill></Shape>'
+               % (f(ln - w * 0.85), prefix, side, f(w * 0.72), f(w * 0.5), shade))
+        arm = ('<Shape x="0" y="%s" name="%s arm %s"><Rectangle width="%s" height="%s" originX="0.5" originY="0" '
+               'cornerRadiusTL="%s" name="P"/><Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill>'
+               '<Stroke thickness="%s" cap="round" join="round" name="S"><SolidColor colorValue="%s" name="C"/></Stroke></Shape>'
+               % (f(-w / 2), prefix, side, f(w), f(ln), f(w / 2), fur, f(t), line))
+        return ('<Node x="%s" y="%s" name="%s rest arm %s" id="%s">%s%s</Node>'
+                % (f(px * height), f(py * height), prefix, side, nid, paw, arm))
 
     def shadow(self, height, prefix="Panda", tint=None):
         """The ground shadow alone, centred like the rig, so it can stay put."""
