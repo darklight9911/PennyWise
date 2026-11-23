@@ -184,6 +184,9 @@ hit = ('<Shape x="%s" y="%s" name="Tap area" id="%s"><Ellipse width="%s" height=
 
 # ------------------------------------------------------------------ moods
 y0 = 0
+# The art draws both arms raised with thumbs up (rotation 0). REST swings
+# them down to hang at the sides; each mood then gestures from there.
+REST = 1.5
 
 
 def base():
@@ -192,7 +195,7 @@ def base():
         (R["root"], "scaleX"): 1, (R["root"], "scaleY"): 1,
         (R["head"], "rotation"): 0, (R["eyes"], "scaleX"): 1, (R["eyes"], "scaleY"): 1,
         (R["eyes"], "y"): PANDA.PIVOTS["eyes"][1] * PH - PANDA.PIVOTS["head"][1] * PH, (R["eyes"], "x"): 0,
-        (R["armL"], "rotation"): 0, (R["armR"], "rotation"): 0,
+        (R["armL"], "rotation"): -REST, (R["armR"], "rotation"): REST,
         (FX["blush"], "opacity"): 0, (FX["shadow"], "scaleX"): 1, (FX["shadow"], "scaleY"): 1,
     }
     for k in ("hearts", "sweat", "dots", "zzz", "coins", "sparkles"):
@@ -219,11 +222,12 @@ A["idle"] = mood("Idle", 180, {
     ("root", "scaleX"): [(0, 1, E), (90, 0.992, E), (180, 1)],
     ("head", "rotation"): [(0, -0.03, E), (90, 0.03, E), (180, -0.03)],
     ("eyes", "scaleY"): [(0, 1, "hold"), (140, 1), (145, 0.1), (150, 1), (180, 1)],
-    ("armL", "rotation"): [(0, 0, E), (90, -0.04, E), (180, 0)],
-    ("armR", "rotation"): [(0, 0, E), (90, 0.04, E), (180, 0)],
+    ("armL", "rotation"): [(0, -REST, E), (90, -REST + 0.06, E), (180, -REST)],
+    ("armR", "rotation"): [(0, REST, E), (90, REST - 0.06, E), (180, REST)],
 })
 A["wave"] = mood("Wave", 60, {
-    ("armR", "rotation"): [(0, 0.1, E), (15, 0.5, E), (30, 0.1, E), (45, 0.5, E), (60, 0.1)],
+    ("armL", "rotation"): [(0, -REST, "hold")],
+    ("armR", "rotation"): [(0, 0.1, E), (15, -0.55, E), (30, 0.1, E), (45, -0.55, E), (60, 0.1)],
     ("head", "rotation"): [(0, 0.06, E), (30, 0.1, E), (60, 0.06)],
     ("root", "rotation"): [(0, 0.02, E), (30, 0.04, E), (60, 0.02)],
     ("eyes", "scaleY"): [(0, 0.85, "hold")],
@@ -234,8 +238,8 @@ A["happy"] = mood("Happy", 48, {
     ("root", "scaleY"): [(0, 0.98, E), (24, 1.02, E), (48, 0.98)],
     ("head", "rotation"): [(0, -0.06, E), (24, 0.06, E), (48, -0.06)],
     ("eyes", "scaleY"): [(0, 0.6, "hold")],
-    ("armL", "rotation"): [(0, 0.05, E), (24, -0.12, E), (48, 0.05)],
-    ("armR", "rotation"): [(0, -0.05, E), (24, 0.12, E), (48, -0.05)],
+    ("armL", "rotation"): [(0, -REST, E), (24, -REST + 0.08, E), (48, -REST)],
+    ("armR", "rotation"): [(0, 0.05, E), (24, -0.08, E), (48, 0.05)],
     ("blush", "opacity"): [(0, 1, "hold")],
     ("hearts", "opacity"): [(0, 0.9, "hold")],
     ("shadow", "scaleX"): [(0, 1, E), (24, 0.92, E), (48, 1)],
@@ -263,21 +267,22 @@ A["worried"] = mood("Worried", 90, {
     ("root", "x"): [(0, -1.5), (6, 1.5), (12, -1.5), (18, 1.5), (24, 0), (90, 0)],
     ("head", "rotation"): [(0, -0.1, E), (45, -0.14, E), (90, -0.1)],
     ("eyes", "scaleX"): [(0, 1.15, "hold")], ("eyes", "scaleY"): [(0, 1.2, "hold")],
-    ("armL", "rotation"): [(0, -0.25, "hold")], ("armR", "rotation"): [(0, 0.25, "hold")],
+    ("armL", "rotation"): [(0, -REST - 0.25, "hold")], ("armR", "rotation"): [(0, REST + 0.25, "hold")],
     ("sweat", "opacity"): [(0, 0), (20, 1), (70, 1), (90, 0)],
 })
 A["thinking"] = mood("Thinking", 90, dict({
     ("head", "rotation"): [(0, 0.12, E), (45, 0.16, E), (90, 0.12)],
     ("eyes", "y"): [(0, EYE_Y - 0.012 * PH, "hold")],
     ("eyes", "x"): [(0, 0.01 * PH, "hold")],
-    ("armR", "rotation"): [(0, 0.25, E), (45, 0.3, E), (90, 0.25)],
+    ("armL", "rotation"): [(0, -REST, "hold")],
+    ("armR", "rotation"): [(0, 1.15, E), (45, 1.05, E), (90, 1.15)],
     ("dots", "opacity"): [(0, 1, "hold")],
 } | {(d, "y"): [(0, 0), (k * 12, 0, E), (k * 12 + 12, -0.03 * PH, E), (k * 12 + 24, 0), (90, 0)] for k, d in enumerate(DOTS)}))
 A["sleeping"] = mood("Sleeping", 150, dict({
     ("root", "scaleY"): [(0, 0.99, E), (75, 1.025, E), (150, 0.99)],
     ("head", "rotation"): [(0, 0.18, "hold")],
     ("eyes", "scaleY"): [(0, 0.08, "hold")],
-    ("armL", "rotation"): [(0, 0.25, "hold")], ("armR", "rotation"): [(0, -0.25, "hold")],
+    ("armL", "rotation"): [(0, -REST - 0.12, "hold")], ("armR", "rotation"): [(0, REST + 0.12, "hold")],
     ("zzz", "opacity"): [(0, 1, "hold")],
 } | {k2: v for k, z in enumerate(ZEDS) for k2, v in {
     (z, "opacity"): [(0, 0), (k * 40, 0), (k * 40 + 20, 1), (k * 40 + 70, 0), (150, 0)],
