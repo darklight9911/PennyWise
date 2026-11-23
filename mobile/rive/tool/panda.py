@@ -301,11 +301,37 @@ class Panda:
         armL = pivot_node("armL", self._shapes(self.PARTS["armL"], s, *(v * height for v in self.PIVOTS["armL"]), prefix, tint))
         armR = pivot_node("armR", self._shapes(self.PARTS["armR"], s, *(v * height for v in self.PIVOTS["armR"]), prefix, tint))
         body = '<Node name="%s body" id="%s">%s</Node>' % (prefix, ids["body"], self._shapes(self.PARTS["body"], s, 0, 0, prefix, tint))
-        back = self._shapes(self.PARTS["back"], s, 0, 0, prefix, tint)
+        back = self._shoulders(height, prefix, tint) + self._shapes(self.PARTS["back"], s, 0, 0, prefix, tint)
         shad = self._shapes(self.PARTS["shadow"], s, 0, 0, prefix, tint) if shadow else ""
         rml = ('<Node x="%s" y="%s" name="%s" id="%s">%s%s%s%s%s%s%s</Node>'
-               % (f(x), f(y), prefix, ids["root"], extra_front, head, body, armR, armL, back, shad))
+               % (f(x), f(y), prefix, ids["root"], extra_front, head,
+                  body + self._shoulders(height, prefix, tint, front=True), armR, armL, back, shad))
         return rml, ids
+
+    # Rounded shoulders, drawn behind the arms. The art cuts the arm root for
+    # its raised pose, which leaves a notch at the collar once an arm hangs
+    # down; these fill it so the shoulder reads as one curve in every pose.
+    SHOULDERS = ((-0.085, -0.045), (0.085, -0.045))
+    SHOULDER_SIZE = (0.13, 0.11)
+
+    def _shoulders(self, height, prefix, tint, front=False):
+        """Back: outlined, behind the arms (the silhouette). Front: fill only,
+        a little smaller, over the arm root to hide its cut edge."""
+        def col(c):
+            return color(tint.get(c, c) if tint else c, 1)
+        fur, line = col("#777781"), col("#371B45")
+        w, h = self.SHOULDER_SIZE
+        if front:
+            w, h = w - 0.03, h - 0.03
+        paint = ('<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill>' % fur if front else
+                 '<Stroke thickness="%s" name="S"><SolidColor colorValue="%s" name="C"/></Stroke>'
+                 '<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill>' % (f(0.011 * height), line, fur))
+        out = []
+        for k, (sx, sy) in enumerate(self.SHOULDERS):
+            out.append('<Shape x="%s" y="%s" name="%s shoulder %d%s"><Ellipse width="%s" height="%s" name="P"/>%s</Shape>'
+                       % (f(sx * height), f(sy * height), prefix, k, " cover" if front else "",
+                          f(w * height), f(h * height), paint))
+        return "".join(out)
 
     def shadow(self, height, prefix="Panda", tint=None):
         """The ground shadow alone, centred like the rig, so it can stay put."""
