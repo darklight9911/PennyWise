@@ -100,8 +100,10 @@ Future<List<ExportRow>> loadExportRows(
 String exportFileName(String format, String from, String to) =>
     'pennywise-$from-to-$to.$format';
 
-/// Spending and transfers out are negative.
-int _signed(String kind, int v) => kind == 'income' ? v : -v;
+/// Money in (income, loan money in) is positive; spending, transfers out
+/// and loan money out are negative.
+int _signed(String kind, int v) =>
+    kind == 'income' || kind == 'loan_in' ? v : -v;
 
 /// Stops spreadsheet formula injection: a note like "=HYPERLINK(...)"
 /// would otherwise run when the file is opened.
@@ -165,7 +167,8 @@ Future<Uint8List> buildPdf({
   var income = 0, spending = 0, noRate = 0;
   final byCategory = <String, int>{};
   for (final x in rows) {
-    if (x.kind == 'transfer') continue;
+    // Transfers and loans move money but are not income or spending.
+    if (x.kind != 'income' && x.kind != 'expense') continue;
     final v = x.baseMinor;
     if (v == null) {
       noRate++;

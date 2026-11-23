@@ -68,6 +68,31 @@ void main() {
     expect(line, contains(',-100.00,EUR,-100.00,'));
   });
 
+  test('CSV: loan money in is positive, loan money out negative', () {
+    ExportRow loan(String kind) => ExportRow(
+      date: '2026-11-19',
+      kind: kind,
+      account: 'Cash',
+      category: '',
+      note: 'Rahim',
+      amountMinor: 5000,
+      currency: 'USD',
+      baseMinor: 5000,
+    );
+    final lines = buildCsv([
+      loan('loan_in'),
+      loan('loan_out'),
+    ], 'USD').split('\r\n');
+    expect(
+      lines[1],
+      startsWith('2026-11-19,loan_in,Cash,,Rahim,50.00,USD,50.00,'),
+    );
+    expect(
+      lines[2],
+      startsWith('2026-11-19,loan_out,Cash,,Rahim,-50.00,USD,-50.00,'),
+    );
+  });
+
   test('file names carry the period', () {
     expect(
       exportFileName('pdf', '2026-01-01', '2026-12-31'),

@@ -15,6 +15,7 @@ import '../../auth/application/auth_controller.dart';
 import '../../currency/data/fx_rates.dart';
 import '../../currency/presentation/recalculating_banner.dart';
 import '../../budgets/presentation/budget_tile.dart';
+import '../../dues/presentation/dues_card.dart';
 import '../../ledger/application/ledger_providers.dart';
 import '../../ledger/data/ledger_store.dart';
 import '../../ledger/presentation/ledger_style.dart';
@@ -212,6 +213,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: Spacing.md),
               ],
+              if (!recalculating) DuesCard(baseCurrency: currency),
               _SectionHeader(
                 title: 'Accounts',
                 action: 'Manage',

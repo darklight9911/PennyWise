@@ -195,4 +195,57 @@ void main() {
     expect(find.text('Karim owes you'), findsOneWidget);
     await finish(tester);
   });
+
+  testWidgets('the dashboard card adds up dues in the main currency', (
+    tester,
+  ) async {
+    h.backend.fxRates.addAll({'USD': '1.25'}); // 1 EUR = 1.25 USD
+    final store = await start(tester);
+    expect(find.text('Owed to you'), findsNothing, reason: 'no dues, no card');
+    await untilDone(tester, () async {
+      await store.createDue(
+        direction: DueDirection.owedToMe,
+        kind: DueKind.loan,
+        person: 'Rahim',
+        amountMinor: 10000,
+        currency: 'USD',
+        startDate: '2026-11-01',
+        dueDate: '2026-11-02', // overdue
+      );
+      await store.createDue(
+        direction: DueDirection.owedToMe,
+        kind: DueKind.loan,
+        person: 'Nadia',
+        amountMinor: 8000,
+        currency: 'EUR',
+        startDate: '2026-11-01',
+      );
+      await store.createDue(
+        direction: DueDirection.iOwe,
+        kind: DueKind.loan,
+        person: 'Mum',
+        amountMinor: 2500,
+        currency: 'USD',
+        startDate: '2026-11-01',
+      );
+    });
+    await settle(tester);
+    final card = find.ancestor(
+      of: find.text('Owed to you'),
+      matching: find.byType(Card),
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('200.00')),
+      findsOneWidget,
+      reason: '100 USD + 80 EUR x 1.25',
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('25.00')),
+      findsOneWidget,
+    );
+    expect(find.text('1 overdue'), findsOneWidget);
+    await tapOn(tester, find.text('Owed to you'));
+    expect(find.text('Left to get back'), findsOneWidget);
+    await finish(tester);
+  });
 }
