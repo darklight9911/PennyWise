@@ -16,6 +16,8 @@ abstract final class Entity {
   static const goal = 'goal';
   static const goalContribution = 'goal_contribution';
 
+  static const due = 'due';
+
   /// Pulled only: the receipts API writes receipts.
   static const receipt = 'receipt';
 }
@@ -79,6 +81,72 @@ class GoalProgress {
   double get fraction => savedMinor / goal.targetMinor;
   int get leftMinor => goal.targetMinor - savedMinor;
   bool get reached => savedMinor >= goal.targetMinor;
+}
+
+/// Who owes whom, and whether it is a loan or a bill.
+abstract final class DueDirection {
+  static const iOwe = 'i_owe';
+  static const owedToMe = 'owed_to_me';
+}
+
+abstract final class DueKind {
+  /// Lent or borrowed money: moves balances, not income or spending.
+  static const loan = 'loan';
+
+  /// Owed for something bought or for work: paying is spending,
+  /// receiving is income.
+  static const bill = 'bill';
+}
+
+enum DueStatus { open, overdue, settled }
+
+/// The transaction kind that pays back (part of) a due.
+String duePaymentKind(String direction, String kind) => kind == DueKind.loan
+    ? (direction == DueDirection.owedToMe ? TxKind.loanIn : TxKind.loanOut)
+    : (direction == DueDirection.owedToMe ? TxKind.income : TxKind.expense);
+
+/// The movement when a loan starts (money lent leaves, money borrowed
+/// arrives).
+String loanStartKind(String direction) =>
+    direction == DueDirection.owedToMe ? TxKind.loanOut : TxKind.loanIn;
+
+/// A due with what has been paid so far.
+class DueProgress {
+  const DueProgress({required this.due, required this.paidMinor});
+  final Due due;
+  final int paidMinor;
+
+  int get leftMinor => due.closedAt != null
+      ? 0
+      : (due.amountMinor - paidMinor).clamp(0, due.amountMinor);
+  double get fraction => (paidMinor / due.amountMinor).clamp(0, 1).toDouble();
+  bool get settled => due.closedAt != null || paidMinor >= due.amountMinor;
+  bool get forgiven => due.closedAt != null && paidMinor < due.amountMinor;
+
+  /// [today] is the local date, YYYY-MM-DD.
+  DueStatus status(String today) {
+    if (settled) return DueStatus.settled;
+    final d = due.dueDate;
+    return d != null && d.compareTo(today) < 0
+        ? DueStatus.overdue
+        : DueStatus.open;
+  }
+
+  /// Local date (YYYY-MM-DD) of the reminder, or null.
+  String? get reminderDate {
+    final d = due.dueDate, n = due.remindDaysBefore;
+    if (d == null || n == null || settled) return null;
+    final day = DateTime.parse(d).subtract(Duration(days: n));
+    return '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Why a due payment was refused.
+class DueException implements Exception {
+  const DueException(this.message);
+  final String message;
+  @override
+  String toString() => message;
 }
 
 /// Income and expense totals of one month, in one currency.
@@ -260,7 +328,7 @@ class LedgerStore {
         .customSelect(
           '''
           SELECT a.id AS id, a.opening_balance_minor
-            + COALESCE((SELECT SUM(CASE t.kind WHEN 'income' THEN t.amount_minor ELSE -t.amount_minor END)
+            + COALESCE((SELECT SUM(CASE WHEN t.kind IN ('income', 'loan_in') THEN t.amount_minor ELSE -t.amount_minor END)
                           FROM transactions t
                          WHERE t.account_id = a.id AND t.deleted_at IS NULL), 0)
             + COALESCE((SELECT SUM(t.transfer_amount_minor)
@@ -423,6 +491,7 @@ class LedgerStore {
     String note = '',
     String? baseCurrency,
     String? manualRate,
+    String? dueId,
   }) {
     final fx = baseCurrency == null
         ? (amount: null, rate: null, source: null)
@@ -447,6 +516,7 @@ class LedgerStore {
       amountBaseMinor: Value(fx.amount),
       fxRateToBase: Value(fx.rate),
       fxRateSource: Value(fx.source),
+      dueId: Value(dueId),
       updatedAt: _stamp(),
     );
     return _write(
@@ -776,6 +846,229 @@ class LedgerStore {
   }
 
   // ------------------------------------------------------------------- goals
+
+  // -------------------------------------------------------------------- dues
+
+  Future<Due?> getDue(String id) =>
+      (db.select(db.dues)..where((d) => d.id.equals(id))).getSingleOrNull();
+
+  /// Adds a due. For a loan with [moneyMovedNow], the money that left (lent)
+  /// or arrived (borrowed) is recorded on [accountId] on [startDate].
+  Future<Due> createDue({
+    required String direction,
+    required String kind,
+    required String person,
+    required int amountMinor,
+    required String currency,
+    required String startDate,
+    String? accountId,
+    String? categoryId,
+    String? dueDate,
+    int? remindDaysBefore,
+    String note = '',
+    bool moneyMovedNow = false,
+    String? baseCurrency,
+  }) async {
+    if (amountMinor <= 0) {
+      throw const DueException('Enter an amount above zero.');
+    }
+    if (kind == DueKind.loan && moneyMovedNow && accountId == null) {
+      throw const DueException('Choose the account the money moved through.');
+    }
+    final row = DuesCompanion.insert(
+      id: _newId(),
+      direction: direction,
+      kind: kind,
+      person: person.trim(),
+      amountMinor: amountMinor,
+      currency: currency,
+      accountId: Value(accountId),
+      categoryId: Value(kind == DueKind.bill ? categoryId : null),
+      startDate: startDate,
+      dueDate: Value(dueDate),
+      remindDaysBefore: Value(dueDate == null ? null : remindDaysBefore),
+      note: Value(note.trim()),
+      updatedAt: _stamp(),
+    );
+    final due = await _write(
+      Entity.due,
+      row.id.value,
+      row.updatedAt.value,
+      () => db.into(db.dues).insertReturning(row),
+    );
+    if (kind == DueKind.loan && moneyMovedNow) {
+      await createTransaction(
+        kind: loanStartKind(direction),
+        accountId: accountId!,
+        amountMinor: amountMinor,
+        currency: currency,
+        occurredAt: _middayOf(startDate),
+        note: direction == DueDirection.owedToMe
+            ? 'Loan to ${due.person}'
+            : 'Loan from ${due.person}',
+        baseCurrency: baseCurrency,
+        dueId: due.id,
+      );
+    }
+    return due;
+  }
+
+  Future<Due> updateDue(Due d) {
+    final changed = d.copyWith(
+      person: d.person.trim(),
+      note: d.note.trim(),
+      categoryId: Value(d.kind == DueKind.bill ? d.categoryId : null),
+      remindDaysBefore: Value(d.dueDate == null ? null : d.remindDaysBefore),
+      updatedAt: _stamp(),
+    );
+    return _write(Entity.due, d.id, changed.updatedAt, () async {
+      await db.update(db.dues).replace(changed);
+      return changed;
+    });
+  }
+
+  /// Deletes the due. Its payments stay: that money really moved.
+  Future<void> deleteDue(String id) async {
+    await db.transaction(() => _softDelete(db.dues, Entity.due, id, _stamp()));
+    onLocalWrite?.call();
+  }
+
+  /// Records (part of) the money paid back: spending or income for a bill,
+  /// a loan movement for a loan. Refuses more than what is left.
+  Future<MoneyTransaction> recordDuePayment(
+    Due due, {
+    required int amountMinor,
+    required String accountId,
+    required DateTime date,
+    String note = '',
+    String? baseCurrency,
+  }) async {
+    final p = await _dueProgress(due.id);
+    if (p == null) throw const DueException('This due no longer exists.');
+    if (p.settled) throw const DueException('This due is already settled.');
+    if (amountMinor <= 0) {
+      throw const DueException('Enter an amount above zero.');
+    }
+    if (amountMinor > p.leftMinor) {
+      throw const DueException('That is more than what is left.');
+    }
+    final account = await (db.select(
+      db.accounts,
+    )..where((a) => a.id.equals(accountId))).getSingleOrNull();
+    if (account == null || account.currency != due.currency) {
+      throw DueException('Use an account in ${due.currency}.');
+    }
+    final kind = duePaymentKind(due.direction, due.kind);
+    final words = due.direction == DueDirection.owedToMe
+        ? 'From ${due.person}'
+        : 'To ${due.person}';
+    return createTransaction(
+      kind: kind,
+      accountId: accountId,
+      amountMinor: amountMinor,
+      currency: due.currency,
+      occurredAt: date,
+      categoryId: due.kind == DueKind.bill ? due.categoryId : null,
+      note: note.trim().isEmpty ? words : note,
+      baseCurrency: baseCurrency,
+      dueId: due.id,
+    );
+  }
+
+  /// Pays everything that is left.
+  Future<MoneyTransaction> settleDue(
+    Due due, {
+    required String accountId,
+    required DateTime date,
+    String? baseCurrency,
+  }) async {
+    final p = await _dueProgress(due.id);
+    return recordDuePayment(
+      due,
+      amountMinor: p?.leftMinor ?? 0,
+      accountId: accountId,
+      date: date,
+      baseCurrency: baseCurrency,
+    );
+  }
+
+  /// Closes the due without money moving (the rest is forgiven).
+  Future<Due> forgiveDue(Due d) =>
+      updateDue(d.copyWith(closedAt: Value(_stamp())));
+
+  /// Opens a forgiven due again.
+  Future<Due> reopenDue(Due d) =>
+      updateDue(d.copyWith(closedAt: const Value(null)));
+
+  static const _paidSql = '''
+    COALESCE((SELECT SUM(t.amount_minor) FROM transactions t
+               WHERE t.due_id = d.id AND t.deleted_at IS NULL
+                 AND t.kind = CASE
+                   WHEN d.kind = 'loan' AND d.direction = 'owed_to_me' THEN 'loan_in'
+                   WHEN d.kind = 'loan' THEN 'loan_out'
+                   WHEN d.direction = 'owed_to_me' THEN 'income'
+                   ELSE 'expense' END), 0)''';
+
+  /// All dues with what is paid, open ones first by due date.
+  Stream<List<DueProgress>> watchDues() => db
+      .customSelect(
+        '''
+        SELECT d.*, $_paidSql AS paid FROM dues d
+         WHERE d.deleted_at IS NULL
+         ORDER BY d.closed_at IS NOT NULL, d.due_date IS NULL, d.due_date, d.start_date DESC
+        ''',
+        readsFrom: {db.dues, db.transactions},
+      )
+      .watch()
+      .map(
+        (rows) => [
+          for (final r in rows)
+            DueProgress(
+              due: db.dues.map(r.data),
+              paidMinor: r.read<int>('paid'),
+            ),
+        ],
+      );
+
+  Future<DueProgress?> _dueProgress(String id) async {
+    final r = await db
+        .customSelect(
+          'SELECT d.*, $_paidSql AS paid FROM dues d WHERE d.id = ? AND d.deleted_at IS NULL',
+          variables: [Variable.withString(id)],
+          readsFrom: {db.dues, db.transactions},
+        )
+        .getSingleOrNull();
+    return r == null
+        ? null
+        : DueProgress(due: db.dues.map(r.data), paidMinor: r.read<int>('paid'));
+  }
+
+  /// Everything linked to a due (the start of a loan and its payments),
+  /// newest first.
+  Stream<List<MoneyTransaction>> watchDueTransactions(String dueId) =>
+      (db.select(db.transactions)
+            ..where((t) => t.dueId.equals(dueId) & t.deletedAt.isNull())
+            ..orderBy([
+              (t) => OrderingTerm.desc(t.localDate),
+              (t) => OrderingTerm.desc(t.occurredAt),
+            ]))
+          .watch();
+
+  /// Names used before, most used first (for suggestions).
+  Future<List<String>> duePeople() async {
+    final rows = await db
+        .customSelect(
+          'SELECT person, COUNT(*) AS n FROM dues WHERE deleted_at IS NULL GROUP BY person ORDER BY n DESC, person',
+          readsFrom: {db.dues},
+        )
+        .get();
+    return [for (final r in rows) r.read<String>('person')];
+  }
+
+  static DateTime _middayOf(String ymd) {
+    final d = DateTime.parse(ymd);
+    return DateTime(d.year, d.month, d.day, 12);
+  }
 
   Future<Goal?> getGoal(String id) =>
       (db.select(db.goals)..where((g) => g.id.equals(id))).getSingleOrNull();
