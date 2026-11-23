@@ -30,7 +30,16 @@ MOODS = ["idle", "wave", "happy", "celebrate", "worried", "thinking", "sleeping"
 # palette (PLAN.md 7b) plus a coin gold for celebrations
 PRIMARY, SECONDARY, OUTLINE = "FF2C706E", "FF729D99", "FFD9D2C5"
 GOLD, GOLD_DARK, SWEAT, BLUSH = "FFF2B544", "FFC98A1B", "FF9FD4F0", "66EE7A7C"
-TINT = {"#A5A5F2": "#D9D2C5"}  # the art's lilac shadow -> app outline colour
+# Recolour the art to the app theme: the black fur becomes the secondary
+# teal, its shading a deeper teal, the dark outlines and pupils a dark
+# teal (close to primary), and the cool-grey shading on white a light teal.
+TINT = {
+    "#777781": "#729D99",  # fur (ears, arms, legs, eye patches) -> secondary
+    "#626272": "#5C8884",  # fur shading
+    "#371B45": "#1E4A48",  # outlines, pupils, brows
+    "#D3DDEA": "#DCE9E6",  # shading on the white belly and face
+    "#A5A5F2": "#D9D2C5",  # ground shadow -> app outline colour
+}
 
 
 def f(v):
