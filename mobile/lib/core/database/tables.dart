@@ -79,6 +79,10 @@ class Transactions extends Table with SyncedColumns {
   /// UUIDv5(rule:date), the same on the phone and the server.
   TextColumn get recurringId => text().nullable()();
   TextColumn get occurrenceDate => text().nullable()();
+
+  /// Set on payments of a due (v7): bill payments are income or expense,
+  /// loan movements are loan_in / loan_out.
+  TextColumn get dueId => text().nullable()();
 }
 
 /// Rows changed on this phone that the server has not confirmed yet.
@@ -133,6 +137,37 @@ class GoalContributions extends Table with SyncedColumns {
   IntColumn get amountMinor => integer()();
   TextColumn get localDate => text().withLength(min: 10, max: 10)();
   TextColumn get note => text().withDefault(const Constant(''))();
+}
+
+/// Money the user owes someone, or someone owes the user (v7).
+/// Payments are transactions with [Transactions.dueId] set.
+class Dues extends Table with SyncedColumns {
+  /// i_owe or owed_to_me
+  TextColumn get direction => text()();
+
+  /// loan (lent or borrowed money: not income or spending) or bill
+  /// (paying is spending, receiving is income)
+  TextColumn get kind => text()();
+  TextColumn get person => text().withLength(min: 1, max: 60)();
+  IntColumn get amountMinor => integer()();
+  TextColumn get currency => text().withLength(min: 3, max: 3)();
+
+  /// Account payments use by default (same currency).
+  TextColumn get accountId => text().nullable()();
+
+  /// Bills only: expense category (i_owe) or income category (owed_to_me).
+  TextColumn get categoryId => text().nullable()();
+
+  /// YYYY-MM-DD
+  TextColumn get startDate => text()();
+  TextColumn get dueDate => text().nullable()();
+
+  /// Null: no reminder. 0: on the due date. N: N days before.
+  IntColumn get remindDaysBefore => integer().nullable()();
+  TextColumn get note => text().withDefault(const Constant(''))();
+
+  /// Set when the rest was forgiven (closed without money moving).
+  DateTimeColumn get closedAt => dateTime().nullable()();
 }
 
 /// A repeating income or expense.

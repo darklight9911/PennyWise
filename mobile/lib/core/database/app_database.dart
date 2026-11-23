@@ -29,6 +29,7 @@ class LocalMeta extends Table {
     GoalContributions,
     RecurringRules,
     Receipts,
+    Dues,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -37,15 +38,16 @@ class AppDatabase extends _$AppDatabase {
   /// v1: local_meta. v2: accounts, categories, transactions, outbox.
   /// v3: budgets. v4: goals, contributions, recurring rules, and the
   /// recurring fields on transactions. v5: transactions.fx_rate_source.
-  /// v6: receipts.
+  /// v6: receipts. v7: dues and transactions.due_id.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await _createIndexes();
+      await customStatement(_dueIndex);
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
@@ -76,11 +78,22 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) {
         await m.createTable(receipts);
       }
+      if (from < 7) {
+        await m.createTable(dues);
+        if (from >= 2) {
+          await m.addColumn(transactions, transactions.dueId);
+        }
+        // Not in _createIndexes: the v4 step runs that before due_id exists.
+        await customStatement(_dueIndex);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  static const _dueIndex =
+      'CREATE INDEX IF NOT EXISTS transactions_due_idx ON transactions (due_id) WHERE due_id IS NOT NULL';
 
   Future<void> _createIndexes() async {
     for (final sql in [

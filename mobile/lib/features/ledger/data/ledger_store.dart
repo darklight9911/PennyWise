@@ -24,6 +24,12 @@ abstract final class TxKind {
   static const income = 'income';
   static const expense = 'expense';
   static const transfer = 'transfer';
+
+  /// Loan money arriving (borrowed, or a loan repaid to you) and leaving
+  /// (lent, or repaying what you borrowed). They move balances but are
+  /// not income or spending.
+  static const loanIn = 'loan_in';
+  static const loanOut = 'loan_out';
 }
 
 /// A budget with what was spent in its current period.

@@ -70,6 +70,9 @@ void main() {
       raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
       raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
       raw.execute('DROP TABLE receipts');
+      raw.execute('DROP INDEX transactions_due_idx');
+      raw.execute('ALTER TABLE transactions DROP COLUMN due_id');
+      raw.execute('DROP TABLE dues');
       raw.execute('PRAGMA user_version = 2');
       await v2.close();
 
@@ -115,6 +118,9 @@ void main() {
     raw.execute('ALTER TABLE transactions DROP COLUMN occurrence_date');
     raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
     raw.execute('DROP TABLE receipts');
+    raw.execute('DROP INDEX transactions_due_idx');
+    raw.execute('ALTER TABLE transactions DROP COLUMN due_id');
+    raw.execute('DROP TABLE dues');
     raw.execute('PRAGMA user_version = 3');
     await v3.close();
 
@@ -153,6 +159,9 @@ void main() {
     );
     raw.execute('ALTER TABLE transactions DROP COLUMN fx_rate_source');
     raw.execute('DROP TABLE receipts');
+    raw.execute('DROP INDEX transactions_due_idx');
+    raw.execute('ALTER TABLE transactions DROP COLUMN due_id');
+    raw.execute('DROP TABLE dues');
     raw.execute('PRAGMA user_version = 4');
     await v4.close();
 
@@ -180,6 +189,49 @@ void main() {
     expect(
       raw.select('PRAGMA user_version').single.values.single,
       v5.schemaVersion,
+    );
+  });
+
+  test('a version-6 database gets dues and transactions.due_id', () async {
+    final raw = sqlite3.openInMemory();
+    final v6 = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    final store = LedgerStore(v6);
+    final a = await store.createAccount(
+      name: 'Cash',
+      type: 'cash',
+      currency: 'USD',
+    );
+    final food = await store.createCategory(name: 'Food', kind: 'expense');
+    final t = await store.createTransaction(
+      kind: 'expense',
+      accountId: a.id,
+      amountMinor: 500,
+      currency: 'USD',
+      occurredAt: DateTime(2026, 11, 1),
+      categoryId: food.id,
+    );
+    raw.execute('DROP INDEX transactions_due_idx');
+    raw.execute('ALTER TABLE transactions DROP COLUMN due_id');
+    raw.execute('DROP TABLE dues');
+    raw.execute('PRAGMA user_version = 6');
+    await v6.close();
+
+    final v7 = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(v7.close);
+    final old = await LedgerStore(v7).getTransaction(t.id);
+    expect(old!.dueId, isNull, reason: 'old rows keep working');
+    expect(await v7.select(v7.dues).get(), isEmpty);
+    expect(
+      raw.select(
+        "SELECT name FROM sqlite_master WHERE name = 'transactions_due_idx'",
+      ),
+      hasLength(1),
+    );
+    expect(
+      raw.select('PRAGMA user_version').single.values.single,
+      v7.schemaVersion,
     );
   });
 }
