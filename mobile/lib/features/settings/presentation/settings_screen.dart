@@ -162,6 +162,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.goals),
             ),
             ListTile(
+              leading: const AppIcon(HugeIcons.strokeRoundedHandshake),
+              title: const Text('Dues'),
+              subtitle: const Text('Money you owe or are owed'),
+              trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),
+              onTap: () => context.push(Routes.dues),
+            ),
+            ListTile(
               leading: const AppIcon(HugeIcons.strokeRoundedRepeat),
               title: const Text('Recurring'),
               trailing: const AppIcon(HugeIcons.strokeRoundedArrowRight01),

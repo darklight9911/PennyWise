@@ -13,10 +13,14 @@ import '../../features/auth/presentation/welcome_screen.dart';
 import '../../features/budgets/presentation/budget_form_screen.dart';
 import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dues/presentation/due_detail_screen.dart';
+import '../../features/dues/presentation/due_form_screen.dart';
+import '../../features/dues/presentation/dues_screen.dart';
 import '../../features/export/presentation/export_screen.dart';
 import '../../features/goals/presentation/goal_detail_screen.dart';
 import '../../features/goals/presentation/goal_form_screen.dart';
 import '../../features/goals/presentation/goals_screen.dart';
+import '../../features/ledger/data/ledger_store.dart';
 import '../../features/ledger/presentation/account_form_screen.dart';
 import '../../features/ledger/presentation/accounts_screen.dart';
 import '../../features/ledger/presentation/categories_screen.dart';
@@ -71,6 +75,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.export, builder: (_, _) => const ExportScreen()),
       GoRoute(path: Routes.setPin, builder: (_, _) => const SetPinScreen()),
+      GoRoute(
+        path: Routes.dues,
+        builder: (_, state) => DuesScreen(
+          initialDirection:
+              state.uri.queryParameters['direction'] ?? DueDirection.owedToMe,
+        ),
+      ),
+      GoRoute(
+        path: Routes.newDue,
+        builder: (_, state) => DueFormScreen(
+          initialDirection:
+              state.uri.queryParameters['direction'] ?? DueDirection.owedToMe,
+        ),
+      ),
+      GoRoute(
+        path: '${Routes.dues}/:id',
+        builder: (_, state) =>
+            DueDetailScreen(dueId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '${Routes.dues}/:id/edit',
+        builder: (_, state) => DueFormScreen(dueId: state.pathParameters['id']),
+      ),
       GoRoute(path: Routes.goals, builder: (_, _) => const GoalsScreen()),
       GoRoute(path: Routes.newGoal, builder: (_, _) => const GoalFormScreen()),
       GoRoute(

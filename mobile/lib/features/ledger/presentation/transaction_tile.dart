@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/utils/money.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../application/ledger_providers.dart';
 import '../data/ledger_store.dart';
@@ -33,7 +34,15 @@ class TransactionTile extends ConsumerWidget {
     final String title;
     final String where;
     final Widget badge;
-    if (t.kind == TxKind.transfer) {
+    final loan = t.kind == TxKind.loanIn || t.kind == TxKind.loanOut;
+    if (loan) {
+      title = t.kind == TxKind.loanIn ? 'Loan money in' : 'Loan money out';
+      where = from;
+      badge = IconBadge(
+        icon: HugeIcons.strokeRoundedMoneyExchange01,
+        color: scheme.secondary,
+      );
+    } else if (t.kind == TxKind.transfer) {
       title = 'Transfer';
       where = '$from → ${accounts[t.transferAccountId]?.name ?? 'Account'}';
       badge = IconBadge(
@@ -55,14 +64,30 @@ class TransactionTile extends ConsumerWidget {
       title: Text(title),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: TrailingAmount(
-        child: AmountText(
-          minor: t.kind == TxKind.expense ? -t.amountMinor : t.amountMinor,
-          currency: t.currency,
-          signed: t.kind != TxKind.transfer,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        // Loans and transfers are neither earned nor spent: no colour.
+        child: loan
+            ? Text(
+                formatSigned(
+                  t.kind == TxKind.loanOut ? -t.amountMinor : t.amountMinor,
+                  t.currency,
+                ),
+                style: Theme.of(context).textTheme.titleMedium,
+              )
+            : AmountText(
+                minor: t.kind == TxKind.expense
+                    ? -t.amountMinor
+                    : t.amountMinor,
+                currency: t.currency,
+                signed: t.kind != TxKind.transfer,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
       ),
-      onTap: () => context.push(Routes.editTransaction(t.id)),
+      // Loan movements belong to their due; edit them there.
+      onTap: () => context.push(
+        loan && t.dueId != null
+            ? Routes.due(t.dueId!)
+            : Routes.editTransaction(t.id),
+      ),
     );
   }
 }

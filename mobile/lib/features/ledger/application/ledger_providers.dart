@@ -169,3 +169,16 @@ final receiptsProvider = StreamProvider.family<List<Receipt>, String>((
   final store = await ref.watch(receiptStoreProvider.future);
   yield* store.watch(transactionId);
 });
+
+/// Every due with what is paid so far.
+final duesProvider = StreamProvider<List<DueProgress>>((ref) async* {
+  final store = await ref.watch(ledgerStoreProvider.future);
+  yield* store.watchDues();
+});
+
+/// The transactions linked to one due (loan start and payments).
+final dueTransactionsProvider =
+    StreamProvider.family<List<MoneyTransaction>, String>((ref, dueId) async* {
+      final store = await ref.watch(ledgerStoreProvider.future);
+      yield* store.watchDueTransactions(dueId);
+    });

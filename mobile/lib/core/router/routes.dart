@@ -18,6 +18,11 @@ abstract final class Routes {
 
   static const categories = '/categories';
   static const budgets = '/budgets';
+  static const dues = '/dues';
+  static const newDue = '/dues/new';
+  static String newDueFor(String direction) => '/dues/new?direction=$direction';
+  static String due(String id) => '/dues/$id';
+  static String editDue(String id) => '/dues/$id/edit';
   static const goals = '/goals';
   static const newGoal = '/goals/new';
   static String goal(String id) => '/goals/$id';
