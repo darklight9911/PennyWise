@@ -280,13 +280,18 @@ class Panda:
         """A rigged panda: returns (rml, ids) for root/head/eyes/armL/armR/body/restL/restR.
 
         armL/armR are the art's raised thumbs-up arms; restL/restR the drawn
-        resting arms. Show one pair or the other per pose (opacity).
+        jointed arms' shoulders and elbowL/elbowR their elbows. Show one pair or the other per pose (opacity).
 
         The root node sits at (x, y) = the panda centre. Child nodes sit at
         their pivots so rotating them turns the part around the joint.
         """
         s = height / self.h
-        ids = {k: new_id() for k in ("root", "head", "eyes", "armL", "armR", "body", "restL", "restR")}
+        ids = {k: new_id() for k in ("root", "head", "eyes", "armL", "armR", "body", "restL", "restR", "elbowL", "elbowR")}
+        # twin ids (fill node, outline node) for the parts of each hand
+        for sd in "LR":
+            ids["wrist" + sd] = (new_id(), new_id())
+            for k in range(len(self.FINGER_ANGLES)):
+                ids["finger%s%d" % (sd, k)] = (new_id(), new_id())
 
         def pivot_node(part, inner):
             px, py = self.PIVOTS[part]
@@ -305,38 +310,96 @@ class Panda:
         armR = pivot_node("armR", self._shapes(self.PARTS["armR"], s, *(v * height for v in self.PIVOTS["armR"]), prefix, tint))
         body = '<Node name="%s body" id="%s">%s</Node>' % (prefix, ids["body"], self._shapes(self.PARTS["body"], s, 0, 0, prefix, tint))
         back = self._shapes(self.PARTS["back"], s, 0, 0, prefix, tint)
-        rest = (self._rest_arm("R", height, ids["restR"], prefix, tint)
-                + self._rest_arm("L", height, ids["restL"], prefix, tint))
+        rest = self._arm("R", height, ids, prefix, tint) + self._arm("L", height, ids, prefix, tint)
         shad = self._shapes(self.PARTS["shadow"], s, 0, 0, prefix, tint) if shadow else ""
         rml = ('<Node x="%s" y="%s" name="%s" id="%s">%s%s%s%s%s%s%s</Node>'
                % (f(x), f(y), prefix, ids["root"], extra_front, head,
                   rest + body, armR, armL, back, shad))
         return rml, ids
 
-    # Resting arms. The art only has raised thumbs-up arms; rotated down they
-    # splay like flippers. These are drawn in the same style instead: a short
-    # rounded teal arm with the dark outline and a shaded paw, hanging from
-    # the shoulder in front of the body. Rotation 0 hangs straight down.
-    REST_PIVOT = (0.098, -0.075)   # right shoulder; the left one is mirrored
-    REST_SIZE = (0.075, 0.2)       # arm width, length (from the shoulder)
+    # Jointed arms. The art only has raised thumbs-up arms; rotated down they
+    # splay like flippers. These are drawn in the same style instead: an
+    # upper arm, a forearm on an elbow joint and a padded paw, hanging from
+    # the shoulder in front of the body.
+    #
+    # The outline is a dark copy of each piece, a little larger, drawn
+    # behind every fill, so the arm reads as one silhouette with no seams at
+    # the elbow. Rotation 0 at both joints hangs straight down.
+    REST_PIVOT = (0.098, -0.075)    # right shoulder; the left one is mirrored
+    UPPER = (0.078, 0.105)          # width, length (shoulder to elbow)
+    FORE = (0.07, 0.095)            # width, length (elbow to wrist)
+    PAW = (0.072, 0.062)            # palm width, height
+    # finger directions from the palm, toward the body positive; the last is
+    # the thumb, turned in toward the body
+    FINGER_ANGLES = (-0.5, 0.0, 0.5, 1.25)
 
-    def _rest_arm(self, side, height, nid, prefix, tint):
+    def _arm(self, side, height, ids, prefix, tint):
         def col(c):
             return color(tint.get(c, c) if tint else c, 1)
         fur, shade, line = col("#777781"), col("#626272"), col("#371B45")
-        w, ln = (v * height for v in self.REST_SIZE)
+        t = 0.011 * height
+
+        def capsule(w, ln, paint, grow, name):
+            """A limb from this joint (y=0) to the next (y=ln), round ends centred on both."""
+            w, ln = w * height, ln * height
+            return ('<Shape x="0" y="%s" name="%s"><Rectangle width="%s" height="%s" originX="0.5" originY="0" '
+                    'cornerRadiusTL="%s" name="P"/><Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill></Shape>'
+                    % (f(-w / 2 - grow), name, f(w + 2 * grow), f(ln + w + 2 * grow), f(w / 2 + grow), paint))
+
+        def oval(x, y, w, h, paint, grow, name):
+            return ('<Shape x="%s" y="%s" name="%s"><Ellipse width="%s" height="%s" name="P"/>'
+                    '<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill></Shape>'
+                    % (f(x), f(y), name, f(w * height + 2 * grow), f(h * height + 2 * grow), paint))
+
+        uw, ul = self.UPPER
+        fw, fl = self.FORE
+        pw, ph = self.PAW
+        n = "%s %s" % (prefix, side)
+        inner = 1 if side == "L" else -1   # +x is toward the body for the left arm
+
+        # Hand, in the wrist's frame (pointing down when straight): a palm and
+        # four fingers (three plus a thumb), each a node that turns (spread)
+        # and shortens (curl). Every moving node has a fill twin and an
+        # outline twin keyed alike, so fills always cover outlines and the
+        # hand reads as one silhouette.
+        pc = 0.028 * height
+        fingers = []
+        for k, base in enumerate(self.FINGER_ANGLES):
+            ang = -inner * base           # rotation that points the finger
+            dx, dy = -math.sin(ang), math.cos(ang)
+            fingers.append((k, ang, dx * 0.022 * height, pc + dy * 0.022 * height,
+                            0.02 if k == 3 else 0.024, 0.02 if k == 3 else 0.026))
+
+        def hand(fill):
+            parts = []
+            if fill:
+                parts.append(oval(0, pc + 0.008 * height, pw * 0.5, ph * 0.36, shade, 0, n + " palm pad"))
+                parts.append(oval(0, pc, pw, ph, fur, 0, n + " palm"))
+            for k, ang, x, y, w, ln in fingers:
+                fid = ids["finger%s%d" % (side, k)][0 if fill else 1]
+                if fill:
+                    inside = (oval(0, ln * height, 0.012, 0.01, shade, 0, n + " bean %d" % k)
+                              + capsule(w, ln, fur, 0, n + " finger %d" % k))
+                else:
+                    inside = capsule(w, ln, line, t, n + " finger %d line" % k)
+                parts.append('<Node x="%s" y="%s" rotation="%.4f" name="%s finger %d%s" id="%s">%s</Node>'
+                             % (f(x), f(y), ang, n, k, "" if fill else " line", fid, inside))
+            if not fill:
+                parts.append(oval(0, pc, pw, ph, line, t, n + " palm line"))
+            wid = ids["wrist" + side][0 if fill else 1]
+            return ('<Node x="0" y="%s" name="%s wrist%s" id="%s">%s</Node>'
+                    % (f(fl * height), n, "" if fill else " line", wid, "".join(parts)))
+
+        fore_fill = capsule(fw, fl, fur, 0, n + " forearm")
+        fore_line = capsule(fw, fl, line, t, n + " forearm line")
+        elbow = ('<Node x="0" y="%s" name="%s elbow" id="%s">%s%s%s%s</Node>'
+                 % (f(ul * height), n, ids["elbow" + side], hand(True), fore_fill, hand(False), fore_line))
+        upper_fill = capsule(uw, ul, fur, 0, n + " upper arm")
+        upper_line = capsule(uw, ul, line, t, n + " upper arm line")
         px, py = self.REST_PIVOT
         px *= -1 if side == "L" else 1
-        t = 0.011 * height
-        paw = ('<Shape x="0" y="%s" name="%s paw %s"><Ellipse width="%s" height="%s" name="P"/>'
-               '<Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill></Shape>'
-               % (f(ln - w * 0.85), prefix, side, f(w * 0.72), f(w * 0.5), shade))
-        arm = ('<Shape x="0" y="%s" name="%s arm %s"><Rectangle width="%s" height="%s" originX="0.5" originY="0" '
-               'cornerRadiusTL="%s" name="P"/><Fill name="F"><SolidColor colorValue="%s" name="C"/></Fill>'
-               '<Stroke thickness="%s" cap="round" join="round" name="S"><SolidColor colorValue="%s" name="C"/></Stroke></Shape>'
-               % (f(-w / 2), prefix, side, f(w), f(ln), f(w / 2), fur, f(t), line))
-        return ('<Node x="%s" y="%s" name="%s rest arm %s" id="%s">%s%s</Node>'
-                % (f(px * height), f(py * height), prefix, side, nid, paw, arm))
+        return ('<Node x="%s" y="%s" name="%s shoulder" id="%s">%s%s%s</Node>'
+                % (f(px * height), f(py * height), n, ids["rest" + side], upper_fill, elbow, upper_line))
 
     def shadow(self, height, prefix="Panda", tint=None):
         """The ground shadow alone, centred like the rig, so it can stay put."""

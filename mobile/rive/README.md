@@ -6,7 +6,7 @@
 | Path | What it is |
 |---|---|
 | `art/panda.svg` | The panda artwork the mascot is made from |
-| `tool/panda.py` | Turns the SVG into Rive shapes, split into head, eyes, arms and body so they can move |
+| `tool/panda.py` | Turns the SVG into Rive shapes, split into head, eyes and body so they can move, and draws Penny's jointed arms in the same style: shoulder, elbow, wrist and four fingers that spread and curl |
 | `tool/gen_penny.py` | Writes `penny/scene.rml`: the artboard, the animations, the state machine and the view model |
 | `penny/` | The Rive project (`rive.yaml` + generated `scene.rml`) |
 
@@ -21,6 +21,11 @@ view model **Mascot**:
 | `tap` | trigger | A short giggle. Tapping Penny fires it too |
 
 `PandaMood` in `lib/core/widgets/panda_mascot.dart` uses the same order.
+
+Each mood also sets a hand pose: relaxed paws (idle), an open waving hand
+(wave), swinging open hands (happy), fists (celebrate), fidgeting fingers at
+the chest (worried), a finger tapping at the chin (thinking) and loose
+half-curled paws (sleeping).
 
 ## Rebuild
 
