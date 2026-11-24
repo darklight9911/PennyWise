@@ -6,7 +6,7 @@
 | Path | What it is |
 |---|---|
 | `art/panda.svg` | The panda artwork the mascot is made from |
-| `tool/panda.py` | Turns the SVG into Rive shapes, split into head, eyes and body so they can move, and draws Penny's jointed arms in the same style: shoulder, elbow, wrist and four fingers that spread and curl |
+| `tool/panda.py` | Turns the SVG into Rive shapes, split into head, eyes and body so they can move, and draws Penny's arms in the same style: thick arms with mitten paws, on hidden shoulder, elbow and wrist joints; the paw squashes into a fist or opens up |
 | `tool/gen_penny.py` | Writes `penny/scene.rml`: the artboard, the animations, the state machine and the view model |
 | `penny/` | The Rive project (`rive.yaml` + generated `scene.rml`) |
 
@@ -22,10 +22,10 @@ view model **Mascot**:
 
 `PandaMood` in `lib/core/widgets/panda_mascot.dart` uses the same order.
 
-Each mood also sets a hand pose: relaxed paws (idle), an open waving hand
-(wave), swinging open hands (happy), fists (celebrate), fidgeting fingers at
-the chest (worried), a finger tapping at the chin (thinking) and loose
-half-curled paws (sleeping).
+Each mood also sets an arm pose: arms resting beside the belly (idle), an
+open paw waving (wave), arms swinging (happy), fists up (celebrate), paws
+fidgeting at the chest (worried), a paw under the chin with the other arm
+across the tummy (thinking) and loose arms (sleeping).
 
 ## Rebuild
 

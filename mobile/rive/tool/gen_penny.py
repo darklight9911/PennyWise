@@ -188,18 +188,24 @@ y0 = 0
 # are written per arm as `out` (upper arm swung away from the body, from
 # hanging straight down) and `bend` (forearm folded in toward the body).
 # The art's own raised arms (armL/armR) stay hidden.
-# Hands: `wrist` folds the hand in toward the body, `spread` fans the three
-# fingers (1 = as drawn), `curl` shortens all four fingers (1 = straight
-# open hand, about 0.3 = a fist).
-HANG, BEND = 0.16, 0.25
+# Hands: `wrist` folds the paw in toward the body; `spread` opens the
+# mitten (wider, creases fanned; 1 = as drawn); `curl` closes it (1 = open,
+# about 0.3 = a fist, squashed round).
+HANG, BEND = 0.12, 0.22
 WRIST, SPREAD, CURL = 0.2, 0.9, 0.75
-N_FINGERS = len(PANDA.FINGER_ANGLES)
+N_CREASES = len(PANDA.CREASES)
 
 
-def finger_rotation(side, k, spread):
-    inner = 1 if side == "L" else -1
-    ang = -inner * PANDA.FINGER_ANGLES[k]
-    return ang * spread if k < 3 else ang   # the thumb keeps its angle
+def paw_scale_x(spread):
+    return 0.85 + 0.15 * spread
+
+
+def paw_scale_y(curl):
+    return 0.7 + 0.3 * curl
+
+
+def crease_rotation(j, spread):
+    return (1 if j else -1) * (spread - 0.9) * 0.9
 
 
 def _keys(ks, fn):
@@ -215,12 +221,16 @@ def arm(side, out, bend, wrist=None, spread=None, curl=None):
     }
     if wrist:
         t[("wrist" + side, "rotation")] = _keys(wrist, lambda v: -so * v)
-    for k in range(N_FINGERS):
-        if spread and k < 3:
-            t[("finger%s%d" % (side, k), "rotation")] = _keys(spread, lambda v, k=k: finger_rotation(side, k, v))
-        if curl:
-            t[("finger%s%d" % (side, k), "scaleY")] = curl
+    if spread:
+        t[("paw" + side, "scaleX")] = _keys(spread, paw_scale_x)
+        for j in range(N_CREASES):
+            t[("crease%s%d" % (side, j), "rotation")] = _keys(spread, lambda v, j=j: crease_rotation(j, v))
+    if curl:
+        t[("paw" + side, "scaleY")] = _keys(curl, paw_scale_y)
     return t
+
+
+FRONT = {("armsFront", "opacity"): [(0, 1, "hold")], ("armsBack", "opacity"): [(0, 0, "hold")]}
 
 
 def arms(out, bend, wrist=None, spread=None, curl=None):
@@ -243,9 +253,12 @@ def base():
     for k in ("hearts", "sweat", "dots", "zzz", "coins", "sparkles"):
         t[(FX[k], "opacity")] = 0
     for side in "LR":
-        for k in range(N_FINGERS):
-            t[(R["finger%s%d" % (side, k)], "rotation")] = finger_rotation(side, k, SPREAD)
-            t[(R["finger%s%d" % (side, k)], "scaleY")] = CURL
+        t[(R["paw" + side], "scaleX")] = paw_scale_x(SPREAD)
+        t[(R["paw" + side], "scaleY")] = paw_scale_y(CURL)
+        for j in range(N_CREASES):
+            t[(R["crease%s%d" % (side, j)], "rotation")] = crease_rotation(j, SPREAD)
+    t[(R["armsBack"], "opacity")] = 1
+    t[(R["armsFront"], "opacity")] = 0
     return t
 
 
@@ -324,21 +337,22 @@ A["worried"] = mood("Worried", 90, dict({
     ("head", "rotation"): [(0, -0.1, E), (45, -0.14, E), (90, -0.1)],
     ("eyes", "scaleX"): [(0, 1.15, "hold")], ("eyes", "scaleY"): [(0, 1.2, "hold")],
     ("sweat", "opacity"): [(0, 0), (20, 1), (70, 1), (90, 0)],
-} | arm("L", [(0, -0.25, "hold")], [(0, 2.2, E), (15, 2.35, E), (30, 2.2, E), (45, 2.35, E), (60, 2.2, E), (90, 2.2)],
+} | arm("L", [(0, -0.45, "hold")], [(0, 1.78, E), (15, 1.92, E), (30, 1.78, E), (45, 1.92, E), (60, 1.78, E), (90, 1.78)],
         wrist=[(0, 0.35, "hold")], spread=[(0, 0.7, "hold")],
         curl=[(0, 0.5, E), (8, 0.85, E), (16, 0.5, E), (24, 0.85, E), (32, 0.5, E), (90, 0.5)])
-  | arm("R", [(0, -0.25, "hold")], [(0, 2.35, E), (15, 2.2, E), (30, 2.35, E), (45, 2.2, E), (60, 2.35, E), (90, 2.35)],
+  | arm("R", [(0, -0.45, "hold")], [(0, 1.92, E), (15, 1.78, E), (30, 1.92, E), (45, 1.78, E), (60, 1.92, E), (90, 1.92)],
         wrist=[(0, 0.35, "hold")], spread=[(0, 0.7, "hold")],
-        curl=[(0, 0.85, E), (8, 0.5, E), (16, 0.85, E), (24, 0.5, E), (32, 0.85, E), (90, 0.85)])))
+        curl=[(0, 0.85, E), (8, 0.5, E), (16, 0.85, E), (24, 0.5, E), (32, 0.85, E), (90, 0.85)]) | FRONT))
 A["thinking"] = mood("Thinking", 90, dict({
     ("head", "rotation"): [(0, 0.12, E), (45, 0.16, E), (90, 0.12)],
     ("eyes", "y"): [(0, EYE_Y - 0.012 * PH, "hold")],
     ("eyes", "x"): [(0, 0.01 * PH, "hold")],
     ("dots", "opacity"): [(0, 1, "hold")],
-} | arm("L", [(0, -0.3, "hold")], [(0, 1.27, "hold")], wrist=[(0, 0.25, "hold")], curl=[(0, 0.7, "hold")])
-  | arm("R", [(0, -0.25, "hold")], [(0, 2.45, E), (45, 2.55, E), (90, 2.45)],
+} | arm("L", [(0, -0.4, "hold")], [(0, 1.0, "hold")], wrist=[(0, 0.25, "hold")], curl=[(0, 0.7, "hold")])
+  | arm("R", [(0, -0.45, "hold")], [(0, 1.85, E), (45, 1.93, E), (90, 1.85)],
         wrist=[(0, 0.5, "hold")], spread=[(0, 0.6, "hold")], curl=[(0, 0.45, "hold")])
-  | {("fingerR0", "scaleY"): [(0, 0.5, E), (10, 1, E), (20, 0.5, E), (30, 1, E), (40, 0.5, E), (90, 0.5)]} | {(d, "y"): [(0, 0), (k * 12, 0, E), (k * 12 + 12, -0.03 * PH, E), (k * 12 + 24, 0), (90, 0)] for k, d in enumerate(DOTS)}))
+  | {("wristR", "rotation"): [(0, 0.5, E), (10, 0.75, E), (20, 0.5, E), (30, 0.75, E), (40, 0.5, E), (90, 0.5)]}
+  | FRONT | {(d, "y"): [(0, 0), (k * 12, 0, E), (k * 12 + 12, -0.03 * PH, E), (k * 12 + 24, 0), (90, 0)] for k, d in enumerate(DOTS)}))
 A["sleeping"] = mood("Sleeping", 150, dict({
     ("root", "scaleY"): [(0, 0.99, E), (75, 1.025, E), (150, 0.99)],
     ("head", "rotation"): [(0, 0.18, "hold")],

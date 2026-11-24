@@ -279,19 +279,26 @@ class Panda:
     def rig(self, height, new_id, prefix="Panda", tint=None, shadow=True, x=0, y=0, extra_front=""):
         """A rigged panda: returns (rml, ids) for root/head/eyes/armL/armR/body/restL/restR.
 
-        armL/armR are the art's raised thumbs-up arms; restL/restR the drawn
-        jointed arms' shoulders and elbowL/elbowR their elbows. Show one pair or the other per pose (opacity).
+        armL/armR are the art's raised thumbs-up arms (kept hidden). The drawn
+        arms are restL/R (shoulder), elbowL/R, wristL/R, pawL/R, creaseL/R0-1,
+        each a tuple of copies to key alike, and the armsBack/armsFront groups. Show one pair or the other per pose (opacity).
 
         The root node sits at (x, y) = the panda centre. Child nodes sit at
         their pivots so rotating them turns the part around the joint.
         """
         s = height / self.h
-        ids = {k: new_id() for k in ("root", "head", "eyes", "armL", "armR", "body", "restL", "restR", "elbowL", "elbowR")}
-        # twin ids (fill node, outline node) for the parts of each hand
+        ids = {k: new_id() for k in ("root", "head", "eyes", "armL", "armR", "body")}
+        # Joint ids hold every copy that moves together: [back, front] for
+        # shoulders, elbows and creases; [back fill, back line, front fill,
+        # front line] for wrists and paws.
         for sd in "LR":
-            ids["wrist" + sd] = (new_id(), new_id())
-            for k in range(len(self.FINGER_ANGLES)):
-                ids["finger%s%d" % (sd, k)] = (new_id(), new_id())
+            ids["rest" + sd] = (new_id(), new_id())
+            ids["elbow" + sd] = (new_id(), new_id())
+            ids["wrist" + sd] = tuple(new_id() for _ in range(4))
+            ids["paw" + sd] = tuple(new_id() for _ in range(4))
+            for j in range(len(self.CREASES)):
+                ids["crease%s%d" % (sd, j)] = (new_id(), new_id())
+        ids["armsBack"], ids["armsFront"] = new_id(), new_id()
 
         def pivot_node(part, inner):
             px, py = self.PIVOTS[part]
@@ -310,33 +317,40 @@ class Panda:
         armR = pivot_node("armR", self._shapes(self.PARTS["armR"], s, *(v * height for v in self.PIVOTS["armR"]), prefix, tint))
         body = '<Node name="%s body" id="%s">%s</Node>' % (prefix, ids["body"], self._shapes(self.PARTS["body"], s, 0, 0, prefix, tint))
         back = self._shapes(self.PARTS["back"], s, 0, 0, prefix, tint)
-        rest = self._arm("R", height, ids, prefix, tint) + self._arm("L", height, ids, prefix, tint)
+        arms_back = ('<Node name="%s arms back" id="%s">%s%s</Node>'
+                     % (prefix, ids["armsBack"], self._arm("R", 0, height, ids, prefix, tint), self._arm("L", 0, height, ids, prefix, tint)))
+        arms_front = ('<Node name="%s arms front" id="%s" opacity="0">%s%s</Node>'
+                      % (prefix, ids["armsFront"], self._arm("R", 1, height, ids, prefix, tint), self._arm("L", 1, height, ids, prefix, tint)))
         shad = self._shapes(self.PARTS["shadow"], s, 0, 0, prefix, tint) if shadow else ""
         rml = ('<Node x="%s" y="%s" name="%s" id="%s">%s%s%s%s%s%s%s</Node>'
                % (f(x), f(y), prefix, ids["root"], extra_front, head,
-                  rest + body, armR, armL, back, shad))
+                  arms_front + body, armR, armL + arms_back, back, shad))
         return rml, ids
 
-    # Jointed arms. The art only has raised thumbs-up arms; rotated down they
-    # splay like flippers. These are drawn in the same style instead: an
-    # upper arm, a forearm on an elbow joint and a padded paw, hanging from
-    # the shoulder in front of the body.
+    # Arms, drawn like the reference pose: thick, slightly tapered arms that
+    # flow out of the shoulders and end in a rounded mitten paw with two
+    # small crease lines. Hidden joints at the shoulder, elbow and wrist let
+    # them bend; the mitten squashes into a fist or widens into an open hand.
     #
-    # The outline is a dark copy of each piece, a little larger, drawn
-    # behind every fill, so the arm reads as one silhouette with no seams at
-    # the elbow. Rotation 0 at both joints hangs straight down.
-    REST_PIVOT = (0.098, -0.075)    # right shoulder; the left one is mirrored
-    UPPER = (0.078, 0.105)          # width, length (shoulder to elbow)
-    FORE = (0.07, 0.095)            # width, length (elbow to wrist)
-    PAW = (0.072, 0.062)            # palm width, height
-    # finger directions from the palm, toward the body positive; the last is
-    # the thumb, turned in toward the body
-    FINGER_ANGLES = (-0.5, 0.0, 0.5, 1.25)
+    # Every piece has a fill copy and a slightly larger dark outline copy,
+    # and all fills are drawn over all outlines, so the arm is one smooth
+    # silhouette with no seams at the joints.
+    #
+    # Two copies of both arms exist: "back" sits behind the body (the
+    # reference look, the belly's edge in front of the arm) and "front" in
+    # front of it, for poses where the paws come to the chest or chin. A pose
+    # shows one copy; both always move together. Rotation 0 hangs straight
+    # down.
+    REST_PIVOT = (0.165, -0.065)    # right shoulder; the left one is mirrored
+    UPPER = (0.098, 0.088)          # width, length (shoulder to elbow)
+    FORE = (0.086, 0.07)            # width, length (elbow to wrist)
+    PAW = (0.092, 0.092)            # mitten width, height
+    CREASES = (-0.012, 0.012)       # x of the two crease lines on the paw
 
-    def _arm(self, side, height, ids, prefix, tint):
+    def _arm(self, side, copy, height, ids, prefix, tint):
         def col(c):
             return color(tint.get(c, c) if tint else c, 1)
-        fur, shade, line = col("#777781"), col("#626272"), col("#371B45")
+        fur, line = col("#777781"), col("#371B45")
         t = 0.011 * height
 
         def capsule(w, ln, paint, grow, name):
@@ -354,52 +368,35 @@ class Panda:
         uw, ul = self.UPPER
         fw, fl = self.FORE
         pw, ph = self.PAW
-        n = "%s %s" % (prefix, side)
-        inner = 1 if side == "L" else -1   # +x is toward the body for the left arm
+        n = "%s %s %s" % (prefix, side, ("back", "front")[copy])
+        paw_y = ph * 0.32 * height   # mitten centre, just past the wrist
 
-        # Hand, in the wrist's frame (pointing down when straight): a palm and
-        # four fingers (three plus a thumb), each a node that turns (spread)
-        # and shortens (curl). Every moving node has a fill twin and an
-        # outline twin keyed alike, so fills always cover outlines and the
-        # hand reads as one silhouette.
-        pc = 0.028 * height
-        fingers = []
-        for k, base in enumerate(self.FINGER_ANGLES):
-            ang = -inner * base           # rotation that points the finger
-            dx, dy = -math.sin(ang), math.cos(ang)
-            fingers.append((k, ang, dx * 0.022 * height, pc + dy * 0.022 * height,
-                            0.02 if k == 3 else 0.024, 0.02 if k == 3 else 0.026))
-
-        def hand(fill):
-            parts = []
+        def mitten(fill):
+            """The paw, in the wrist's frame. Its own node scales it (fist/open)."""
+            k = copy * 2 + (0 if fill else 1)
             if fill:
-                parts.append(oval(0, pc + 0.008 * height, pw * 0.5, ph * 0.36, shade, 0, n + " palm pad"))
-                parts.append(oval(0, pc, pw, ph, fur, 0, n + " palm"))
-            for k, ang, x, y, w, ln in fingers:
-                fid = ids["finger%s%d" % (side, k)][0 if fill else 1]
-                if fill:
-                    inside = (oval(0, ln * height, 0.012, 0.01, shade, 0, n + " bean %d" % k)
-                              + capsule(w, ln, fur, 0, n + " finger %d" % k))
-                else:
-                    inside = capsule(w, ln, line, t, n + " finger %d line" % k)
-                parts.append('<Node x="%s" y="%s" rotation="%.4f" name="%s finger %d%s" id="%s">%s</Node>'
-                             % (f(x), f(y), ang, n, k, "" if fill else " line", fid, inside))
-            if not fill:
-                parts.append(oval(0, pc, pw, ph, line, t, n + " palm line"))
-            wid = ids["wrist" + side][0 if fill else 1]
+                creases = "".join(
+                    '<Node x="%s" y="%s" name="%s crease %d" id="%s"><Shape name="Line"><PointsPath isClosed="false" name="P">'
+                    '<StraightVertex x="0" y="0"/><StraightVertex x="%s" y="%s"/></PointsPath>'
+                    '<Stroke thickness="%s" cap="round" name="S"><SolidColor colorValue="%s" name="C"/></Stroke></Shape></Node>'
+                    % (f(cx * height), f(paw_y + ph * 0.22 * height), n, j, ids["crease%s%d" % (side, j)][copy],
+                       f(cx * height * 0.25), f(ph * 0.2 * height), f(t * 0.75), line)
+                    for j, cx in enumerate(self.CREASES))
+                inner = creases + oval(0, paw_y, pw, ph, fur, 0, n + " paw")
+            else:
+                inner = oval(0, paw_y, pw, ph, line, t, n + " paw line")
+            paw = '<Node name="%s paw%s" id="%s">%s</Node>' % (n, "" if fill else " line", ids["paw" + side][k], inner)
             return ('<Node x="0" y="%s" name="%s wrist%s" id="%s">%s</Node>'
-                    % (f(fl * height), n, "" if fill else " line", wid, "".join(parts)))
+                    % (f(fl * height), n, "" if fill else " line", ids["wrist" + side][k], paw))
 
-        fore_fill = capsule(fw, fl, fur, 0, n + " forearm")
-        fore_line = capsule(fw, fl, line, t, n + " forearm line")
         elbow = ('<Node x="0" y="%s" name="%s elbow" id="%s">%s%s%s%s</Node>'
-                 % (f(ul * height), n, ids["elbow" + side], hand(True), fore_fill, hand(False), fore_line))
-        upper_fill = capsule(uw, ul, fur, 0, n + " upper arm")
-        upper_line = capsule(uw, ul, line, t, n + " upper arm line")
+                 % (f(ul * height), n, ids["elbow" + side][copy], mitten(True),
+                    capsule(fw, fl, fur, 0, n + " forearm"), mitten(False), capsule(fw, fl, line, t, n + " forearm line")))
         px, py = self.REST_PIVOT
         px *= -1 if side == "L" else 1
         return ('<Node x="%s" y="%s" name="%s shoulder" id="%s">%s%s%s</Node>'
-                % (f(px * height), f(py * height), n, ids["rest" + side], upper_fill, elbow, upper_line))
+                % (f(px * height), f(py * height), n, ids["rest" + side][copy],
+                   capsule(uw, ul, fur, 0, n + " upper arm"), elbow, capsule(uw, ul, line, t, n + " upper arm line")))
 
     def shadow(self, height, prefix="Panda", tint=None):
         """The ground shadow alone, centred like the rig, so it can stay put."""
