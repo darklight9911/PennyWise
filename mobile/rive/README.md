@@ -23,7 +23,8 @@ view model **Mascot**:
 `PandaMood` in `lib/core/widgets/panda_mascot.dart` uses the same order.
 
 Each mood also sets an arm pose: arms resting beside the belly (idle), an
-open paw waving (wave), arms swinging (happy), fists up (celebrate), paws
+open paw waving (wave), arms swinging (happy), the artwork's own raised
+thumbs-up arms (celebrate only), paws
 fidgeting at the chest (worried), a paw under the chin with the other arm
 across the tummy (thinking) and loose arms (sleeping).
 

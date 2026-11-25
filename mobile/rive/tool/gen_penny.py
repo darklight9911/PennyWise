@@ -328,10 +328,13 @@ A["celebrate"] = mood("Celebrate", 60, dict({
     ("sparkles", "opacity"): [(0, 1), (15, 0.3), (30, 1), (45, 0.3), (60, 1)],
     ("shadow", "scaleX"): [(0, 1, E), (20, 0.75, E), (40, 1), (60, 1)],
     ("shadow", "scaleY"): [(0, 1, E), (20, 0.75, E), (40, 1), (60, 1)],
-} | coin_tracks | arms([(0, 1.45, E), (20, 1.65, E), (40, 1.45, E), (60, 1.45)],
-                       [(0, -0.55, E), (24, -0.9, E), (44, -0.55, E), (60, -0.55)],
-                       wrist=[(0, -0.15, E), (28, -0.35, E), (48, -0.15, E), (60, -0.15)],
-                       spread=[(0, 0.55, "hold")], curl=[(0, 0.3, "hold")])))
+    # Only here: the art's own raised thumbs-up arms, pumping with the jump.
+    # The drawn arms (back and front copies) are hidden for this mood.
+    ("armL", "opacity"): [(0, 1, "hold")], ("armR", "opacity"): [(0, 1, "hold")],
+    ("armL", "rotation"): [(0, 0.1, E), (20, -0.35, E), (40, 0.1, E), (60, 0.1)],
+    ("armR", "rotation"): [(0, -0.1, E), (20, 0.35, E), (40, -0.1, E), (60, -0.1)],
+    ("armsBack", "opacity"): [(0, 0, "hold")], ("armsFront", "opacity"): [(0, 0, "hold")],
+} | coin_tracks))
 A["worried"] = mood("Worried", 90, dict({
     ("root", "x"): [(0, -1.5), (6, 1.5), (12, -1.5), (18, 1.5), (24, 0), (90, 0)],
     ("head", "rotation"): [(0, -0.1, E), (45, -0.14, E), (90, -0.1)],
